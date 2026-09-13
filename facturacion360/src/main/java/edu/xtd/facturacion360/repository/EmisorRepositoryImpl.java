@@ -3,47 +3,109 @@ package edu.xtd.facturacion360.repository;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import edu.xtd.facturacion360.dto.Emisor;
 
 @Repository
-public class EmisorRepositoryImpl implements EmisorRepository{
-	
-	@Autowired
-	JdbcTemplate jdbcTemplate;
+public class EmisorRepositoryImpl implements EmisorRepository {
 
-	@Override
-	public boolean update(Emisor emisor) {
+    private static final int ID_EMISOR_PRINCIPAL = 1;
 
-	    // Sentencia SQL que actualiza los datos de un cliente.
-	    // Solo se modifican los campos editables; la fecha de alta se mantiene.
-	    String sql = """
-	        UPDATE `bd_facturacion`.`emisor` 
-	        SET `nombre` = ?, 
-	        `nif_cif` = ?, 
-	        `direccion` = ?, 
-	        `email` = ?, 
-	        `telefono` = ? 
-	        WHERE (`idemisor` = '1');
-	        """;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
-	    // Ejecutamos la sentencia SQL utilizando JdbcTemplate.
-	    // Cada '?' de la consulta se sustituye por el valor correspondiente
-	    // del objeto Cliente.
-	    int filas = jdbcTemplate.update(
-	            sql,
-	            emisor.nombre(),
-	            emisor.cif(),
-	            emisor.direccion(),
-	            emisor.email(),
-	            emisor.telefono()
-	            );
+    @Override
+    public boolean update(Emisor emisor) {
 
-	    // Si se ha modificado al menos una fila, devolvemos true.
-	    // Si no se ha modificado ninguna, devolvemos false.
-	    return filas == 1;
-	}
+        String sql = """
+                UPDATE `bd_facturacion`.`emisor`
+                SET
+                    `nombre` = ?,
+                    `nif_cif` = ?,
+                    `direccion` = ?,
+                    `email` = ?,
+                    `telefono` = ?
+                WHERE `idemisor` = ?
+                """;
 
+        int filas = jdbcTemplate.update(
+                sql,
+                emisor.nombre(),
+                emisor.cif(),
+                emisor.direccion(),
+                emisor.email(),
+                emisor.telefono(),
+                ID_EMISOR_PRINCIPAL
+        );
+
+        return filas == 1;
+    }
+
+    @Override
+    public boolean insert(Emisor emisor) {
+
+        String sql = """
+                INSERT INTO `bd_facturacion`.`emisor`
+                (
+                    `idemisor`,
+                    `nombre`,
+                    `nif_cif`,
+                    `direccion`,
+                    `email`,
+                    `telefono`
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """;
+
+        int filas = jdbcTemplate.update(
+                sql,
+                ID_EMISOR_PRINCIPAL,
+                emisor.nombre(),
+                emisor.cif(),
+                emisor.direccion(),
+                emisor.email(),
+                emisor.telefono()
+        );
+
+        return filas == 1;
+    }
+
+    @Override
+    public Optional<Emisor> find() {
+
+        String sql = """
+                SELECT
+                    `nombre`,
+                    `nif_cif`,
+                    `direccion`,
+                    `email`,
+                    `telefono`
+                FROM `bd_facturacion`.`emisor`
+                WHERE `idemisor` = ?
+                """;
+
+        try {
+
+            Emisor emisor = jdbcTemplate.queryForObject(
+                    sql,
+                    (rs, rowNum) -> new Emisor(
+                            rs.getString("nombre"),
+                            rs.getString("nif_cif"),
+                            rs.getString("direccion"),
+                            rs.getString("email"),
+                            rs.getString("telefono")
+                    ),
+                    ID_EMISOR_PRINCIPAL
+            );
+
+            return Optional.ofNullable(emisor);
+
+        } catch (EmptyResultDataAccessException e) {
+
+            return Optional.empty();
+        }
+    }
 }
