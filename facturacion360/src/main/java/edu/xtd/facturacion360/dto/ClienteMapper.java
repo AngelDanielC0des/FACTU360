@@ -10,7 +10,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClienteMapper {
 
-	// toDomain (Request -> Cliente) lo necesitan crear/actualizar: lo dejará el compañero.
+	// OJO al construir el Cliente: el id queda a 0 y la fecha de alta a null, porque el
+	// ClienteRequest no trae ninguno de los dos (el id viaja en la URL y la fecha es un dato
+	// histórico que no se edita). Quien llame a este método tiene que poner los dos por su
+	// cuenta: en actualizar(), propagar ese 0 lanzaría el UPDATE con "WHERE idcliente = 0" y
+	// copiar ese null borraría la fecha de la respuesta. Las dos cosas están fijadas con sus
+	// pruebas en ClienteServiceImplTest.
 	public Cliente toDomain(ClienteRequest clienteRequest) {
 		Cliente cliente = null;
 			
