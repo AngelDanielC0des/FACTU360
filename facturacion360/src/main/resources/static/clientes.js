@@ -55,6 +55,7 @@ const plantillaFila = document.getElementById("fila-cliente-template");
 const plantillaDespliegue = document.getElementById("fila-despliegue-template");
 const plantillaPanelDetalle = document.getElementById("panel-detalle-template");
 const plantillaPanelEdicion = document.getElementById("panel-edicion-template");
+const plantillaPanelBorrado = document.getElementById("panel-borrado-template");
 const btnAnterior = document.getElementById("btn-anterior");
 const btnSiguiente = document.getElementById("btn-siguiente");
 const infoPagina = document.getElementById("info-pagina");
@@ -1200,14 +1201,16 @@ function etiquetaDe(control) {
  * abrirDespliegue (con los datos ya en la mano y esperando al backend) terminan aquí.
  *
  * @param {Element} contenido el hueco del panel
- * @param {string} modo "detalle" o "edicion"
+ * @param {string} modo "detalle", "edicion" o "borrado"
  * @param {Object} cliente los datos del cliente
  * @param {Object|null} borrador lo que hubiera escrito sin guardar
- * @param {boolean} enfocar si se lleva el cursor al primer campo del formulario
+ * @param {boolean} enfocar si se lleva el cursor al primer control del panel
  */
 function pintarContenidoPanel(contenido, modo, cliente, borrador, enfocar) {
     if (modo === "edicion") {
         pintarPanelEdicion(contenido, cliente, borrador, enfocar);
+    } else if (modo === "borrado") {
+        pintarPanelBorrado(contenido, cliente, enfocar);
     } else {
         pintarPanelDetalle(contenido, cliente);
     }
@@ -1247,7 +1250,7 @@ async function alternarDespliegue(fila, modo) {
     limpiarPistas(fila);
 
     if (modoActual === null) {
-        abrirDespliegue(fila, modo);
+        abrirDespliegue(fila, modo, { revalidar: modo !== "borrado" });
         return;
     }
 
@@ -1265,7 +1268,7 @@ async function alternarDespliegue(fila, modo) {
         cerrarDespliegue(filaActual);
     } else {
         // Ya está desplegado: solo cambia lo de dentro, sin volver a animar la apertura.
-        abrirDespliegue(filaActual, modo, { animar: false });
+        abrirDespliegue(filaActual, modo, { animar: false, revalidar: modo !== "borrado" });
     }
 }
 
@@ -1323,13 +1326,6 @@ function marcarFila(fila, modo) {
     const botonEditar = fila.querySelector(".btn-editar");
     const botonBorrar = fila.querySelector(".btn-eliminar");
 
-    botonBorrar.addEventListener("click", (event) => {
-        confirmarBorradoCliente(
-            event.currentTarget,
-            fila.dataset.clienteId
-        );
-    });
-
     fila.classList.toggle("desplegada", modo !== null);
 
     // El color del recuadro que envuelve al bloque: verde para mirar, ámbar para editar. Va
@@ -1339,13 +1335,14 @@ function marcarFila(fila, modo) {
         if (!elemento) continue;
         elemento.classList.toggle("modo-detalle", modo === "detalle");
         elemento.classList.toggle("modo-edicion", modo === "edicion");
+        elemento.classList.toggle("modo-borrado", modo === "borrado");
     }
 
     // aria-expanded es lo que hace que un lector de pantalla anuncie que ese botón despliega
     // algo y si está abierto o cerrado. Va en el botón, que es el control de verdad.
     botonVer.setAttribute("aria-expanded", String(modo === "detalle"));
     botonEditar.setAttribute("aria-expanded", String(modo === "edicion"));
-    botonBorrar.setAttribute("aria-expanded", String(modo === "borrar"));
+    botonBorrar.setAttribute("aria-expanded", String(modo === "borrado"));
 
     if (modo === null) {
         botonVer.removeAttribute("aria-controls");
@@ -1362,16 +1359,17 @@ function marcarFila(fila, modo) {
     // puede decir "Ocultar": lo que va a pasar es que se cambie al detalle.
     const accionDetalle = modo === "detalle" ? "Ocultar detalles" : "Ver detalles";
     const accionEditar = modo === "edicion" ? "Cancelar la edición" : "Editar cliente";
-    //const accionBorrar = modo === "borrar" ? "Cancelar la edición" : "Borrar cliente";
+    const accionBorrar = modo === "borrado" ? "Cancelar la eliminación" : "Eliminar cliente";
 
     escribirPista([fila.querySelector("th.cliente-nombre")], accionDetalle);
     nombrarAccion(botonVer, accionDetalle, `${accionDetalle} de`);
     nombrarAccion(botonEditar, accionEditar,
         modo === "edicion" ? "Cancelar la edición de" : "Editar cliente");
 
-    // El de eliminar no cambia nunca, pero pasa por aquí para que use el mismo aviso que los
-    // demás: con el title del navegador salía con otro aspecto y con otro retardo.
-    nombrarAccion(fila.querySelector(".btn-eliminar"), "Eliminar cliente", "Eliminar cliente");
+    // Pasa por aquí, como los otros dos, para que use el mismo aviso: con el title del
+    // navegador salía con otro aspecto y con otro retardo.
+    nombrarAccion(botonBorrar, accionBorrar,
+        modo === "borrado" ? "Cancelar la eliminación de" : "Eliminar cliente");
 }
 
 /**
@@ -1435,6 +1433,35 @@ function pintarPanelDetalle(contenido, cliente) {
     nombrarPanel(panel.querySelector(".panel-cliente"), "Viendo detalles de", cliente);
 
     contenido.replaceChildren(panel);
+}
+
+/**
+ * Pinta la confirmación de borrado dentro del panel de la fila.
+ *
+ * El nombre y el NIF se escriben en la pregunta a propósito: quien llega hasta aquí ha pulsado
+ * una papelera de una tabla con diez filas iguales, y leer a quién va a borrar antes de
+ * confirmarlo es la mitad de la protección. La otra mitad es el borde rojo de la fila.
+ *
+ * @param {Element} contenido el hueco del panel
+ * @param {Object} cliente el cliente que se va a eliminar
+ * @param {boolean} enfocar si se lleva el foco al panel (false al reabrirlo tras repintar)
+ */
+function pintarPanelBorrado(contenido, cliente, enfocar) {
+    const panel = plantillaPanelBorrado.content.cloneNode(true);
+
+    // textContent, igual que en el resto: un nombre con < o & se ve tal cual y no inyecta HTML.
+    panel.querySelector(".borrado-nombre").textContent = cliente.nombre;
+    panel.querySelector(".borrado-nif").textContent = cliente.nifCif;
+
+    nombrarPanel(panel.querySelector(".panel-cliente"), "Eliminar", cliente);
+
+    contenido.replaceChildren(panel);
+
+    // El foco va a Cancelar, NUNCA a Eliminar. En un diálogo que destruye algo, dejar el foco
+    // sobre el botón que destruye convierte un Intro de más en un borrado que nadie quería.
+    if (enfocar) {
+        contenido.querySelector(".btn-cancelar-borrado").focus();
+    }
 }
 
 /**
@@ -1900,7 +1927,7 @@ cuerpoTabla.addEventListener("click", async (evento) => {
     if (boton) {
         if (boton.classList.contains("btn-ver")) alternarDespliegue(fila, "detalle");
         else if (boton.classList.contains("btn-editar")) alternarDespliegue(fila, "edicion");
-        // El de eliminar es de otra feature: aquí no se toca.
+        else if (boton.classList.contains("btn-eliminar")) alternarDespliegue(fila, "borrado");
         return;
     }
 
@@ -1921,6 +1948,24 @@ async function manejarClicPanel(evento, panel) {
     // eso es una suposición que nadie ve al leer el código de al lado.
     const fila = filaViva(Number(panel.dataset.clienteId));
     if (!fila) return;
+
+    // Los dos del panel de borrado van primero por legibilidad; no chocan con el .btn-cancelar
+    // de abajo porque "btn-cancelar-borrado" es otra clase distinta, no una variante de aquella.
+    if (evento.target.closest(".btn-cancelar-borrado")) {
+        // Aquí no se pregunta nada antes de cerrar: en el borrado no hay nada escrito que
+        // perder, al contrario que en la edición.
+        cerrarDespliegue(fila);
+
+        // El foco vuelve a la papelera que abrió el panel: si no, se quedaría en un botón que
+        // acaba de desaparecer y saltaría al principio de la página.
+        fila.querySelector(".btn-eliminar").focus();
+        return;
+    }
+
+    if (evento.target.closest(".btn-confirmar-borrado")) {
+        borrarCliente(fila, Number(fila.dataset.clienteId));
+        return;
+    }
 
     if (evento.target.closest(".btn-cancelar")) {
         if (!await confirmarDescarte(fila)) return;
@@ -2443,6 +2488,95 @@ async function enviarJson(canal, metodo, url, cuerpo) {
 }
 
 /**
+ * Manda el DELETE y cuenta lo que ha pasado.
+ *
+ * El canal lleva el id del cliente dentro, así que una segunda confirmación de la MISMA fila
+ * cancela la anterior, pero no interfiere con el borrado de otra. Y el botón se desactiva
+ * mientras va la petición: el canal ya evitaría el duplicado, pero esto además lo enseña.
+ *
+ * @param {HTMLTableRowElement} fila la fila del cliente
+ * @param {number} idCliente el cliente que se va a eliminar
+ */
+async function borrarCliente(fila, idCliente) {
+    const panel = panelDe(fila);
+    const alerta = panel?.querySelector(".alerta-borrado");
+    const botonConfirmar = panel?.querySelector(".btn-confirmar-borrado");
+
+    if (botonConfirmar) botonConfirmar.disabled = true;
+    if (alerta) alerta.textContent = "";
+
+    let estado;
+    try {
+        estado = await enviarJson(`borrar-${idCliente}`, "DELETE", `${API_CLIENTE}/${idCliente}`);
+    } catch (error) {
+        // La hemos cancelado nosotros (otra confirmación de la misma fila): ya viene otra.
+        if (esCancelacion(error)) return;
+        estado = 0;
+    }
+
+    // El 404 se trata como un éxito. Significa que alguien se ha adelantado, pero el cliente ya
+    // no está, que es exactamente lo que se pedía: contarlo como error sería darle un fallo a
+    // quien ha obtenido lo que quería.
+    if (estado === 200 || estado === 404) {
+        const filaActual = filaViva(idCliente);
+
+        if (filaActual) {
+            // Quien acaba de confirmar tiene el foco en un botón que desaparece con la fila. Se
+            // apunta la vecina para que devolverFoco() la recoja al terminar de repintar: sin
+            // esto el foco cae al <body> y quien navega con teclado vuelve al principio de la
+            // página. Es lo mismo que ya se hace al guardar una edición.
+            const vecina = filaVecina(filaActual);
+            if (vecina) focoPendiente = Number(vecina.dataset.clienteId);
+
+            cerrarDespliegue(filaActual);
+        } else {
+            // La tabla se repintó mientras iba la petición y esta fila ya no está. Basta con
+            // olvidar su estado para que reabrirDespliegues no la vuelva a desplegar.
+            filasDesplegadas.delete(idCliente);
+        }
+
+        anunciar("Cliente eliminado.", { visible: true });
+        document.dispatchEvent(new CustomEvent("clientes:cambiaron"));
+        return;
+    }
+
+    // No se ha borrado: el panel se queda abierto con el motivo escrito dentro, y no se cierra
+    // para que quien lo pidió vea por qué no ha pasado nada sin perder el sitio.
+    if (botonConfirmar) botonConfirmar.disabled = false;
+    if (alerta) alerta.textContent = motivoDeNoBorrar(estado);
+}
+
+/**
+ * La fila de cliente de al lado: la siguiente, o la anterior si era la última.
+ *
+ * No vale `nextElementSibling`: la hermana de una fila de cliente desplegada es SU PANEL, no la
+ * fila siguiente, así que el foco acabaría en un `<tr>` que está a punto de desaparecer.
+ *
+ * @param {HTMLTableRowElement} fila la fila que se va a quitar de la tabla
+ * @return {HTMLTableRowElement|null} la vecina, o null si era la única de la página
+ */
+function filaVecina(fila) {
+    const filas = [...cuerpoTabla.querySelectorAll("tr.fila-cliente")];
+    const posicion = filas.indexOf(fila);
+
+    return filas[posicion + 1] ?? filas[posicion - 1] ?? null;
+}
+
+/**
+ * Traduce el código de la respuesta al motivo que se escribe en el panel.
+ *
+ * @param {number} estado el código HTTP, o 0 si la petición ni siquiera llegó
+ * @return {string} el texto que ve quien intentó borrar
+ */
+function motivoDeNoBorrar(estado) {
+    if (estado === 409) {
+        return "No se puede eliminar: este cliente tiene facturas asociadas.";
+    }
+
+    return "No se ha podido eliminar el cliente. Inténtalo de nuevo.";
+}
+
+/**
  * Da por terminado un canal de peticiones.
  *
  * Los canales de guardado y de detalle llevan el id del cliente dentro del nombre, así que se
@@ -2584,250 +2718,3 @@ cargarProvincias();
 cargarPoblaciones("");
 cargarClientes(0);
 
-let clientePendienteEliminar = null;
-
-// ============================================================
-// BOTÓN ELIMINAR
-// ============================================================
-/*
-document.addEventListener(
-    "click",
-    (evento) => {
-
-        const boton =
-            evento.target.closest(
-                ".btn-eliminar"
-            );
-
-
-        if (!boton) {
-            return;
-        }
-
-
-        const idCliente =
-            boton.dataset.id;
-
-
-        clientePendienteEliminar =
-            idCliente;
-
-
-        const modalElemento =
-            document.getElementById(
-                "confirmarEliminarModal"
-            );
-
-// ============================================
-
-        const modal =
-            new bootstrap.Modal(
-                modalElemento
-            );
-
-
-        modal.show();
-
-    }
-);
-*/
-
-// ============================================================
-// CONFIRMAR ELIMINACIÓN
-// ============================================================
-
-function confirmarBorradoCliente(botonClickado, idClienteEliminar) {
-    console.log(botonClickado);
-    console.log(idClienteEliminar);
-
-    const modalElemento =
-        document.getElementById(
-            "confirmarEliminarModal"
-        );
-
-
-    const modal =
-        new bootstrap.Modal(
-            modalElemento
-        );
-
-
-    modal.show();
-
-    document
-        .getElementById(
-            "btn-confirmar-eliminar"
-        )
-        .addEventListener(
-            "click",
-            async () => {
-
-
-
-                try {
-
-                    const respuesta =
-                        await fetch(
-                            `/cliente/${idClienteEliminar}`,
-                            {
-                                method: "DELETE"
-                            }
-                        );
-
-
-                    let datos = null;
-
-
-                    try {
-
-                        datos =
-                            await respuesta.json();
-
-                    } catch {
-
-                        datos = null;
-
-                    }
-
-
-                    // Error HTTP
-                    if (!respuesta.ok) {
-
-                        throw new Error(
-                            datos?.message ||
-                            "No se pudo eliminar el cliente."
-                        );
-
-                    }
-
-
-                    // Cerramos modal de confirmación
-                    cerrarModal(
-                        "confirmarEliminarModal"
-                    );
-
-
-                    // Mensaje de éxito
-                    mostrarMensajeJ(
-                        datos?.message ||
-                        "Cliente eliminado correctamente"
-                    );
-
-                    // Recargamos tabla
-                   /* cargarClientes(
-                        paginaActual
-                    );*/
-
-                    // Avisamos al resto
-                    document.dispatchEvent(
-                        new CustomEvent(
-                            "clientes:cambiaron"
-                        )
-                    );
-
-
-                } catch (error) {
-
-                    console.error(
-                        "Error al eliminar cliente:",
-                        error
-                    );
-
-
-                    cerrarModal(
-                        "confirmarEliminarModal"
-                    );
-
-
-                    clientePendienteEliminar =
-                        null;
-
-
-                    mostrarMensajeJ(
-                        error.message ||
-                        "No se pudo eliminar el cliente."
-                    );
-
-                }
-
-            }
-        );
-
-}
-
-
-
-// ============================================================
-// CERRAR MODAL
-// ============================================================
-
-function cerrarModal(idModal) {
-
-    const elemento =
-        document.getElementById(
-            idModal
-        );
-
-
-    if (!elemento) {
-        return;
-    }
-
-
-    const instancia =
-        bootstrap.Modal.getInstance(
-            elemento
-        );
-
-
-    if (instancia) {
-
-        instancia.hide();
-
-    }
-
-}
-
-
-// ============================================================
-// REFRESCO EXTERNO
-// ============================================================
-
-document.addEventListener(
-    "clientes:cambiaron",
-    () => {
-
-        cargarClientes(
-            paginaActual
-        );
-
-    }
-);
-
-
-
-function mostrarMensajeJ(texto) {
-
-    const mensaje =
-        document.getElementById(
-            "mensaje-modal-texto"
-        );
-
-    mensaje.textContent = texto;
-
-
-    const modalElemento =
-        document.getElementById(
-            "mensajeModal"
-        );
-
-
-    const modal =
-        new bootstrap.Modal(
-            modalElemento
-        );
-
-
-    modal.show();
-
-}
