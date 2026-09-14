@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import edu.xtd.facturacion360.dto.ClienteFactura;
+import edu.xtd.facturacion360.dto.ConceptoFactura;
 import edu.xtd.facturacion360.dto.Factura;
 
 /**
@@ -28,6 +30,12 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 
 	@Autowired
 	FacturaRowMapper facturaRowMapper;
+
+	@Autowired
+	ClienteFacturaRowMapper clienteFacturaRowMapper;
+
+	@Autowired
+	ConceptoFacturaRowMapper conceptoFacturaRowMapper;
 
 	@Override
 	public Factura insertar(Factura factura) {

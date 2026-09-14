@@ -1,5 +1,7 @@
 package edu.xtd.facturacion360.dto;
 
+import java.util.regex.Pattern;
+
 import jakarta.validation.constraints.Size;
 
 /**
@@ -39,20 +41,31 @@ public record CriteriosCliente(
 
 		// Las longitudes máximas son las de las columnas reales de la tabla: un término
 		// más largo no puede coincidir con nada, así que se rechaza antes de ir a la BD.
-		@Size(max = LONGITUD_MAX_BUSQUEDA, message = "La búsqueda no puede superar los 60 caracteres")
+		//
+		// El {max} del mensaje NO es una plantilla nuestra: Bean Validation sustituye entre
+		// llaves los atributos de la propia anotación (es como están escritos sus mensajes de
+		// serie: "size must be between {min} and {max}"). Así la constante es el único sitio
+		// donde vive el número; escribiéndolo a mano, cambiar la constante dejaba el mensaje
+		// diciendo otra cosa y nada en la línea lo delataba.
+		@Size(max = LONGITUD_MAX_BUSQUEDA, message = "La búsqueda no puede superar los {max} caracteres")
 		String busqueda,
 
-		@Size(max = LONGITUD_MAX_PROVINCIA, message = "La provincia no puede superar los 15 caracteres")
+		@Size(max = LONGITUD_MAX_PROVINCIA, message = "La provincia no puede superar los {max} caracteres")
 		String provincia,
 
-		@Size(max = LONGITUD_MAX_POBLACION, message = "La población no puede superar los 30 caracteres")
+		@Size(max = LONGITUD_MAX_POBLACION, message = "La población no puede superar los {max} caracteres")
 		String poblacion,
 
 		String ordenarPor,
 
 		String direccion) {
 
-	/** Clientes por página si no se pide otra cosa. */
+	/**
+	 * Clientes por página si no se pide otra cosa. Es el mismo valor que la constante
+	 * {@code TAMANO_PAGINA} de {@code clientes.js}, que es quien lo manda de verdad desde la
+	 * pantalla; no hay forma de compartirlo entre Java y el JavaScript, así que está anotado
+	 * en los dos sitios.
+	 */
 	public static final int TAMANO_DEFECTO = 10;
 
 	/** Tope de clientes por página, para que nadie pida la tabla entera de una vez. */
@@ -74,6 +87,17 @@ public record CriteriosCliente(
 	public static final String DIRECCION_DEFECTO = "desc";
 
 	/**
+	 * Saltos de línea, uno o varios seguidos. Los neutraliza {@link #normalizar(String)} para
+	 * que un criterio no pueda partir una línea del log en dos.
+	 *
+	 * <p>Se compila <strong>una sola vez</strong> y no en cada llamada: {@code String.replaceAll}
+	 * hace un {@code Pattern.compile} completo cada vez que se invoca, y {@code normalizar} se
+	 * llama cinco veces por cada {@code CriteriosCliente}, o sea cinco por petición del listado,
+	 * que es la pantalla más usada.</p>
+	 */
+	private static final Pattern SALTOS_DE_LINEA = Pattern.compile("[\\r\\n]+");
+
+	/**
 	 * Constructor compacto: deja todos los componentes ya normalizados, de modo que
 	 * quien reciba un {@code CriteriosCliente} no tiene que volver a comprobar nada.
 	 */
@@ -86,9 +110,14 @@ public record CriteriosCliente(
 		provincia = normalizar(provincia);
 		poblacion = normalizar(poblacion);
 
-		// Estos dos nunca quedan a null: siempre se ordena de alguna manera.
-		ordenarPor = (normalizar(ordenarPor) == null) ? ORDEN_DEFECTO : ordenarPor.trim();
-		direccion = (normalizar(direccion) == null) ? DIRECCION_DEFECTO : direccion.trim();
+		// Estos dos nunca quedan a null: siempre se ordena de alguna manera. Se guarda lo
+		// que devuelve normalizar en vez de llamarlo y volver a hacer trim() sobre el
+		// original, que era recorrer dos veces la misma cadena para obtener lo mismo.
+		String ordenNormalizado = normalizar(ordenarPor);
+		String direccionNormalizada = normalizar(direccion);
+
+		ordenarPor = (ordenNormalizado == null) ? ORDEN_DEFECTO : ordenNormalizado;
+		direccion = (direccionNormalizada == null) ? DIRECCION_DEFECTO : direccionNormalizada;
 	}
 
 	/**
@@ -101,7 +130,12 @@ public record CriteriosCliente(
 	 * @return el número de filas a saltar; nunca negativo
 	 */
 	public long offset() {
-		return (long) pagina.intValue() * tamano.intValue();
+		// Variable y un solo return, como el resto del proyecto: un offset mal calculado es de
+		// las cosas que solo se ven mirándolo, porque la consulta no falla, simplemente
+		// devuelve la página equivocada.
+		long desplazamiento = (long) pagina.intValue() * tamano.intValue();
+
+		return desplazamiento;
 	}
 
 	/**
@@ -109,10 +143,23 @@ public record CriteriosCliente(
 	 * para que el repositorio maneje un único convenio ("null = sin filtro") en vez de
 	 * distinguir entre {@code null}, {@code ""} y {@code "   "}.
 	 *
+	 * <p>Los saltos de línea se cambian por un espacio. No es cosmética: el controller
+	 * escribe estos criterios en el log ({@code log.info("... -> {}", criterios)}), así que un
+	 * término de búsqueda que llevara un {@code \n} dentro partiría la traza en dos y dejaría
+	 * la segunda mitad con el aspecto de una línea escrita por la propia aplicación. Es el
+	 * ataque conocido como <em>log forging</em>. Para buscar en la base de datos un salto de
+	 * línea no aporta nada, así que se neutraliza aquí, en el único sitio donde se decide qué
+	 * es un criterio válido.</p>
+	 *
 	 * @param valor el texto tal cual llega de la URL
-	 * @return el texto sin espacios alrededor, o {@code null} si no había contenido
+	 * @return el texto sin espacios alrededor ni saltos de línea, o {@code null} si no había
+	 *         contenido
 	 */
 	private static String normalizar(String valor) {
-		return (valor == null || valor.isBlank()) ? null : valor.trim();
+		String valorNormalizado = (valor == null || valor.isBlank())
+				? null
+				: SALTOS_DE_LINEA.matcher(valor.trim()).replaceAll(" ");
+
+		return valorNormalizado;
 	}
 }

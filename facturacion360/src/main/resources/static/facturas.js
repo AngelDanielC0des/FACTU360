@@ -45,7 +45,7 @@ function mostrarFacturas(facturas) {
     if (facturas.length == 0) {
         const fila = document.createElement("tr");
         const celda = document.createElement("td");
-        celda.colSpan = 7;
+        celda.colSpan = 8;
         celda.className = "text-center text-muted py-4";
         celda.textContent = "No se han encontrado facturas.";
         fila.appendChild(celda);
@@ -60,6 +60,7 @@ function mostrarFacturas(facturas) {
             agregarCelda(fila, formatearImporte(factura.subtotal), "text-end");
             agregarCelda(fila, formatearImporte(factura.importeIva), "text-end");
             agregarCelda(fila, formatearImporte(factura.total), "text-end fw-bold");
+            agregarAccionVisor(fila, factura.idFactura);
             tablaFacturas.appendChild(fila);
         }
     }
@@ -92,6 +93,7 @@ async function cargarListadoTrimestral() {
             mostrarMensaje("No se pudo conectar con el servidor.", "danger");
         }
     }
+
 }
 
 /** Añade una celda de texto a una fila. */

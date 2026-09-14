@@ -7,8 +7,12 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import edu.xtd.facturacion360.dto.ClienteFactura;
+import edu.xtd.facturacion360.dto.ConceptoFactura;
+import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
 import edu.xtd.facturacion360.dto.ResumenTrimestralFactura;
@@ -52,6 +56,7 @@ public class FacturaServiceImpl implements FacturaService {
 		return facturaRepository.buscar(busqueda);
 	}
 
+
 	@Override
 	public ResumenTrimestralFactura listarTrimestre(int anio, int trimestre) {
 		if (anio < 2000 || anio > 2100) {
@@ -77,5 +82,6 @@ public class FacturaServiceImpl implements FacturaService {
 
 		return new ResumenTrimestralFactura(anio, trimestre, facturas, subtotal, importeIva, total);
 	}
+
 
 }

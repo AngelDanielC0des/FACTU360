@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -61,6 +62,19 @@ public class ManejadorExcepciones {
 	public ResponseEntity<String> gestionarBaseDatos(DataAccessException excepcion) {
 		log.error("Error al acceder a la base de datos", excepcion);
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al acceder a la base de datos");
+	}
+
+	/**
+	 * Gestiona los errores que se pueden producir al completar una transacción.
+	 *
+	 * @param excepcion excepción producida durante la transacción
+	 * @return respuesta 500 indicando que no se pudo completar la operación
+	 */
+	@ExceptionHandler(TransactionException.class)
+	public ResponseEntity<String> gestionarTransaccion(TransactionException excepcion) {
+		log.error("Error al completar la operación en la base de datos", excepcion);
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body("No se ha podido completar la operación");
 	}
 
 	/**
