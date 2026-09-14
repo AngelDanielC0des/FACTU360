@@ -322,6 +322,10 @@ pre code { background:none; border:0; padding:0; font-size:inherit; white-space:
 }
 .hoja-qr::before { top:0; left:0; }
 .hoja-qr::after  { top:0; right:0; }
+.hoja-rotulo-qr {
+  font-size:11px; font-weight:700; letter-spacing:.06em;
+  margin-bottom:5px; color:#14181d;
+}
 .hoja-leyenda {
   font-size:11.5px; font-weight:700; letter-spacing:.09em;
   margin-top:7px; color:#14181d;
@@ -505,12 +509,17 @@ td code, th code { white-space:nowrap; }
 
 /* ── Lista de comprobación ────────────────────────────────────────────────── */
 .lista-check { list-style:none; margin:0 0 24px; padding:0; }
+/* Nada de display:grid aqui. Con grid, CADA elemento en linea del <li> -un <code>,
+   un <strong>- se convierte en un elemento de rejilla propio, y el segundo cae en la
+   columna de 22px y se parte letra a letra. Con position+padding el contenido se queda
+   en el flujo normal y los <code> fluyen dentro del texto. */
 .lista-check li {
-  display:grid; grid-template-columns:22px minmax(0,1fr); gap:10px;
-  padding:9px 0; border-bottom:1px solid var(--linea); margin:0;
+  position:relative; padding:9px 0 9px 32px;
+  border-bottom:1px solid var(--linea); margin:0;
 }
 .lista-check li::before {
-  content:""; width:13px; height:13px; margin-top:7px;
+  content:""; position:absolute; left:0; top:16px;
+  width:13px; height:13px;
   border:1.5px solid var(--linea-fuerte); border-radius:2px;
 }
 
@@ -618,8 +627,10 @@ td code, th code { white-space:nowrap; }
   <p class="aviso-lectura">
     <strong>Cómo leer este documento.</strong> Si no te suenan las siglas —AEAT, SIF, CSV— empieza
     por «Antes de empezar»: son dos páginas de vocabulario y de por qué la ley pide lo que pide.
-    La <strong>sección 1</strong> explica el proceso completo sin hablar de código. La
-    <strong>sección 2</strong> es la implementación en este proyecto, con el código de cada pieza.
+    La <strong>sección 1</strong> explica el proceso completo sin hablar de código, y se lee
+    seguida. La <strong>sección 2</strong> es la implementación en este proyecto, con el código de
+    cada pieza: es tres veces más larga y está pensada como <strong>material de consulta</strong>,
+    no para leerla de un tirón — empieza por su mapa.
     Y al final hay un anexo de <strong>preguntas frecuentes</strong> por si algo queda suelto.
   </p>
 </header>
@@ -633,10 +644,9 @@ td code, th code { white-space:nowrap; }
     <li><a href="#vocabulario">El vocabulario mínimo</a></li>
     <li><a href="#porque">Por qué se hace así</a></li>
 
-    <li><a class="raiz" href="#fuentes">Sobre las fuentes</a></li>
-
     <li><a class="raiz" href="#marco">El marco</a></li>
     <li><a href="#modalidades">Las dos modalidades</a></li>
+    <li><a href="#no-verificable">La otra modalidad y XAdES</a></li>
     <li><a href="#plazos">Plazos</a></li>
 
     <li><a class="raiz" href="#seccion-1">1 · El proceso lógico</a></li>
@@ -654,6 +664,7 @@ td code, th code { white-space:nowrap; }
     <li><a href="#punto-cero">2.1 De dónde se parte</a></li>
     <li><a href="#deuda">2.2 Lo que hay que arreglar</a></li>
     <li><a href="#arquitectura">2.3 Arquitectura</a></li>
+    <li><a href="#librerias">— ¿Librerías o a mano?</a></li>
     <li><a href="#bd">2.4 Base de datos</a></li>
     <li><a href="#dominio">2.5 El modelo Java</a></li>
     <li><a href="#codigo-huella">2.6 La huella en código</a></li>
@@ -674,7 +685,7 @@ td code, th code { white-space:nowrap; }
     <li><a href="#pruebas">2.21 Pruebas</a></li>
 
     <li><a class="raiz" href="#faq">Preguntas frecuentes</a></li>
-    <li><a class="raiz" href="#anexo">Fuentes</a></li>
+    <li><a class="raiz" href="#anexo">Fuentes oficiales</a></li>
   </ol>
 </nav>
 
@@ -841,7 +852,7 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
     </div>
   </dl>
 
-  <div class="concepto ojo-siglas" style="border:1px solid var(--aviso); margin-bottom:26px;">
+  <dl class="concepto ojo-siglas" style="border:1px solid var(--aviso); margin-bottom:26px;">
     <dt style="font-size:15px;">Cuidado con esta sigla: CSV <span class="sigla">Código Seguro de Verificación</span></dt>
     <dd>
       En este documento, y en toda la documentación de la AEAT, <strong>CSV no es un fichero de
@@ -849,7 +860,7 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       un envío: un código alfanumérico que prueba que se comunicó, y con el que se puede recuperar
       el documento en la sede electrónica. Es el equivalente a un número de recibo.
     </dd>
-  </div>
+  </dl>
 
   <h4>El canal de comunicación</h4>
   <dl class="conceptos">
@@ -1005,19 +1016,11 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       <h4>¿Por qué no se puede borrar una factura?</h4>
       <p>
         Porque la imposibilidad de borrar <em>es</em> la funcionalidad. Un sistema donde las
-        facturas se pueden eliminar no cumple el reglamento, por muy bien que funcione todo lo
-        demás.
+        facturas se pueden eliminar no cumple el reglamento, por bien que funcione todo lo demás.
       </p>
-      <p>
-        Esto cambia cómo se diseña la interfaz. El botón de eliminar no se «desactiva»: desaparece,
-        y en su sitio aparecen las dos operaciones que sí son legales —<strong>anular</strong> y
-        <strong>emitir una rectificativa</strong>—, que no borran nada sino que añaden un registro
-        nuevo explicando qué pasó.
-      </p>
-      <p>
-        Y conviene reforzarlo en la base de datos con disparadores, no sólo en el código Java: una
-        regla que vive únicamente en la aplicación se salta con cualquier consulta suelta desde una
-        consola.
+      <p class="remate">
+        El botón de eliminar no se desactiva: desaparece, y en su sitio quedan anular y rectificar,
+        que no borran nada sino que añaden un registro explicando qué pasó.
       </p>
     </div>
 
@@ -1030,90 +1033,6 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       añadir</strong>: se pueden agregar registros, nunca modificar ni quitar, y cada uno queda
       atado al anterior por una huella criptográfica que además se envía a Hacienda al instante.
       Todo lo que viene después en este documento es cómo se construye eso.
-    </p>
-  </div>
-</section>
-
-<!-- ══ PREÁMBULO ══════════════════════════════════════════════════════════ -->
-<section class="seccion" id="fuentes">
-  <span class="numero-seccion">Preámbulo</span>
-  <h2 class="titulo-seccion">Sobre las fuentes</h2>
-
-  <p class="entradilla">
-    Partí de dos informes y de un ejemplo paso a paso. Los contrasté con la especificación
-    oficial de la AEAT para el cálculo de la huella, con los esquemas XSD del servicio y con
-    el WSDL. Siete afirmaciones no resistieron el contraste, y varias de ellas habrían hecho
-    que la AEAT rechazara absolutamente todos los registros.
-  </p>
-
-  <div class="tabla-envoltura">
-    <table>
-      <caption>Lo que decían los informes frente a la especificación oficial</caption>
-      <thead>
-        <tr><th scope="col">Afirmación</th><th scope="col">Veredicto</th><th scope="col">Lo que dice la especificación</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Los campos de la huella se separan con barras verticales <code>|</code></td>
-          <td class="marca-mal">Falso</td>
-          <td>El formato es <code>campo=valor&amp;campo=valor</code>, con el nombre del campo dentro de la cadena</td>
-        </tr>
-        <tr>
-          <td>El campo de cuota se llama <code>CuotaTotalIVA</code></td>
-          <td class="marca-mal">Falso</td>
-          <td>Se llama <code>CuotaTotal</code></td>
-        </tr>
-        <tr>
-          <td>El primer registro usa una «cadena canónica de ceros»</td>
-          <td class="marca-mal">Falso</td>
-          <td>Usa <code>Huella=</code> con el valor vacío; el resto de campos van normales</td>
-        </tr>
-        <tr>
-          <td>La URL del QR es <code>/vl/qr?nif=&amp;num=&amp;fec=&amp;imp=</code></td>
-          <td class="marca-mal">Falso</td>
-          <td><code>/wlpl/TIKE-CONT/ValidarQR</code> con <code>nif</code>, <code>numserie</code>, <code>fecha</code>, <code>importe</code></td>
-        </tr>
-        <tr>
-          <td>La cadena de huellas se lleva «por serie de facturación»</td>
-          <td class="marca-mal">Falso</td>
-          <td>Se encadena con el registro anterior <strong>existente en el SIF</strong>, sea de la serie que sea</td>
-        </tr>
-        <tr>
-          <td>La anulación usa los mismos campos de huella que el alta</td>
-          <td class="marca-mal">Falso</td>
-          <td>Usa cinco campos, y tres de ellos con nombre distinto: llevan el sufijo <code>…Anulada</code></td>
-        </tr>
-        <tr>
-          <td>Los parámetros del QR son <code>nif</code>, <code>numserie</code>, <code>fecha</code>, <code>importe</code></td>
-          <td class="marca-bien">Correcto</td>
-          <td>Coincide con la especificación</td>
-        </tr>
-        <tr>
-          <td>Plazos: 1 de enero y 1 de julio de 2027</td>
-          <td class="marca-bien">Correcto</td>
-          <td>Tras la prórroga del Real Decreto-ley 15/2025</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="nota correccion">
-    <span class="cabecera">Por qué la primera fila es la más grave</span>
-    <p>
-      Si la cadena canónica se compone con barras en vez de <code>campo=valor&amp;</code>, el
-      SHA-256 sale distinto en <em>todos</em> los registros. Y no es un error que se detecte
-      solo: el programa funcionaría perfectamente contra sí mismo, las huellas enlazarían unas
-      con otras y todo parecería correcto. El fallo aparecería únicamente al enviar, porque la
-      AEAT recalcula la huella por su cuenta y compara. Lo dice literalmente la especificación:
-    </p>
-    <blockquote>
-      «Cuando en una remisión de un sistema VERI*FACTU la huella informada no coincida con el
-      cálculo realizado por la AEAT, el registro de facturación se marcará como
-      <em>Aceptado con errores</em>.»
-    </blockquote>
-    <p>
-      Por eso lo primero que hay que escribir, antes que ninguna otra cosa, es el generador de
-      la huella con sus pruebas contra los vectores oficiales.
     </p>
   </div>
 </section>
@@ -1191,6 +1110,89 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       registro de eventos, que es un subsistema entero con su propia cadena de huellas. Lo que
       se gana en simplicidad se paga en conectividad: hay que enviar siempre. Pero el
       reglamento ya prevé qué hacer cuando no hay red, y el paso 09 lo explica.
+    </p>
+  </div>
+
+  <h3 id="no-verificable">Qué supondría la otra modalidad</h3>
+
+  <p>
+    Merece la pena saber qué se está evitando, aunque el proyecto no vaya por ahí. Si en vez de
+    VERI*FACTU se eligiera el <strong>SIF no verificable</strong>, desaparece la obligación de
+    enviar nada a la AEAT — y a cambio aparecen tres bloques de trabajo que no son pequeños.
+  </p>
+
+  <h4>Uno · Firmar electrónicamente cada registro</h4>
+
+  <p>
+    Cada registro de facturación se firma, y la firma viaja dentro del propio XML, en el elemento
+    <code>Signature</code> que el esquema ya tiene previsto. Las reglas las fija un documento
+    propio de la AEAT, y no admiten interpretación:
+  </p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <caption>Requisitos de la firma, según la especificación v0.1.5</caption>
+      <thead><tr><th scope="col">Qué</th><th scope="col">Exigencia</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Formato</td>
+          <td><strong>XAdES</strong>, variante <strong>Enveloped</strong> — la firma va <em>dentro</em> del documento que firma, no al lado.</td>
+        </tr>
+        <tr>
+          <td>Estándar</td>
+          <td><strong>ETSI EN 319 132</strong>, la norma europea de firma avanzada en XML.</td>
+        </tr>
+        <tr>
+          <td>Política de firma</td>
+          <td>No basta con firmar: hay que <strong>referenciar la política de firma</strong> que publica la AEAT, incluyendo su resumen criptográfico. Es el requisito que más se pasa por alto.</td>
+        </tr>
+        <tr>
+          <td>Algoritmos</td>
+          <td>RSA con SHA-256. Para archivado de larga duración se recomienda SHA-512.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota correccion">
+    <span class="cabecera">Y el certificado no es el mismo</span>
+    <p>
+      Éste es el punto que de verdad distingue las dos modalidades. En VERI*FACTU el certificado
+      <em>autentica el canal</em>: dice quién llama al servicio. Aquí <strong>firma
+      documentos</strong>, y eso sube el listón: hace falta un <strong>certificado cualificado de
+      firma electrónica</strong>, en vigor y no revocado, emitido por un prestador cualificado de
+      servicios de confianza, y <strong>cuyo titular sea la empresa que emite la factura</strong>.
+    </p>
+    <p>
+      Dicho de otro modo: el certificado que el profesor facilite para las pruebas de VERI*FACTU no
+      serviría para esto.
+    </p>
+  </div>
+
+  <h4>Dos · Llevar un registro de eventos</h4>
+
+  <p>
+    Una <strong>segunda cadena de huellas</strong>, independiente de la de facturas y con sus
+    propios nueve campos, que anota arranques y paradas del sistema, exportaciones, incidencias y
+    restauraciones de copia. Tiene su propio encadenamiento y su propia lógica de generación: en la
+    práctica, es un subsistema entero más.
+  </p>
+
+  <h4>Tres · Conservar y poder entregar</h4>
+
+  <p>
+    Todo lo anterior hay que guardarlo y ser capaz de exportarlo en el formato normalizado el día
+    que la Agencia lo requiera. En VERI*FACTU ese papel lo hace la propia remisión inmediata: la
+    AEAT ya tiene los registros.
+  </p>
+
+  <div class="nota verificado">
+    <span class="cabecera">Por eso este proyecto elige VERI*FACTU</span>
+    <p>
+      Enviar en el momento suena a más trabajo, y es justo al revés. La remisión inmediata
+      <strong>sustituye</strong> a la firma y al registro de eventos, que son las dos partes
+      realmente caras. Lo que se paga a cambio es depender de la conectividad, y eso ya está
+      resuelto con la cola de envíos: un corte de red no impide facturar.
     </p>
   </div>
 
@@ -1421,8 +1423,10 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
         </ul>
         <p>
           Hay además dos campos que conviene conocer aunque al principio vayan siempre a
-          <code>N</code>: <code>Subsanacion</code>, para reenviar un registro corrigiendo un
-          error, y <code>RechazoPrevio</code>, para el caso en que la AEAT rechazó el anterior.
+          <code>N</code>. <code>Subsanacion</code> marca un registro que <strong>corrige los datos
+          de otro que la AEAT ya aceptó</strong> — no es lo mismo que reenviar, y el apartado 2.12
+          explica cuándo toca cada cosa. <code>RechazoPrevio</code> es para el caso en que la AEAT
+          rechazó el anterior.
         </p>
       </div>
     </li>
@@ -1431,7 +1435,7 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       <h3>Recuperar la huella del registro anterior</h3>
       <div class="contenido">
         <p>
-          Aquí estaba el error más extendido del material de partida: la cadena
+          Aquí está el malentendido más extendido: la cadena
           <strong>no va por serie</strong>. La especificación habla del «registro de facturación
           anterior existente <strong>en el SIF</strong>»: una sola cadena por sistema, o más
           exactamente por obligado tributario dentro del sistema. Si se emiten facturas de la
@@ -1516,21 +1520,47 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
    &amp;fecha=01-01-2024
    &amp;importe=123.45</code></pre>
         <p>
-          En pruebas, el mismo camino sobre <code>prewww2.aeat.es</code>. Requisitos de
-          impresión que exige la Orden, y que hay que respetar aunque parezcan menores:
+          En pruebas, el mismo camino sobre <code>prewww2.aeat.es</code>. Y hay una lista de
+          requisitos de impresión que la AEAT detalla y que conviene no despachar como
+          «maquetación»: son obligatorios.
         </p>
         <ul>
           <li>Norma <strong>ISO/IEC 18004:2015</strong>, nivel de corrección de errores <strong>M</strong>.</li>
           <li>Tamaño impreso entre <strong>30×30 mm y 40×40 mm</strong>.</li>
-          <li>Margen blanco alrededor (zona de silencio) de <strong>2 mm como mínimo</strong>, 6 mm recomendado.</li>
-          <li>Situado <strong>al principio de la factura</strong>, con la leyenda <strong>«VERI*FACTU»</strong> o «Factura verificable en la sede electrónica de la AEAT» junto a él.</li>
+          <li>Margen blanco alrededor (zona de silencio) de <strong>2 mm como mínimo</strong>, recomendado 6 mm, y contraste suficiente con el fondo.</li>
+          <li>
+            <strong>Encima</strong> del código, siempre, el texto <strong>«QR tributario:»</strong>.
+          </li>
+          <li>
+            <strong>Debajo</strong>, la frase «Factura verificable en la sede electrónica de la
+            AEAT» <em>o</em> «VERI*FACTU».
+          </li>
+          <li>
+            Los dos textos, con letra <strong>igual o mayor</strong> que la del resto de datos de
+            la factura.
+          </li>
+          <li>
+            Situado <strong>arriba</strong>: centrado o hacia el margen superior izquierdo. Si la
+            factura es apaisada, a la izquierda.
+          </li>
         </ul>
         <div class="nota ojo">
-          <span class="cabecera">Detalle que rompe el QR si se pasa por alto</span>
+          <span class="cabecera">El «QR tributario:» no es decorativo</span>
           <p>
-            El número de factura suele llevar una barra, como <code>12345678/G33</code>. Dentro
-            de una URL, esa barra tiene que ir escapada como <code>%2F</code>. Si no, el QR
-            apunta a una ruta que no existe y el escaneo da error 404 en la sede.
+            Existe para que se distinga de cualquier otro código QR que lleve la factura —el de
+            pago, el de la web de la empresa—. Sin él, el receptor no sabe cuál escanear para
+            verificar, y el sistema deja de cumplir la especificación.
+          </p>
+        </div>
+        <div class="nota ojo">
+          <span class="cabecera">Codificar bien los parámetros</span>
+          <p>
+            Los valores van codificados en UTF-8 con <em>URL encoding</em>. El carácter peligroso
+            es el <strong><code>&amp;</code></strong>: un número de factura como
+            <code>12345678&amp;G33</code> sin escapar parte la URL en dos parámetros y el cotejo
+            falla. Tiene que viajar como <code>12345678%26G33</code>. La barra de
+            <code>12345678/G33</code>, en cambio, es legal dentro de una <em>query string</em> y
+            no necesita escaparse, aunque codificarla tampoco estorba.
           </p>
         </div>
       </div>
@@ -1616,9 +1646,14 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
           <span class="cabecera">La distinción que cambia el código</span>
           <p>
             <code>AceptadoConErrores</code> significa que el registro <strong>sí está
-            comunicado</strong>. Reenviarlo lo duplicaría. Sólo los <code>Incorrecto</code> se
-            corrigen y se vuelven a mandar. Tratar los dos casos igual —que es la tentación
-            natural, porque en ambos hay un error— provoca duplicados en Hacienda.
+            comunicado</strong> y la AEAT lo ha guardado. Reenviarlo como un alta nueva lo
+            duplicaría.
+          </p>
+          <p>
+            Pero tampoco se deja como está: la AEAT exige que esos errores se
+            <strong>subsanen</strong>, y para eso existe un mecanismo propio —el campo
+            <code>Subsanacion</code> del registro de alta— que es distinto de reenviar. Los tres
+            caminos se detallan en el apartado 2.12.
           </p>
         </div>
       </div>
@@ -1751,6 +1786,22 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
   </div>
 
   <!-- ── VECTORES ────────────────────────────────────────────────────────── -->
+  <div class="nota correccion">
+    <span class="cabecera">Por qué un carácter de más invalida todo</span>
+    <p>
+      Esto no es un detalle de estilo. Si la cadena se compone mal —un separador distinto, un
+      campo omitido, un decimal de más— el SHA-256 sale distinto en <em>todos</em> los registros,
+      y el programa no se entera: funcionaría perfectamente contra sí mismo, las huellas
+      enlazarían unas con otras y todo parecería correcto. El fallo sólo aparece al enviar,
+      porque la AEAT recalcula la huella por su cuenta y compara. Lo dice la especificación:
+    </p>
+    <blockquote>
+      «Cuando en una remisión de un sistema VERI*FACTU la huella informada no coincida con el
+      cálculo realizado por la AEAT, el registro de facturación se marcará como
+      <em>Aceptado con errores</em>.»
+    </blockquote>
+  </div>
+
   <h3 id="vectores">Los tres vectores oficiales</h3>
 
   <p>
@@ -1833,16 +1884,6 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
     <strong>dos líneas a tipos de IVA distintos</strong>, que es justo lo que el modelo actual del
     proyecto no sabe representar.
   </p>
-
-  <div class="nota verificado">
-    <span class="cabecera">Las huellas de este ejemplo son reales</span>
-    <p>
-      No están inventadas para ilustrar. Están calculadas con el mismo método que reproduce
-      exactamente los tres vectores oficiales de la AEAT, así que cualquiera puede comprobarlas:
-      basta con pasar por SHA-256 la cadena que se muestra en el paso 04. Los dos identificadores
-      fiscales que aparecen tienen además el dígito de control correcto.
-    </p>
-  </div>
 
   <div class="traza">
 
@@ -2043,9 +2084,8 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
 
   </div>
 
-  <div class="nota verificado">
-    <span class="cabecera">Y la siguiente factura ya se engancha a ésta</span>
-    <p>
+  <p>
+    <strong>Y la siguiente factura ya se engancha a ésta.</strong>
       La segunda factura del sistema, <code>A/2026/0002</code>, lleva en su campo
       <code>Huella</code> la que acabamos de calcular, y su bloque <code>Encadenamiento</code>
       cambia: en vez de <code>PrimerRegistro</code>, un <code>RegistroAnterior</code> completo.
@@ -2053,7 +2093,6 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       <code>EFF3B6B601E88906171C24468EDF6BB3132DE172785B1A90B3B51279C3E24D3B</code>. Y así,
       indefinidamente: cada factura atada a la anterior.
     </p>
-  </div>
 
   <!-- ── MAQUETA ─────────────────────────────────────────────────────────── -->
   <h3 id="maqueta">Cómo queda impresa</h3>
@@ -2078,6 +2117,7 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
           </div>
 
           <div class="hoja-qr-bloque">
+            <div class="hoja-rotulo-qr">QR tributario:</div>
             <div class="hoja-qr" role="img" aria-label="Representación del código QR de validación">
               <span style="position:absolute; bottom:0; left:0; width:26px; height:26px; border:6px solid #14181d; background:#fff;"></span>
             </div>
@@ -2125,12 +2165,23 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       </div>
       <div class="maqueta-nota">
         <b>Posición</b>
-        Al principio de la factura. No vale ponerlo al pie para que estorbe menos en el diseño.
+        Arriba: centrado o hacia el margen superior izquierdo. Si la factura es apaisada, a la
+        izquierda. No vale ponerlo al pie porque estorbe en el diseño.
       </div>
       <div class="maqueta-nota">
-        <b>Leyenda</b>
-        «VERI*FACTU», o «Factura verificable en la sede electrónica de la AEAT». Es obligatoria y
-        acompaña al código.
+        <b>Encima: «QR tributario:»</b>
+        Obligatorio y siempre. Sirve para distinguirlo de cualquier otro QR que lleve la factura,
+        como el de pago.
+      </div>
+      <div class="maqueta-nota">
+        <b>Debajo: la leyenda</b>
+        «Factura verificable en la sede electrónica de la AEAT» o «VERI*FACTU». Vale cualquiera de
+        las dos.
+      </div>
+      <div class="maqueta-nota">
+        <b>Tamaño de letra</b>
+        Los dos textos, igual o mayor que el resto de datos de la factura. No se pueden poner en
+        letra pequeña para que no molesten.
       </div>
       <div class="maqueta-nota">
         <b>Norma</b>
@@ -2183,11 +2234,12 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
     <code>TipoRectificativa</code>, con valor <code>S</code> o <code>I</code>.
   </p>
 
-  <div class="nota correccion">
-    <span class="cabecera">Corrección al material de partida</span>
+  <div class="nota ojo">
+    <span class="cabecera">La anulación no usa los mismos campos que el alta</span>
     <p>
-      La huella del registro de <strong>anulación</strong> no usa los mismos ocho campos que la
-      del alta. Usa cinco, y tres de ellos cambian de nombre:
+      Es el detalle que más se pasa por alto. La huella de un registro de anulación se compone
+      con <strong>cinco</strong> campos, no con los ocho del alta, y tres de ellos además cambian
+      de nombre:
     </p>
   </div>
 
@@ -2217,28 +2269,18 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
   <h3 id="eventos">Registros de evento</h3>
 
   <p>
-    Se incluyen por completitud, porque en VERI*FACTU <strong>no hacen falta</strong>. Si algún
-    día el proyecto cambiara a la modalidad no verificable, habría que llevar una segunda
-    cadena de huellas, independiente de la de facturas, con nueve campos:
+    Se mencionan sólo para cerrar el mapa: en VERI*FACTU <strong>no hacen falta</strong>. Son el
+    precio de la otra modalidad. Si el proyecto cambiara alguna vez a SIF no verificable, habría
+    que llevar una <strong>segunda cadena de huellas</strong>, independiente de la de facturas,
+    que registrara arranques, paradas, exportaciones e incidencias, con sus propios nueve campos y
+    su propio encadenamiento. Es, en la práctica, un subsistema entero más — y la razón principal
+    por la que aquí se elige VERI*FACTU.
   </p>
-
-  <span class="rotulo-codigo">Campos de la huella de un registro de evento</span>
-<pre><code>NIF                  · SistemaInformatico/NIF
-ID                   · SistemaInformatico/IDOtro/ID
-IdSistemaInformatico · SistemaInformatico/IdSistemaInformatico
-Version              · SistemaInformatico/Version
-NumeroInstalacion    · SistemaInformatico/NumeroInstalacion
-NIF                  · ObligadoEmision/NIF
-TipoEvento           · Evento/TipoEvento
-HuellaEvento         · Encadenamiento/EventoAnterior/HuellaEvento
-FechaHoraHusoGenEvento</code></pre>
 
   <p>
-    El ejemplo que da la propia especificación para la regla del campo vacío sale precisamente
-    de aquí: <code>NIF</code> e <code>ID</code> son excluyentes —se informa uno u otro—, así que
-    la cadena queda <code>NIF=89890001K&amp;ID=&amp;IdSistemaInformatico=…</code>, con el campo
-    que no se usa presente pero vacío.
+    El detalle está en el mismo documento de la huella que se cita en el anexo, apartado 3.c.
   </p>
+
 </section>
 
 <!-- ══════════════════ SECCIÓN 2 ══════════════════════════════════════════ -->
@@ -2252,36 +2294,94 @@ FechaHoraHusoGenEvento</code></pre>
     engancha el certificado y en qué orden conviene hacerlo.
   </p>
 
+  <div class="flujo">
+    <div class="flujo-titulo">Mapa de la sección · 21 apartados en seis bloques</div>
+
+    <div class="carril">
+      <div class="carril-nombre">Antes de tocar nada · 2.1 a 2.3</div>
+      <div class="fila-flujo">
+        <div class="caja-flujo">De dónde se parte<span class="mini">2.1</span></div>
+        <div class="caja-flujo riesgo">Lo que hay que arreglar<span class="mini">2.2</span></div>
+        <div class="caja-flujo">Arquitectura y librerías<span class="mini">2.3</span></div>
+      </div>
+    </div>
+
+    <div class="carril">
+      <div class="carril-nombre">Los datos · 2.4 y 2.5</div>
+      <div class="fila-flujo">
+        <div class="caja-flujo">Migración de la base<span class="mini">2.4</span></div>
+        <div class="caja-flujo">Los DTO, uno a uno<span class="mini">2.5</span></div>
+      </div>
+    </div>
+
+    <div class="carril">
+      <div class="carril-nombre">El núcleo · 2.6 a 2.9</div>
+      <div class="fila-flujo">
+        <div class="caja-flujo acento">La huella<span class="mini">2.6</span></div>
+        <div class="caja-flujo acento">Encadenar sin bifurcar<span class="mini">2.7</span></div>
+        <div class="caja-flujo">Número e importes<span class="mini">2.8</span></div>
+        <div class="caja-flujo">El XML<span class="mini">2.9</span></div>
+      </div>
+    </div>
+
+    <div class="carril">
+      <div class="carril-nombre">Hablar con la AEAT · 2.10 a 2.13</div>
+      <div class="fila-flujo">
+        <div class="caja-flujo acento">El certificado<span class="mini">2.10</span></div>
+        <div class="caja-flujo">El cliente SOAP<span class="mini">2.11</span></div>
+        <div class="caja-flujo">Respuesta y errores<span class="mini">2.12</span></div>
+        <div class="caja-flujo">La cola de envíos<span class="mini">2.13</span></div>
+      </div>
+    </div>
+
+    <div class="carril">
+      <div class="carril-nombre">Lo que se ve · 2.14 a 2.18</div>
+      <div class="fila-flujo">
+        <div class="caja-flujo">El QR<span class="mini">2.14</span></div>
+        <div class="caja-flujo">Anular y rectificar<span class="mini">2.15</span></div>
+        <div class="caja-flujo">El repositorio<span class="mini">2.16</span></div>
+        <div class="caja-flujo">Errores y API<span class="mini">2.17</span></div>
+        <div class="caja-flujo">Front y plantillas<span class="mini">2.18</span></div>
+      </div>
+    </div>
+
+    <div class="carril">
+      <div class="carril-nombre">Para organizarse · 2.19 a 2.21</div>
+      <div class="fila-flujo">
+        <div class="caja-flujo">Inventario de ficheros<span class="mini">2.19</span></div>
+        <div class="caja-flujo">Plan por fases<span class="mini">2.20</span></div>
+        <div class="caja-flujo">Pruebas<span class="mini">2.21</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nota verificado">
+    <span class="cabecera">Cómo usar esta sección</span>
+    <p>
+      Son <strong>22 clases nuevas y 13 ficheros a modificar</strong>, repartidos en seis fases de
+      trabajo. No está pensada para leerse de un tirón: es material de consulta. Si vas a empezar
+      por algo, empieza por el bloque del núcleo —2.6 y 2.7— porque es lo único que no se puede
+      hacer mal sin que se note tarde.
+    </p>
+  </div>
+
   <!-- 2.1 ───────────────────────────────────────────────────────────────── -->
   <h3 id="punto-cero">2.1 · De dónde se parte</h3>
 
   <p>
     FACTURACION360 es una aplicación Spring Boot sobre Java 21, con acceso a datos mediante
     <code>JdbcTemplate</code> contra MySQL y un front de páginas HTML con JavaScript modular. El
-    paquete base es <code>edu.xtd.facturacion360</code> y las capas están separadas en
-    <code>controller</code>, <code>dto</code>, <code>repository</code> y <code>service</code>.
-    En base de datos hay cuatro tablas: <code>clientes</code>, <code>conceptos</code>,
-    <code>emisor</code> y <code>facturas</code>.
+    paquete base es <code>edu.xtd.facturacion360</code>, las capas están separadas en
+    <code>controller</code>, <code>dto</code>, <code>repository</code> y <code>service</code>, y
+    todos los DTO son <code>record</code>.
   </p>
 
-  <p>La tabla <code>emisor</code>, hoy, es esto:</p>
-
-  <span class="rotulo-codigo">Esquema actual · <span class="ruta">src/main/resources/docu/backupFacturacion360v1.sql</span></span>
-<pre><code>CREATE TABLE `emisor` (
-  `idemisor`  int NOT NULL AUTO_INCREMENT,
-  `nombre`    varchar(60)  NOT NULL,
-  `nif_cif`   varchar(10)  NOT NULL,
-  `direccion` varchar(200) NOT NULL,
-  `email`     varchar(50)  DEFAULT NULL,
-  `telefono`  varchar(15)  DEFAULT NULL,
-  PRIMARY KEY (`idemisor`)
-) ENGINE=InnoDB;</code></pre>
-
   <p>
-    Y <code>facturas</code> guarda <code>num_factura</code>, <code>fecha_emision</code> —sólo
-    fecha, sin hora—, <code>estado</code>, <code>observaciones</code>, <code>subtotal</code>,
-    <code>importe_iva</code> y <code>total</code>. No hay ninguna referencia al emisor, ni hora
-    de expedición, ni nada relacionado con huellas.
+    En base de datos hay cuatro tablas: <code>clientes</code>, <code>conceptos</code>,
+    <code>emisor</code> y <code>facturas</code>. Para lo que aquí importa, el resumen es que
+    <strong>no hay nada relacionado con Verifactu</strong>: la factura no sabe de qué emisor es, no
+    guarda la hora a la que se expidió y no existe ninguna noción de huella ni de cadena. El
+    apartado siguiente lo detalla punto por punto.
   </p>
 
   <div class="nota ojo">
@@ -2403,6 +2503,77 @@ FechaHoraHusoGenEvento</code></pre>
       cadena de 64 caracteres. Así se pueden probar contra los vectores oficiales de la AEAT sin
       levantar la aplicación, sin base de datos y sin red — que es exactamente lo que hay que
       hacer en la primera fase.
+    </p>
+  </div>
+
+  <h4 id="librerias">¿Librerías o a mano?</h4>
+
+  <p>
+    Es la primera decisión de arquitectura y conviene tomarla con criterio, no por costumbre. La
+    respuesta corta es <strong>librería para lo que está resuelto y normalizado, y código propio
+    para lo que es el núcleo del requisito legal</strong>.
+  </p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <caption>Qué se delega y qué se escribe</caption>
+      <thead>
+        <tr><th scope="col">Pieza</th><th scope="col">Decisión</th><th scope="col">Por qué</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Código QR</td>
+          <td class="marca-bien">Librería · ZXing</td>
+          <td>Escribir un codificador QR es reimplementar una norma compleja, la ISO/IEC 18004, sin aprender nada de Verifactu por el camino. ZXing es Apache 2.0, está en Maven Central y soporta el nivel de corrección M que exige la AEAT.</td>
+        </tr>
+        <tr>
+          <td>Cliente SOAP</td>
+          <td class="marca-bien">Generado · CXF</td>
+          <td>No es «una librería de Verifactu»: son clases generadas del WSDL oficial de la AEAT. La dependencia apunta a la fuente correcta, y cuando la AEAT publique una versión nueva basta con regenerar.</td>
+        </tr>
+        <tr>
+          <td>Huella y encadenamiento</td>
+          <td class="marca-mal">A mano</td>
+          <td>Son treinta líneas y es justo el núcleo del reglamento. Delegarlo significa no poder explicar por qué un registro sale rechazado.</td>
+        </tr>
+        <tr>
+          <td>Construcción del XML</td>
+          <td class="marca-mal">A mano</td>
+          <td>Sobre las clases ya generadas del WSDL, es rellenar objetos. Una capa más encima sólo añade una traducción que puede desalinearse con la huella.</td>
+        </tr>
+        <tr>
+          <td>Firma XAdES</td>
+          <td>No aplica</td>
+          <td>Sólo hace falta en la modalidad no verificable. Si algún día se cambiara, entonces sí: librería seria como EU DSS, nunca firma XML a mano.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota ojo">
+    <span class="cabecera">Por qué no una librería de Verifactu completa</span>
+    <p>
+      Existen, pero el ecosistema en Java está inmaduro. El candidato más visible,
+      <code>squareetlabs/verifactu-sdk</code>, tiene dos estrellas y siete <em>commits</em>,
+      <strong>no está publicado en Maven Central</strong> —hay que autenticarse con un token de
+      GitHub para descargarlo— y apunta a Java 8 cuando el proyecto va por el 21. Para un equipo
+      eso es fricción de compilación a cambio de poco.
+    </p>
+    <p>
+      Y hay una razón de fondo más importante: <strong>la responsabilidad del registro es del
+      obligado tributario y del productor del software</strong>. Si la AEAT rechaza un envío, la
+      explicación no puede ser «lo calcula una librería de dos estrellas». Con la huella escrita
+      en casa y probada contra los vectores oficiales, siempre se puede demostrar por qué el
+      resultado es el que es.
+    </p>
+  </div>
+
+  <div class="nota verificado">
+    <span class="cabecera">La regla general, por si sirve fuera de aquí</span>
+    <p>
+      Delega en una librería lo que sea un <em>estándar cerrado y bien resuelto</em> —comprimir,
+      cifrar, codificar un QR, hablar un protocolo—. Escribe tú lo que sea la <em>regla de negocio
+      concreta</em> de la que respondes. Aquí la frontera cae justo entre el QR y la huella.
     </p>
   </div>
 
@@ -3423,6 +3594,28 @@ public Optional&lt;String&gt; ultimaHuella(int idEmisor) {
     </p>
   </div>
 
+  <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/service/VerifactuService.java</span></span>
+<pre><code>/**
+ * La puerta de entrada al modulo. Es lo unico que FacturaServiceImpl conoce.
+ *
+ * Fijate en lo que NO hay aqui: ningun metodo para modificar ni borrar un registro. La
+ * interfaz no ofrece esa posibilidad, asi que ningun codigo del proyecto puede usarla.
+ */
+public interface VerifactuService {
+
+    /** Genera y persiste el registro de alta de una factura recien emitida. */
+    RegistroFacturacion registrarAlta(Factura factura, List&lt;DesgloseImpositivo&gt; desglose);
+
+    /** Genera y persiste el registro de anulacion de una factura ya comunicada. */
+    RegistroFacturacion registrarAnulacion(Factura factura, String motivo);
+
+    /** Los registros de una factura, para pintar el panel de detalle. */
+    List&lt;RegistroResponse&gt; registrosDeFactura(int idFactura);
+
+    /** La cola de pendientes, para la pantalla de envios. */
+    List&lt;RegistroResponse&gt; pendientes();
+}</code></pre>
+
   <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/service/VerifactuServiceImpl.java</span></span>
 <pre><code>/**
  * Orquesta los pasos 01 a 06: componer, encadenar, calcular, persistir y encolar.
@@ -3434,6 +3627,7 @@ public Optional&lt;String&gt; ultimaHuella(int idEmisor) {
 public class VerifactuServiceImpl implements VerifactuService {
 
     private final RegistroRepository registroRepository;
+    private final EmisorRepository emisorRepository;
     private final CadenaCanonica cadenas;
     private final CalculadorHuella calculador;
     private final ConstructorSuministro constructorXml;
@@ -3571,6 +3765,48 @@ public class GeneradorNumeros {
     Y ese céntimo va dentro de la huella.
   </p>
 
+  <p>
+    Antes del cálculo hacen falta dos <code>record</code> muy cortos: uno para la línea de
+    desglose y otro para la clave por la que se agrupa.
+  </p>
+
+  <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/dto/ClaveDesglose.java</span></span>
+<pre><code>/**
+ * Los cuatro datos que definen un grupo del desglose.
+ *
+ * Es un record justamente para poder usarlo como clave de un Map: Java le genera equals y
+ * hashCode a partir de los campos. Con una clase normal habria que escribirlos a mano, y
+ * olvidarlos es un fallo silencioso -cada linea acabaria en su propio grupo-.
+ */
+public record ClaveDesglose(
+        String impuesto,            // "01" = IVA
+        String claveRegimen,        // "01" = regimen general
+        String calificacion,        // "S1" = sujeta y no exenta
+        BigDecimal tipoImpositivo) {
+
+    public static ClaveDesglose de(ConceptoFactura concepto) {
+        ClaveDesglose clave = new ClaveDesglose(
+                "01",
+                concepto.claveRegimen(),
+                concepto.calificacion(),
+                concepto.porcentajeIva());
+        return clave;
+    }
+}</code></pre>
+
+  <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/dto/DesgloseImpositivo.java</span></span>
+<pre><code>/** Una linea del desglose: la clave que la agrupa, su base y su cuota. */
+public record DesgloseImpositivo(ClaveDesglose clave,
+                                 BigDecimal baseImponible,
+                                 BigDecimal cuota) {
+
+    // Atajos para que ConstructorSuministro no tenga que escribir clave().impuesto()
+    public String impuesto()            { return clave.impuesto(); }
+    public String claveRegimen()        { return clave.claveRegimen(); }
+    public String calificacion()        { return clave.calificacion(); }
+    public BigDecimal tipoImpositivo()  { return clave.tipoImpositivo(); }
+}</code></pre>
+
   <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/service/CalculadoraImportes.java</span></span>
 <pre><code>/**
  * Convierte los conceptos de una factura en el desglose por tipo impositivo.
@@ -3639,19 +3875,7 @@ public class CalculadoraImportes {
     </p>
   </div>
 
-  <div class="nota verificado">
-    <span class="cabecera">Ampliación opcional · la clave de agrupación</span>
-    <p>
-      <code>ClaveDesglose</code> es un <code>record</code> con los cuatro campos que definen un
-      grupo: impuesto, clave de régimen, calificación de la operación y tipo impositivo. Al ser un
-      <code>record</code>, Java le genera <code>equals</code> y <code>hashCode</code> solo, y por
-      eso se puede usar directamente como clave de un <code>Map</code>. Con una clase normal
-      habría que escribirlos a mano, y olvidarlos es un fallo silencioso: cada línea acabaría en su
-      propio grupo.
-    </p>
-  </div>
-
-  <!-- 2.9 ───────────────────────────────────────────────────────────────── -->
+    <!-- 2.9 ───────────────────────────────────────────────────────────────── -->
   <h3 id="xml">2.9 · El XML del registro</h3>
 
   <p>
@@ -4061,28 +4285,10 @@ application-local.properties</code></pre>
   <!-- 2.11 ──────────────────────────────────────────────────────────────── -->
   <h3 id="soap">2.11 · El cliente SOAP</h3>
 
-  <p>Hay dos caminos, y para este proyecto la diferencia es notable:</p>
-
-  <div class="rejilla">
-    <div class="ficha-caja destacada">
-      <span class="etiqueta-caja">Recomendado</span>
-      <h4>Generar las clases a partir del WSDL</h4>
-      <p>
-        Con el plugin de generación de código de CXF apuntando al WSDL de la AEAT. Las decenas de
-        clases del mensaje salen solas, y cuando la AEAT publique una versión nueva basta con
-        regenerar.
-      </p>
-    </div>
-    <div class="ficha-caja">
-      <span class="etiqueta-caja">Alternativa</span>
-      <h4>Construir el XML a mano</h4>
-      <p>
-        Con JAXB, o incluso con plantillas de texto. Da más control y añade menos dependencias,
-        pero obliga a mantener a mano un esquema de decenas de campos. Sólo compensa si la
-        generación automática da problemas.
-      </p>
-    </div>
-  </div>
+  <p>
+    La decisión de generar el cliente desde el WSDL en vez de escribirlo a mano ya está tomada y
+    razonada en el apartado 2.3. Aquí va lo que hace falta para llevarla a cabo.
+  </p>
 
   <span class="rotulo-codigo">Modificar · <span class="ruta">pom.xml</span></span>
 <pre><code>&lt;!-- Cliente SOAP --&gt;
@@ -4146,6 +4352,7 @@ public class ClienteAeatSoap implements ClienteAeat {
 
     private final FabricaSslContext fabricaSsl;
     private final EnvioRepository envioRepository;
+    private final ConstructorSuministro constructor;
 
     @Value("${verifactu.endpoint}")
     private String endpoint;
@@ -4241,13 +4448,128 @@ public record RespuestaAeat(
             return estado;
         }
 
-        /** Solo los rechazados se vuelven a enviar. Los aceptados con errores, NO. */
+        /**
+         * Solo los RECHAZADOS se vuelven a enviar como alta.
+         *
+         * Un "AceptadoConErrores" ya esta registrado en la AEAT: reenviarlo lo duplicaria.
+         * Lo que necesita es una SUBSANACION, que es otro camino. Ver requiereSubsanacion().
+         */
         public boolean hayQueReenviar() {
             boolean reenviar = "Incorrecto".equals(estadoRegistro);
             return reenviar;
         }
+
+        /** Aceptado, pero con algo que la AEAT quiere ver corregido. */
+        public boolean requiereSubsanacion() {
+            boolean subsanar = "AceptadoConErrores".equals(estadoRegistro);
+            return subsanar;
+        }
     }
 }</code></pre>
+
+  <h4>Dos clases de error, y sólo una obliga a reenviar</h4>
+
+  <p>
+    Ésta es la parte que más fácil es programar mal, porque la intuición engaña. El documento de
+    validaciones de la AEAT divide los errores en dos familias que se tratan de forma
+    <strong>opuesta</strong>:
+  </p>
+
+  <div class="rejilla">
+    <div class="ficha-caja">
+      <span class="etiqueta-caja">No admisibles</span>
+      <h4>El registro se rechaza</h4>
+      <p>
+        No ha pasado las validaciones. <strong>La AEAT no lo ha guardado.</strong> Hay que corregir
+        el dato y volver a enviarlo como un alta normal.
+      </p>
+    </div>
+    <div class="ficha-caja destacada">
+      <span class="etiqueta-caja">Admisibles</span>
+      <h4>El registro se acepta… pero hay que subsanarlo</h4>
+      <p>
+        <strong>La AEAT sí lo ha guardado.</strong> Reenviarlo duplicaría. Lo que pide la norma es
+        mandar después una <strong>subsanación</strong>: un registro de alta con el campo
+        <code>Subsanacion</code> a <code>S</code>, que corrige los datos del anterior.
+      </p>
+    </div>
+  </div>
+
+  <p>
+    La lista de errores admisibles es corta y, curiosamente, cae justo encima de las tres cosas
+    delicadas que este documento ya explicaba por separado:
+  </p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <caption>Errores admisibles, según el documento de validaciones v1.2.2</caption>
+      <thead>
+        <tr><th scope="col">Qué ha pasado</th><th scope="col">Dónde se origina</th><th scope="col">¿Subsanar?</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>El NIF del destinatario es correcto pero <strong>no está censado</strong> en la AEAT</td>
+          <td>Cliente extranjero o recién dado de alta. Se informa con <code>IDType</code> igual a <code>07</code>.</td>
+          <td>Sí</td>
+        </tr>
+        <tr>
+          <td><strong>La huella no coincide</strong> con la que calcula la AEAT</td>
+          <td>Un fallo en la cadena canónica. Es exactamente lo que previenen los tres vectores de prueba de la sección 1.</td>
+          <td>Sí</td>
+        </tr>
+        <tr>
+          <td><code>ImporteTotal</code> no cuadra con la suma del desglose</td>
+          <td>Redondeo. Ver el apartado 2.8: por eso se redondea cada línea y luego se suma.</td>
+          <td>Sí</td>
+        </tr>
+        <tr>
+          <td><code>CuotaTotal</code> no cuadra con la suma de cuotas</td>
+          <td>Lo mismo.</td>
+          <td>Sí</td>
+        </tr>
+        <tr>
+          <td><code>PrimerRegistro="S"</code> y <strong>ya existían registros</strong> de ese SIF y NIF</td>
+          <td>La cadena se ha bifurcado. Es justo el fallo que evita el bloqueo del apartado 2.7.</td>
+          <td>Sí</td>
+        </tr>
+        <tr>
+          <td>Falta <code>ClaveRegimen</code> con IPSI · sello de tiempo posterior a la hora de la AEAT</td>
+          <td>Casos que la propia norma exceptúa.</td>
+          <td><strong>No</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota verificado">
+    <span class="cabecera">Tres apartados que estaban sueltos y ahora se atan</span>
+    <p>
+      Fíjate en la columna del medio. El bloqueo de concurrencia del 2.7, el criterio de redondeo
+      del 2.8 y los vectores de prueba de la sección 1 no son manías: son literalmente los tres
+      errores que la AEAT te va a devolver si los haces mal. Programarlos bien desde el principio
+      te ahorra descubrirlos en producción.
+    </p>
+  </div>
+
+  <div class="nota ojo">
+    <span class="cabecera">Y un tercer camino que no es ninguno de los dos</span>
+    <p>
+      La subsanación sólo vale cuando el error es del <em>registro</em>. Si lo que está mal es la
+      <em>factura</em> —un importe realmente equivocado, un cliente que no era— entonces no se
+      subsana: se emite una <strong>factura rectificativa</strong>, que es otro documento. Lo dice
+      la propia norma. El apartado 2.15 lo desarrolla.
+    </p>
+  </div>
+
+  <div class="nota ojo">
+    <span class="cabecera">Por qué el cliente SOAP captura <code>SOAPFaultException</code></span>
+    <p>
+      Cuando el rechazo es <strong>completo</strong> —la estructura no cumple el esquema, o falla
+      algo de la cabecera— la AEAT no responde con un mensaje normal: devuelve un
+      <code>SoapFault</code>. Por eso el <code>catch</code> del apartado 2.11 no es defensivo
+      porque sí: es el camino previsto para toda una familia de errores.
+    </p>
+  </div>
 
   <div class="estados">
     <div class="flujo-titulo">Diagrama 3 · Estados de un registro frente a la AEAT</div>
@@ -4306,6 +4628,16 @@ public record RespuestaAeat(
 public class PlanificadorEnvios {
 
     private static final Logger log = LoggerFactory.getLogger(PlanificadorEnvios.class);
+
+    private final RegistroRepository registroRepository;
+    private final EmisorService emisorService;
+    private final ClienteAeat clienteAeat;
+
+    @Value("${verifactu.envio.tamano-lote}")
+    private int tamanoLote;
+
+    @Value("${verifactu.envio.espera-por-defecto-segundos}")
+    private int esperaPorDefecto;
 
     @Scheduled(fixedDelayString = "PT1M")
     public void enviarPendientes() {
@@ -4386,7 +4718,7 @@ public class GeneradorQr {
                                                .setScale(2, RoundingMode.HALF_UP)
                                                .toPlainString())
                 .build()
-                .encode(StandardCharsets.UTF_8)   // la barra de "12345678/G33" pasa a %2F
+                .encode(StandardCharsets.UTF_8)   // escapa el & y demas caracteres reservados
                 .toUriString();
         return url;
     }
@@ -4409,11 +4741,22 @@ public class GeneradorQr {
 
   <p>
     El tamaño en píxeles depende de la resolución de impresión. Para 300 puntos por pulgada, los
-    30–40 mm que exige la norma son unos <strong>354 a 472 píxeles</strong> de lado. Y la
-    codificación de la URL importa de verdad: si la barra de <code>12345678/G33</code> no se
-    escapa como <code>%2F</code>, el QR apunta a una ruta inexistente y el escaneo devuelve un
-    error en la sede.
+    30–40 mm que exige la norma son unos <strong>354 a 472 píxeles</strong> de lado.
   </p>
+
+  <p>
+    <code>UriComponentsBuilder…encode(UTF_8)</code> resuelve la codificación de los parámetros,
+    que es donde está el riesgo: un número de factura con un <code>&amp;</code> sin escapar
+    rompería la URL en dos parámetros. Lo que la clase <strong>no</strong> resuelve es la parte
+    de maquetación —el «QR tributario:» encima, la leyenda debajo y el tamaño en milímetros—,
+    que vive en la plantilla de impresión y se ve en el apartado 2.18.
+  </p>
+
+  <p>
+      La versión 0.5.0 de la especificación del QR, de diciembre de 2025, añadió un parámetro
+      <code>Idioma</code> para elegir en qué lengua responde la página de cotejo. No es
+      obligatorio, pero si alguna vez se factura fuera de España, ahí está.
+    </p>
 
   <!-- 2.15 ──────────────────────────────────────────────────────────────── -->
   <h3 id="anular-codigo">2.15 · Anular y rectificar</h3>
@@ -4631,6 +4974,25 @@ public class RegistroRepositoryJdbcImpl implements RegistroRepository {
     }
 }</code></pre>
 
+  <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/repository/EnvioRepository.java</span></span>
+<pre><code>/**
+ * Traza de cada llamada a la AEAT, sobre la tabla envio_aeat.
+ *
+ * Existe para poder reproducir un rechazo: cuando la AEAT responde "Incorrecto" el mensaje es
+ * escueto, y sin el XML exacto que se mando no hay forma de saber que dato fallaba.
+ */
+public interface EnvioRepository {
+
+    /** Guarda el intento ANTES de enviar. Devuelve el id del envio. */
+    long registrarIntento(String endpoint, int numRegistros, Object peticion);
+
+    /** Guarda la respuesta cuando llega. */
+    void registrarResultado(long idEnvio, Object respuesta, RespuestaAeat interpretada);
+
+    /** Guarda el motivo cuando la llamada ni siquiera llego. */
+    void registrarFalloTecnico(long idEnvio, String error);
+}</code></pre>
+
   <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/repository/RegistroRowMapper.java</span></span>
 <pre><code>/**
  * De fila a registro. Mismo patron que FacturaRowMapper y ConceptoFacturaRowMapper.
@@ -4743,6 +5105,25 @@ public ResponseEntity&lt;ApiResponse&lt;Void&gt;&gt; manejarVerifactu(VerifactuE
     alguien ve en pantalla que algo lleva demasiado tiempo pendiente. <strong>No hay ningún
     endpoint que borre o modifique un registro</strong>, y eso es deliberado.
   </p>
+
+  <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/dto/RegistroResponse.java</span></span>
+<pre><code>/**
+ * Lo que ve el navegador. DTO de salida separado del dominio, como ClienteResponse.
+ *
+ * Deliberadamente NO expone la cadena canonica ni el XML: son datos internos de auditoria
+ * y no tienen nada que hacer viajando al navegador.
+ */
+public record RegistroResponse(
+        long idRegistro,
+        String numeroFactura,
+        String tipoRegistro,        // ALTA | ANULACION
+        String huella,              // los 64 caracteres; el front la recorta al pintarla
+        String estadoEnvio,
+        String csvAeat,
+        String codigoError,
+        String descripcionError,
+        String fechaHoraGeneracion) {
+}</code></pre>
 
   <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/controller/VerifactuController.java</span></span>
 <pre><code>@RestController
@@ -5027,9 +5408,14 @@ async function confirmarAnulacion(factura) {
   &lt;/div&gt;
 
   &lt;figure class="bloque-verifactu"&gt;
+    &lt;!-- Obligatorio y SIEMPRE encima del codigo: lo distingue de otros QR
+         que pueda llevar la factura, como el de pago. --&gt;
+    &lt;p class="rotulo-qr"&gt;QR tributario:&lt;/p&gt;
+
     &lt;img class="qr-verifactu"
          src="/verifactu/qr/{{idFactura}}.png"
          alt="Codigo QR para validar esta factura en la sede electronica de la AEAT"&gt;
+
     &lt;figcaption class="leyenda-verifactu"&gt;
       VERI*FACTU
       &lt;small&gt;Factura verificable en la sede electronica de la AEAT&lt;/small&gt;
@@ -5056,11 +5442,16 @@ async function confirmarAnulacion(factura) {
     text-align: center;
 }
 
+/* Los dos textos tienen que tener letra IGUAL O MAYOR que el resto de datos de
+   la factura. Si el cuerpo va a 9pt, estos no pueden bajar de ahi. */
+.rotulo-qr,
 .leyenda-verifactu {
     font-weight: 700;
     letter-spacing: .08em;
     font-size: 9pt;
+    margin: 0;
 }
+.rotulo-qr { margin-bottom: 2mm; }
 .leyenda-verifactu small {
     display: block;
     font-weight: 400;
@@ -5252,16 +5643,6 @@ async function confirmarAnulacion(factura) {
     </p>
   </div>
 
-  <div class="nota verificado">
-    <span class="cabecera">Cómo presentar todo esto</span>
-    <p>
-      Merece la pena decir en voz alta que ninguno de los puntos del apartado 2.2 es un fallo del
-      trabajo hecho: son requisitos que aparecen al añadir una obligación legal que antes no
-      estaba sobre la mesa. Es exactamente lo que ocurre en un proyecto real cuando entra en
-      vigor una normativa nueva, y saberlo reconocer y planificar vale tanto como saber
-      programarlo.
-    </p>
-  </div>
 </section>
 
 
@@ -5434,50 +5815,129 @@ async function confirmarAnulacion(factura) {
     </p>
   </div>
 </section>
-<!-- ══ ANEXO ══════════════════════════════════════════════════════════════ -->
+<!-- ══ FUENTES OFICIALES ═════════════════════════════════════════════════ -->
 <section class="seccion" id="anexo">
-  <span class="numero-seccion">Anexo</span>
-  <h2 class="titulo-seccion">Fuentes</h2>
+  <span class="numero-seccion">Anexo B</span>
+  <h2 class="titulo-seccion">Fuentes oficiales</h2>
 
-  <p>
-    Todo lo que se afirma en este documento sale de estas fuentes. Las dos primeras son
-    normativa; la tercera es la que resuelve las dudas concretas sobre la huella y la que
-    contradice el material de partida; la cuarta y la quinta son el contrato técnico del
-    servicio, de donde salen los nombres de campo, los enumerados y el límite de 1.000 registros.
+  <p class="entradilla">
+    Todo lo que afirma este documento sale de aquí. Son enlaces directos a la sede electrónica de
+    la AEAT y a sus PDF técnicos, con la versión y la fecha que tenían al redactarlo. Conviene
+    comprobar la versión antes de escribir código: la AEAT publica revisiones con cierta
+    frecuencia.
   </p>
 
+  <h3>El punto de entrada</h3>
+  <p>
+    Si sólo te quedas con un enlace, que sea éste. De él cuelgan todos los demás y es donde
+    aparecen las versiones nuevas.
+  </p>
+  <p>
+    <a href="https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica.html">
+      Sede electrónica › IVA › Sistemas Informáticos de Facturación y VERI*FACTU › Información técnica
+    </a>
+  </p>
+
+  <h3>Documentos técnicos</h3>
   <div class="tabla-envoltura">
     <table>
-      <caption>Documentación consultada y verificada</caption>
-      <thead><tr><th scope="col">Fuente</th><th scope="col">Qué aporta</th></tr></thead>
+      <caption>Especificaciones, con la versión verificada</caption>
+      <thead>
+        <tr><th scope="col">Documento</th><th scope="col">Versión</th><th scope="col">Qué aporta</th></tr>
+      </thead>
       <tbody>
         <tr>
-          <td><strong>RD 1007/2023</strong>, de 5 de diciembre</td>
-          <td>Reglamento de requisitos de los sistemas informáticos de facturación. Define qué es un SIF, las dos modalidades y las obligaciones.</td>
+          <td>
+            <a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_especificaciones_huella_hash_registros.pdf">
+              Algoritmo de cálculo de la huella o <em>hash</em></a> (PDF)
+          </td>
+          <td><strong>0.1.2</strong><br>27/08/2024</td>
+          <td>Formato exacto de la cadena canónica, reglas de normalización y los tres vectores de prueba de la sección 1.</td>
         </tr>
         <tr>
-          <td><strong>Orden HAC/1177/2024</strong>, de 17 de octubre</td>
-          <td>Especificación técnica: diseños de registro, formatos, QR y declaración responsable del artículo 15.</td>
+          <td>
+            <a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/DetalleEspecificacTecnCodigoQRfactura.pdf">
+              Características del QR y servicio de cotejo</a> (PDF)
+          </td>
+          <td><strong>0.5.0</strong><br>10/12/2025</td>
+          <td>Tamaño, nivel de corrección, posición, el rótulo «QR tributario:», la leyenda y la URL de validación con sus parámetros.</td>
         </tr>
         <tr>
-          <td><strong>«Detalle de las especificaciones técnicas para generación de la huella o hash de los registros de facturación»</strong>, AEAT, versión 0.1.2 de 27/08/2024</td>
-          <td>Formato exacto de la cadena canónica, reglas de normalización, y los tres vectores de prueba reproducidos en la sección 1.</td>
+          <td>
+            <a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Espec-Tecnicas/EspecTecGenerFirmaElectRfact.pdf">
+              Firma electrónica de los registros</a> (PDF)
+          </td>
+          <td><strong>0.1.5</strong><br>06/03/2025</td>
+          <td>XAdES Enveloped, política de firma y requisitos del certificado. Sólo hace falta en la modalidad no verificable.</td>
         </tr>
         <tr>
-          <td><strong><code>SuministroInformacion.xsd</code></strong> y <strong><code>SuministroLR.xsd</code></strong></td>
-          <td>Nombres y orden de todos los campos, enumerados de <code>TipoFactura</code> y <code>TipoHuella</code>, estructura de <code>Encadenamiento</code> y <code>SistemaInformatico</code>, y el <code>maxOccurs="1000"</code>.</td>
+          <td>
+            <a href="https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica/disenos-registro.html">
+              Diseños de registro</a>
+          </td>
+          <td>Página viva</td>
+          <td>Todos los campos del registro de alta, de anulación y de evento, con su tipo y obligatoriedad.</td>
         </tr>
         <tr>
-          <td><strong><code>RespuestaSuministro.xsd</code></strong></td>
-          <td>Campos de la respuesta y los valores exactos de <code>EstadoEnvio</code> y <code>EstadoRegistro</code>.</td>
+          <td>
+            <a href="https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica/esquemas.html">
+              Esquemas XSD</a>
+          </td>
+          <td>Página viva</td>
+          <td><code>SuministroInformacion.xsd</code> y <code>SuministroLR.xsd</code>: nombres de campo, enumerados y el límite de 1.000 registros.</td>
         </tr>
         <tr>
-          <td><strong><code>SistemaFacturacion.wsdl</code></strong></td>
-          <td>Operación <code>RegFactuSistemaFacturacion</code>, estilo document/literal sobre SOAP 1.1, y las direcciones de los servicios.</td>
+          <td>
+            <a href="https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica/wsdl-servicios-web.html">
+              WSDL de los servicios web</a>
+          </td>
+          <td>Página viva</td>
+          <td>El contrato del servicio y las direcciones de cada entorno. Es de aquí de donde se genera el cliente.</td>
         </tr>
         <tr>
-          <td><strong>Real Decreto-ley 15/2025</strong>, de 2 de diciembre</td>
-          <td>Prórroga de los plazos de aplicación a 2027, manteniendo firme el de los productores de software.</td>
+          <td>
+            <a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Validaciones_Errores_Veri-Factu.pdf">
+              Validaciones y errores</a> (PDF)
+          </td>
+          <td><strong>1.2.2</strong></td>
+          <td>Todas las validaciones campo a campo, y la distinción entre errores admisibles y no admisibles que gobierna el apartado 2.12. Imprescindible el día que la AEAT rechace algo.</td>
+        </tr>
+        <tr>
+          <td>
+            <a href="https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/FAQs-Desarrolladores.pdf">
+              Preguntas frecuentes de empresas de desarrollo</a> (PDF)
+          </td>
+          <td>04/12/2025</td>
+          <td>Casos límite resueltos por la propia AEAT. Suele responder antes que el foro.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Entorno de pruebas</h3>
+  <p>
+    Las pruebas se hacen contra el <a href="https://preportal.aeat.es">Portal de Pruebas
+    Externas</a>, con los endpoints <code>prewww1</code> o <code>prewww10</code> según el tipo de
+    certificado, como se explica en el paso 08.
+  </p>
+
+  <h3>Normativa</h3>
+  <div class="tabla-envoltura">
+    <table>
+      <caption>La base legal</caption>
+      <thead><tr><th scope="col">Norma</th><th scope="col">Qué establece</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><a href="https://www.boe.es/buscar/act.php?id=BOE-A-2023-24840">Real Decreto 1007/2023</a>, de 5 de diciembre</td>
+          <td>El reglamento: qué es un SIF, las dos modalidades y las obligaciones.</td>
+        </tr>
+        <tr>
+          <td><a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2024-22138">Orden HAC/1177/2024</a>, de 17 de octubre</td>
+          <td>Las especificaciones técnicas, funcionales y de contenido, incluida la declaración responsable del artículo 15.</td>
+        </tr>
+        <tr>
+          <td><a href="https://www.boe.es/buscar/doc.php?id=BOE-A-2025-24446">Real Decreto-ley 15/2025</a>, de 2 de diciembre</td>
+          <td>La prórroga de los plazos a 2027, manteniendo firme el de los productores de software.</td>
         </tr>
       </tbody>
     </table>
@@ -5486,11 +5946,11 @@ async function confirmarAnulacion(factura) {
   <div class="nota ojo">
     <span class="cabecera">Antes de escribir la primera línea de código</span>
     <p>
-      La AEAT publica versiones sucesivas del WSDL y de los esquemas. Conviene descargar la
-      versión vigente el día que se empiece, guardarla dentro del proyecto y generar el cliente
-      desde ahí — en vez de fiarse de nombres de campo citados de memoria, incluidos los de este
-      documento. Los que sí están fijados por la Orden, y por tanto son estables, son los ocho
-      campos de la huella de alta, los cinco de la anulación y los nueve del registro de evento.
+      Descarga el WSDL y los XSD vigentes ese mismo día, guárdalos dentro del proyecto y genera el
+      cliente desde ahí. Así queda registrado en Git con qué versión se construyó, que es
+      exactamente la información que hace falta el día que algo deja de validar. Lo que sí está
+      fijado por la Orden, y por tanto es estable, son los ocho campos de la huella de alta, los
+      cinco de la anulación y los nueve del registro de evento.
     </p>
   </div>
 </section>
