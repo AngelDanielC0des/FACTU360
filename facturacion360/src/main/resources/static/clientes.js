@@ -1289,6 +1289,14 @@ function obtenerPanel(fila, animar) {
 function marcarFila(fila, modo) {
     const botonVer = fila.querySelector(".btn-ver");
     const botonEditar = fila.querySelector(".btn-editar");
+    const botonBorrar = fila.querySelector(".btn-eliminar");
+
+    botonBorrar.addEventListener("click", (event) => {
+        confirmarBorradoCliente(
+            event.currentTarget,
+            fila.dataset.clienteId
+        );
+    });
 
     fila.classList.toggle("desplegada", modo !== null);
 
@@ -1305,20 +1313,24 @@ function marcarFila(fila, modo) {
     // algo y si está abierto o cerrado. Va en el botón, que es el control de verdad.
     botonVer.setAttribute("aria-expanded", String(modo === "detalle"));
     botonEditar.setAttribute("aria-expanded", String(modo === "edicion"));
+    botonBorrar.setAttribute("aria-expanded", String(modo === "borrar"));
 
     if (modo === null) {
         botonVer.removeAttribute("aria-controls");
         botonEditar.removeAttribute("aria-controls");
+        botonBorrar.removeAttribute("aria-controls");
     } else {
         const idPanel = `despliegue-${fila.dataset.clienteId}`;
         botonVer.setAttribute("aria-controls", idPanel);
         botonEditar.setAttribute("aria-controls", idPanel);
+        botonBorrar.setAttribute("aria-controls", idPanel);
     }
 
     // Pulsar la fila o el ojo lleva SIEMPRE al detalle, así que en modo edición el aviso no
     // puede decir "Ocultar": lo que va a pasar es que se cambie al detalle.
     const accionDetalle = modo === "detalle" ? "Ocultar detalles" : "Ver detalles";
     const accionEditar = modo === "edicion" ? "Cancelar la edición" : "Editar cliente";
+    //const accionBorrar = modo === "borrar" ? "Cancelar la edición" : "Borrar cliente";
 
     escribirPista([fila.querySelector("th.cliente-nombre")], accionDetalle);
     nombrarAccion(botonVer, accionDetalle, `${accionDetalle} de`);
@@ -2184,3 +2196,251 @@ pintarEstadoFiltros();
 cargarProvincias();
 cargarPoblaciones("");
 cargarClientes(0);
+
+let clientePendienteEliminar = null;
+
+// ============================================================
+// BOTÓN ELIMINAR
+// ============================================================
+/*
+document.addEventListener(
+    "click",
+    (evento) => {
+
+        const boton =
+            evento.target.closest(
+                ".btn-eliminar"
+            );
+
+
+        if (!boton) {
+            return;
+        }
+
+
+        const idCliente =
+            boton.dataset.id;
+
+
+        clientePendienteEliminar =
+            idCliente;
+
+
+        const modalElemento =
+            document.getElementById(
+                "confirmarEliminarModal"
+            );
+
+// ============================================
+
+        const modal =
+            new bootstrap.Modal(
+                modalElemento
+            );
+
+
+        modal.show();
+
+    }
+);
+*/
+
+// ============================================================
+// CONFIRMAR ELIMINACIÓN
+// ============================================================
+
+function confirmarBorradoCliente(botonClickado, idClienteEliminar) {
+    console.log(botonClickado);
+    console.log(idClienteEliminar);
+
+    const modalElemento =
+        document.getElementById(
+            "confirmarEliminarModal"
+        );
+
+
+    const modal =
+        new bootstrap.Modal(
+            modalElemento
+        );
+
+
+    modal.show();
+
+    document
+        .getElementById(
+            "btn-confirmar-eliminar"
+        )
+        .addEventListener(
+            "click",
+            async () => {
+
+
+
+                try {
+
+                    const respuesta =
+                        await fetch(
+                            `/cliente/${idClienteEliminar}`,
+                            {
+                                method: "DELETE"
+                            }
+                        );
+
+
+                    let datos = null;
+
+
+                    try {
+
+                        datos =
+                            await respuesta.json();
+
+                    } catch {
+
+                        datos = null;
+
+                    }
+
+
+                    // Error HTTP
+                    if (!respuesta.ok) {
+
+                        throw new Error(
+                            datos?.message ||
+                            "No se pudo eliminar el cliente."
+                        );
+
+                    }
+
+
+                    // Cerramos modal de confirmación
+                    cerrarModal(
+                        "confirmarEliminarModal"
+                    );
+
+
+                    // Mensaje de éxito
+                    mostrarMensajeJ(
+                        datos?.message ||
+                        "Cliente eliminado correctamente"
+                    );
+
+                    // Recargamos tabla
+                   /* cargarClientes(
+                        paginaActual
+                    );*/
+
+                    // Avisamos al resto
+                    document.dispatchEvent(
+                        new CustomEvent(
+                            "clientes:cambiaron"
+                        )
+                    );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Error al eliminar cliente:",
+                        error
+                    );
+
+
+                    cerrarModal(
+                        "confirmarEliminarModal"
+                    );
+
+
+                    clientePendienteEliminar =
+                        null;
+
+
+                    mostrarMensajeJ(
+                        error.message ||
+                        "No se pudo eliminar el cliente."
+                    );
+
+                }
+
+            }
+        );
+
+}
+
+
+
+// ============================================================
+// CERRAR MODAL
+// ============================================================
+
+function cerrarModal(idModal) {
+
+    const elemento =
+        document.getElementById(
+            idModal
+        );
+
+
+    if (!elemento) {
+        return;
+    }
+
+
+    const instancia =
+        bootstrap.Modal.getInstance(
+            elemento
+        );
+
+
+    if (instancia) {
+
+        instancia.hide();
+
+    }
+
+}
+
+
+// ============================================================
+// REFRESCO EXTERNO
+// ============================================================
+
+document.addEventListener(
+    "clientes:cambiaron",
+    () => {
+
+        cargarClientes(
+            paginaActual
+        );
+
+    }
+);
+
+
+
+function mostrarMensajeJ(texto) {
+
+    const mensaje =
+        document.getElementById(
+            "mensaje-modal-texto"
+        );
+
+    mensaje.textContent = texto;
+
+
+    const modalElemento =
+        document.getElementById(
+            "mensajeModal"
+        );
+
+
+    const modal =
+        new bootstrap.Modal(
+            modalElemento
+        );
+
+
+    modal.show();
+
+}

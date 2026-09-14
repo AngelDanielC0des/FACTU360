@@ -1,0 +1,100 @@
+body {
+    background-color: #f1f5f9;
+    color: #1f2937;
+}
+
+.documento-factura {
+    max-width: 960px;
+    background-color: white;
+    padding: 2.5rem;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.12);
+}
+
+.cabecera-factura {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    border-bottom: 3px solid #024ebc;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.cabecera-factura h1 {
+    color: #024ebc;
+    font-size: 1.8rem;
+}
+
+.datos-cliente,
+.observaciones-factura {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+.totales-factura {
+    width: 320px;
+    margin-top: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.totales-factura div {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.45rem 0;
+}
+
+.totales-factura .total-final {
+    border-top: 2px solid #024ebc;
+    font-size: 1.2rem;
+    color: #024ebc;
+}
+
+@media (max-width: 600px) {
+    .documento-factura {
+        padding: 1.25rem;
+    }
+
+    .cabecera-factura {
+        flex-direction: column;
+    }
+
+    .cabecera-factura .text-end {
+        text-align: left !important;
+    }
+
+    .totales-factura {
+        width: 100%;
+    }
+}
+
+@media print {
+    @page {
+        size: A4;
+        margin: 14mm;
+    }
+
+    body {
+        background-color: white;
+        font-size: 11pt;
+    }
+
+    .acciones-visor {
+        display: none !important;
+    }
+
+    .documento-factura {
+        max-width: none;
+        margin: 0 !important;
+        padding: 0;
+        box-shadow: none;
+    }
+
+    .table-responsive {
+        overflow: visible;
+    }
+
+    tr {
+        break-inside: avoid;
+    }
+}
