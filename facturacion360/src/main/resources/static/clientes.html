@@ -26,7 +26,10 @@
 <link rel="icon" href="./img/fav.ico" type="image/png">
 <!-- defer: descarga en paralelo con el parseo del HTML y se ejecuta cuando el
          DOM ya está listo, así que no hace falta DOMContentLoaded. -->
-<script src="clientes.js" defer></script>
+<!-- type="module" en vez de defer: los módulos ES ya se cargan aplazados por
+     definición, y además resuelven sus propias dependencias. Solo se carga el punto
+     de entrada; los otros diecisiete los trae él por sus import. -->
+<script type="module" src="js/main.js"></script>
 </head>
 <body>
 
@@ -66,7 +69,7 @@
 
 
 		<!-- Barra de criterios: buscador + filtros + ordenación. Todos escriben en el
-             mismo objeto de estado de clientes.js, así que se combinan entre sí: la
+             mismo objeto de estado (estado.js), así que se combinan entre sí: la
              ordenación se aplica sobre lo que haya dejado el filtro, no sobre todo. -->
 		<!-- <search> es el elemento propio de una zona de búsqueda y filtrado, y aporta
              role="search" sin ARIA a mano. El role explícito es para los navegadores
@@ -142,7 +145,7 @@
 		</search>
 
 		<!-- La zona por la que se entera de las cosas quien no ve la pantalla. Está SIEMPRE en
-             el documento y vacía, y clientes.js solo le cambia el texto: una región que se crea
+             el documento y vacía, y el JavaScript solo le cambia el texto: una región que se crea
              (o que se destapa) con el mensaje ya dentro no se anuncia, porque el lector de
              pantalla vigila los cambios de una región que ya estaba ahí (criterio 4.1.3).
              Es la única del listado, así que nada se anuncia dos veces, y al ser invisible
@@ -167,13 +170,13 @@
 		<!-- role="region" + tabindex="0": table-responsive desplaza en horizontal, y una zona
              que se desplaza tiene que poder recorrerse con el teclado (criterio 2.1.1 de WCAG).
              Sin el tabindex, quien no usa ratón no puede llegar a las columnas de la derecha.
-             Viene puesto de serie y clientes.js lo quita cuando la tabla cabe entera y no hay
+             Viene puesto de serie y el JavaScript lo quita cuando la tabla cabe entera y no hay
              nada que desplazar; así, si el JS fallara, se queda la versión accesible. -->
 		<div class="table-responsive" role="region" tabindex="0"
 			aria-labelledby="titulo-tabla-clientes">
 			<!-- Sin table-striped: Bootstrap raya por nth-of-type y, al insertar las filas de
                  detalle, la alternancia se descoloca a partir de cada panel abierto. Las filas
-                 las pinta clientes.js, así que marca él mismo la paridad por cliente. -->
+                 las pinta el JavaScript, así que marca él mismo la paridad por cliente. -->
 			<table class="table table-hover align-middle tabla-clientes">
 				<caption id="titulo-tabla-clientes" class="visually-hidden">
 					Clientes registrados, con su CIF, email, teléfono y fecha de alta</caption>
@@ -182,7 +185,7 @@
 						<!-- Cabeceras pulsables: es el gesto que todo el mundo prueba
                              primero en una tabla. Van dentro de un <button> real para
                              que se puedan usar con el teclado. aria-sort lo anuncia a
-                             los lectores de pantalla; clientes.js lo mantiene al día. -->
+                             los lectores de pantalla; el JavaScript lo mantiene al día. -->
 						<th scope="col" aria-sort="none">
 							<button type="button" class="cabecera-ordenable"
 								data-columna="nombre">
@@ -206,12 +209,12 @@
 					</tr>
 				</thead>
 
-				<!-- El cuerpo empieza vacío; clientes.js lo rellena clonando el template -->
+				<!-- El cuerpo empieza vacío; el JavaScript lo rellena clonando el template -->
 				<tbody id="tabla-clientes"></tbody>
 			</table>
 		</div>
 
-		<!-- Paginación: clientes.js activa/desactiva los botones según la página.
+		<!-- Paginación: el JavaScript activa y desactiva los botones según la página.
              aria-live="polite" hace que un lector de pantalla anuncie el cambio. -->
 		<nav aria-label="Paginación de clientes"
 			class="d-flex justify-content-between align-items-center mt-3">
@@ -247,7 +250,7 @@
 				<td class="cliente-alta"></td>
 				<!-- celda-acciones marca la zona que NO despliega la fila al pulsarla y en la
                      que no sale el aviso de "Ver detalles": cada botón explica lo suyo.
-                     Los nombres accesibles los completa clientes.js con el nombre del cliente;
+                     Los nombres accesibles los completa el JavaScript con el nombre del cliente;
                      si no, listar los botones de la página da veinte veces "Editar cliente"
                      sin saber de cuál. -->
 				<td class="text-end celda-acciones">
@@ -275,7 +278,7 @@
              nunca puede tener los dos a la vez contándose cosas distintas. -->
 		<template id="fila-despliegue-template">
 			<tr class="fila-despliegue">
-				<!-- El colspan lo pone clientes.js contando las cabeceras de la tabla: escrito
+				<!-- El colspan lo pone el JavaScript contando las cabeceras de la tabla: escrito
                      aquí a mano, añadir una columna obligaría a acordarse de cambiarlo. -->
 				<td>
 					<div class="despliegue-envoltorio">
@@ -292,7 +295,7 @@
              vez, y estando la fila del cliente ya por encima, sin esto no hay forma de saber
              de quién son los datos que se están leyendo. El nombre sale del texto que YA se
              ve, así que no hay dos cadenas que puedan acabar diciendo cosas distintas.
-             El id lo pone clientes.js con el del cliente: puede haber varios paneles en la
+             El id lo pone el JavaScript con el del cliente: puede haber varios paneles en la
              página y dos elementos no pueden compartir id. -->
 		<template id="panel-detalle-template">
 			<div class="panel-cliente" role="group">
@@ -407,7 +410,7 @@
 						class="texto-estado">Editando</span>
 				</p>
 
-				<!-- Los id llevan el sufijo PLANTILLA a propósito: clientes.js los sustituye
+				<!-- Los id llevan el sufijo PLANTILLA a propósito: el JavaScript los sustituye
                      por el id del cliente al pintar, porque puede haber varios formularios
                      abiertos a la vez y dos elementos no pueden compartir id. Si alguno se
                      quedara sin sustituir, el sufijo canta a la vista en el inspector.
