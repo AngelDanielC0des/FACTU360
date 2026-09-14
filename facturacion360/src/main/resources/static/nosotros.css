@@ -176,6 +176,32 @@ body {
     color: var(--text-muted);
     margin-bottom: 0;
 }
+/* Botón de GitHub en las tarjetas del equipo */
+.team-github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-main);
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    padding: 0.4rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.team-github-link i {
+    font-size: 1.1rem;
+}
+
+.team-github-link:hover {
+    background-color: #1f2937;
+    color: #ffffff;
+    border-color: #1f2937;
+    transform: translateY(-2px);
+}
 
 /* ==========================================
    FOOTER (Coincide con tu diseño actual)
