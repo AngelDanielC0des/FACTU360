@@ -2,15 +2,16 @@ package edu.xtd.facturacion360.controller;
 
 import java.util.List;
 import java.util.Optional;
-
+import java.sql.SQLIntegrityConstraintViolationException;
+import edu.xtd.facturacion360.dto.ApiResponseDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.TransactionException;
 import org.springframework.validation.BindingResult;
@@ -85,67 +86,68 @@ public class ClienteController {
 	@Autowired
 	ClienteMapper clienteMapper;
 
+
+
+
+	
+
+
+	
+
+
+
+	
 	/**
-	 * Devuelve los últimos clientes dados de alta (por defecto 10) como JSON.
-	 * Ejemplo de uso: {@code GET /cliente/listar-ultimos?limite=25}
+	 * Crea un cliente a partir de los datos recibidos. ClienteResponse contiene los
+	 * datos que se devuelven en la respuesta HTTP.
 	 *
-	 * @deprecated Lo sustituye {@link #listarPagina(CriteriosCliente, BindingResult)}, que hace
-	 *             lo mismo y además admite búsqueda, filtros y ordenación, y devuelve los
-	 *             metadatos de paginación que necesita la pantalla. Este endpoint <b>sigue
-	 *             funcionando y con sus pruebas</b>: obsoleto no es lo mismo que roto. Se
-	 *             mantiene porque es con el que se montó el listado y sirve de ejemplo del caso
-	 *             simple, pero no debería usarse en código nuevo. La marca está para que quien
-	 *             lo encuentre en Swagger sepa que no es el camino bueno; hasta ahora no había
-	 *             forma de saberlo.
+	 * @Valid indica que se debe validar el objeto recibido según las anotaciones de
+	 *        validación definidas en la clase ClienteRequest.
+	 * @RequestBody indica que el objeto ClienteRequest se debe obtener del cuerpo
+	 *              de la petición HTTP. ClienteRequest contiene los datos recibidos
+	 *              en la petición HTTP. BindingResult contiene el resultado de la
+	 *              validación, incluyendo errores si los hubiera.
 	 *
-	 * @param limite cuántos clientes devolver; llega por la URL (?limite=). Si no
-	 *               se manda, vale 10 (defaultValue). Se acota internamente al
-	 *               rango [1, 100].
-	 * @return {@code 200 OK} con la lista de {@link ClienteResponse}; o {@code 500}
-	 *         si falla la BD.
-	 * @autor AngelDanielC0des
-	 * @see #listarPagina(CriteriosCliente, BindingResult)
+	 *              Devuelve 201 si se crea el cliente, 400 si hay errores de
+	 *              validación y 500 si no se consigue guardar.
 	 */
-	@Deprecated
-	@Operation(summary = "Lista los últimos clientes", deprecated = true,
-			description = "OBSOLETO: usa GET /cliente/listar-pagina, que admite además búsqueda, "
-					+ "filtros y ordenación, y devuelve los metadatos de paginación. Este se "
-					+ "mantiene funcionando porque es con el que se montó el listado.")
-	@ApiResponses({ @ApiResponse(responseCode = "200", description = "Clientes recuperados correctamente"),
-			@ApiResponse(responseCode = "500", description = "Error interno al consultar los clientes") })
-	@GetMapping("/listar-ultimos")
-	public ResponseEntity<List<ClienteResponse>> listarUltimos(
-			@Parameter(description = "Número de clientes listados.", example = "10") @RequestParam(defaultValue = "10") int limite) {
+	@Operation(summary = "Crea un cliente", description = "Registra un cliente a partir de los datos recibidos")
+	@ApiResponses({ @ApiResponse(responseCode = "201", description = "Cliente creado correctamente"),
+			@ApiResponse(responseCode = "400", description = "Datos de entrada no válidos"),
+			@ApiResponse(responseCode = "409", description = "Ya existe un cliente con ese NIF/CIF"),
+			@ApiResponse(responseCode = "500", description = "Error interno al crear el cliente") })
+	@PostMapping
+	public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody ClienteRequest clienteRequest,
+			BindingResult bindingResult) {
+		ResponseEntity<ClienteResponse> respuesta;
+		ClienteResponse clienteResponse = null;
 
-		// Declaramos la respuesta al inicio y hacemos UN solo return al final: así la
-		// rellenamos en el try (éxito) o en el catch (error) según cómo vaya la
-		// operación.
-		ResponseEntity<List<ClienteResponse>> respuestaHttp = null;
+		if (bindingResult.hasErrors()) {
+			log.error("Cliente recibido con errores");
+			respuesta = ResponseEntity.badRequest().build();
+		} else {
+			try {
+				log.debug("Cliente sin errores de validación");
+				Cliente cliente = clienteMapper.toDomain(clienteRequest);
+				Cliente clienteNuevo = clienteService.crear(cliente);
 
-		// 0) Validación: acotamos el valor pedido a [1, 100] para no saturar la BD
-		// (si no mandan 'limite', llega 10 por el defaultValue).
-		int limiteSeguro = Math.max(LIMITE_MIN, Math.min(LIMITE_MAX, limite));
-		log.info("GET /cliente/listar-ultimos?limite={} (acotado a {})", limite, limiteSeguro);
+				log.debug("Cliente creado correctamente " + clienteNuevo);
+				clienteResponse = clienteMapper.toResponse(clienteNuevo);
+				respuesta = ResponseEntity.status(HttpStatus.CREATED).body(clienteResponse);
 
-		try {
-			List<Cliente> ultimos = clienteService.listarUltimos(limiteSeguro);
-
-			List<ClienteResponse> respuesta = ultimos.stream().map(clienteMapper::toResponse).toList();
-
-			// El código HTTP y no el hecho de negocio: el service ya registra cuántos
-			// clientes ha encontrado, y repetirlo aquí llenaba el log de líneas gemelas.
-			// Cada capa cuenta lo suyo, y lo del controller es con qué responde.
-			log.info("GET /cliente/listar-ultimos -> 200 ({} clientes)", respuesta.size());
-			respuestaHttp = ResponseEntity.ok(respuesta);
-		} catch (DataAccessException e) {
-
-			log.error("Error al listar los ultimos clientes", e);
-			respuestaHttp = ResponseEntity.internalServerError().build();
+			} catch (DuplicateKeyException e) {
+				log.error("NIF duplicado", e);
+				respuesta = ResponseEntity.status(HttpStatus.CONFLICT).build();
+			} catch (Exception e) {
+				log.error("Excepción creando cliente", e);
+				respuesta = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+			}
 		}
 
-		return respuestaHttp;
+		return respuesta;
 	}
 
+	
 	/**
 	 * Devuelve una PÁGINA de clientes (para la paginación de la tabla), con búsqueda,
 	 * filtros y ordenación opcionales. No toca a {@link #listarUltimos(int)}; es un
@@ -224,7 +226,7 @@ public class ClienteController {
 
 		return respuestaHttp;
 	}
-
+	
 	/**
 	 * Devuelve las provincias distintas que existen en la tabla, para rellenar el
 	 * desplegable de filtro del frontend. Ejemplo de uso:
@@ -288,6 +290,7 @@ public class ClienteController {
 		return respuestaHttp;
 	}
 
+	
 	/**
 	 * Devuelve el detalle completo de un cliente: los mismos datos que el listado más los que
 	 * la tabla no muestra (dirección, código postal, población y provincia). Lo pide el
@@ -335,57 +338,7 @@ public class ClienteController {
 
 		return respuestaHttp;
 	}
-
-	/**
-	 * Crea un cliente a partir de los datos recibidos. ClienteResponse contiene los
-	 * datos que se devuelven en la respuesta HTTP.
-	 *
-	 * @Valid indica que se debe validar el objeto recibido según las anotaciones de
-	 *        validación definidas en la clase ClienteRequest.
-	 * @RequestBody indica que el objeto ClienteRequest se debe obtener del cuerpo
-	 *              de la petición HTTP. ClienteRequest contiene los datos recibidos
-	 *              en la petición HTTP. BindingResult contiene el resultado de la
-	 *              validación, incluyendo errores si los hubiera.
-	 *
-	 *              Devuelve 201 si se crea el cliente, 400 si hay errores de
-	 *              validación y 500 si no se consigue guardar.
-	 */
-	@Operation(summary = "Crea un cliente", description = "Registra un cliente a partir de los datos recibidos")
-	@ApiResponses({ @ApiResponse(responseCode = "201", description = "Cliente creado correctamente"),
-			@ApiResponse(responseCode = "400", description = "Datos de entrada no válidos"),
-			@ApiResponse(responseCode = "409", description = "Ya existe un cliente con ese NIF/CIF"),
-			@ApiResponse(responseCode = "500", description = "Error interno al crear el cliente") })
-	@PostMapping
-	public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody ClienteRequest clienteRequest,
-			BindingResult bindingResult) {
-		ResponseEntity<ClienteResponse> respuesta;
-		ClienteResponse clienteResponse = null;
-
-		if (bindingResult.hasErrors()) {
-			log.error("Cliente recibido con errores");
-			respuesta = ResponseEntity.badRequest().build();
-		} else {
-			try {
-				log.debug("Cliente sin errores de validación");
-				Cliente cliente = clienteMapper.toDomain(clienteRequest);
-				Cliente clienteNuevo = clienteService.crear(cliente);
-
-				log.debug("Cliente creado correctamente " + clienteNuevo);
-				clienteResponse = clienteMapper.toResponse(clienteNuevo);
-				respuesta = ResponseEntity.status(HttpStatus.CREATED).body(clienteResponse);
-
-			} catch (DuplicateKeyException e) {
-				log.error("NIF duplicado", e);
-				respuesta = ResponseEntity.status(HttpStatus.CONFLICT).build();
-			} catch (Exception e) {
-				log.error("Excepción creando cliente", e);
-				respuesta = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-			}
-		}
-
-		return respuesta;
-	}
-
+	
 	/**
 	 * Modifica un cliente existente con los datos recibidos. Lo usa el formulario que se abre
 	 * en la propia fila de la tabla. Ejemplo de uso: {@code PUT /cliente/7}
@@ -464,39 +417,95 @@ public class ClienteController {
 		return respuestaHttp;
 	}
 
-	@Operation(summary = "Elimina un cliente", description = "Elimina el cliente identificado por su ID")
-	@ApiResponse(responseCode = "200", description = "Cliente eliminado correctamente")
+
+	/**
+	 * Elimina un cliente identificado por su ID.
+	 *
+	 * Si el cliente existe y no tiene restricciones de integridad (por ejemplo,
+	 * facturas asociadas), se elimina correctamente y se devuelve un HTTP 200.
+	 *
+	 * Si el cliente no existe se devuelve un HTTP 404.
+	 *
+	 * Si el cliente tiene registros asociados que impiden su eliminación,
+	 * se devuelve un HTTP 409 (Conflict).
+	 *
+	 * Si ocurre cualquier otro error inesperado,
+	 * se devuelve un HTTP 500.
+	 *
+	 * @param id identificador del cliente a eliminar.
+	 * @return respuesta HTTP con el resultado de la operación.
+	 */
+	@Operation(
+	        summary = "Elimina un cliente",
+	        description = "Elimina el cliente identificado por su ID."
+	)
+	@ApiResponses({
+	        @ApiResponse(responseCode = "200", description = "Cliente eliminado correctamente"),
+	        @ApiResponse(responseCode = "404", description = "Cliente no encontrado"),
+	        @ApiResponse(responseCode = "409", description = "El cliente tiene facturas asociadas"),
+	        @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+	})
+	
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> eliminar(
-			@Parameter(description = "Identificador del cliente", example = "1") @PathVariable int id) {
-		ResponseEntity<Void> respuesta = null;
-		try {
-			this.clienteService.eliminar(id);
-			respuesta = ResponseEntity.ok(null);
-		} catch (DataIntegrityViolationException e) {
-			e.printStackTrace();
-			System.err.println("Cliente con Facturas, no se puede borrar");
-			respuesta = ResponseEntity.status(HttpStatus.CONFLICT).body(null);
+	public ResponseEntity<ApiResponseDto> eliminar(
+	        @Parameter(description = "Identificador del cliente", example = "1")
+	        @PathVariable int id) {
 
-		} catch (ResponseStatusException e) {
 
-			e.printStackTrace();
-			System.err.println("No se ha econtrado cliente con ese id, no se puede borrar");
-			respuesta = ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+	    log.info("Petición DELETE recibida para eliminar el cliente con ID {}", id);
 
-		}
+	    try {
 
-		return respuesta;
 
-		/**
-		 * Endpoint para manejar las peticiones HTTP DELETE (ej: DELETE /clientes/5). Se
-		 * encarga de capturar las posibles excepciones de las capas inferiores y
-		 * traducirlas a códigos de estado HTTP (200 OK, 404 Not Found, 409 Conflict).
-		 *
-		 * @param id El ID que viene en la URL de la petición.
-		 * @return Una respuesta HTTP (ResponseEntity) indicando el éxito o el tipo de
-		 *         error.
-		 */
+	        // Delegamos la lógica de negocio al Service
+	        clienteService.eliminar(id);
+
+
+	        log.info("Cliente con ID {} eliminado correctamente.", id);
+
+	        return ResponseEntity.ok(
+	                new ApiResponseDto(
+	                        true,
+	                        "Cliente eliminado correctamente"
+	                )
+	        );
+
+	    } catch (DataIntegrityViolationException e) {
+
+	        log.error("No se puede eliminar el cliente {} porque tiene datos relacionados.", id, e);
+
+	        return ResponseEntity.status(HttpStatus.CONFLICT)
+	                .body(
+	                        new ApiResponseDto(
+	                                false,
+	                                "No se puede eliminar el cliente porque tiene facturas asociadas."
+	                        )
+	                );
+
+	    } catch (ResponseStatusException e) {
+
+	        log.warn("No existe el cliente con ID {}.", id);
+
+	        return ResponseEntity.status(e.getStatusCode())
+	                .body(
+	                        new ApiResponseDto(
+	                                false,
+	                                e.getReason()
+	                        )
+	                );
+
+	    } catch (Exception e) {
+
+	        log.error("Error inesperado eliminando el cliente {}.", id, e);
+
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	                .body(
+	                        new ApiResponseDto(
+	                                false,
+	                                "No se pudo eliminar el cliente."
+	                        )
+	                );
+	    }
 	}
 
 }

@@ -13,6 +13,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -372,6 +373,7 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 		return cliente;
 	}
 
+	
 	/**
 	 * Inserta un cliente en base de datos.
 	 * @throws SQLException 

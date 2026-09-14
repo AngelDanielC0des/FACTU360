@@ -134,6 +134,7 @@ public class ClienteServiceImpl implements ClienteService {
 		return cliente;
 	}
 
+	
 	/**
 	 * Crea un cliente delegando la persistencia en el repositorio.
 	 *
@@ -146,7 +147,7 @@ public class ClienteServiceImpl implements ClienteService {
 
 		clienteNuevo = clienteRepository.insert(cliente);
 		if (clienteNuevo == null) {
-			throw new RuntimeException("Error al insertar cliente " + cliente);
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al insertar el cliente");
 		}
 
 		return clienteNuevo;
@@ -171,6 +172,7 @@ public class ClienteServiceImpl implements ClienteService {
 		Optional<Cliente> existente = clienteRepository.findById(id);
 		Optional<Cliente> resultado;
 
+
 		if (existente.isEmpty()) {
 			log.warn("actualizar({}) -> el cliente no existe", id);
 			resultado = Optional.empty();
@@ -184,6 +186,7 @@ public class ClienteServiceImpl implements ClienteService {
 					cliente.codigoPostal(), cliente.poblacion(), cliente.provincia(), cliente.telefono(),
 					cliente.email(), existente.get().fechaAlta());
 
+
 			// El boolean de update() se ignora a propósito: MySQL devuelve 0 filas afectadas
 			// cuando la sentencia no cambia ningún valor, así que un false NO significa "no
 			// existe". Eso ya lo ha resuelto el findById de arriba, en esta misma transacción.
@@ -193,6 +196,7 @@ public class ClienteServiceImpl implements ClienteService {
 			resultado = Optional.of(clienteActualizado);
 		}
 
+
 		return resultado;
 	}
 	
@@ -200,16 +204,23 @@ public class ClienteServiceImpl implements ClienteService {
 	@Override
 	public void eliminar(int id) {
 
+	    log.info("Intentando eliminar el cliente con ID {}", id);
 
-		boolean borrado = this.clienteRepository.deleteById(id);
-		if (!borrado) {
-			System.err.println("El cliente con ese ID no existe");
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Error, No se encontró el cliente");
+	    boolean eliminado = clienteRepository.deleteById(id);
 
-		}
+	    if (!eliminado) {
 
+	        log.error("No se pudo eliminar el cliente con ID {}", id);
+
+	        throw new ResponseStatusException(
+	                HttpStatus.INTERNAL_SERVER_ERROR,
+	                "No se pudo eliminar el cliente."
+	        );
+	    }
+
+	    log.info("Cliente {} eliminado correctamente.", id);
 	}
-
+	
 	// TODO: valorar la programación del método privado validarCifUnico mirar el
 	// Diagrama de Clases
 }
