@@ -1,8 +1,9 @@
-# Clientes — Listado, buscador, filtros, ordenación, detalle y edición
+# Clientes — Listado, buscador, filtros, ordenación, alta, detalle y edición
 
 Muestra en la tabla de `clientes.html` **los clientes** dados de alta, con **buscador**,
 **filtros** por provincia y población y **ordenación**, pidiéndolos al backend por `fetch`.
-Cada fila se **despliega** para ver el detalle completo o para **editarlo** allí mismo.
+Cada fila se **despliega** para ver el detalle completo o para **editarlo** allí mismo, y el
+**alta** se rellena en un formulario que se abre arriba de la propia tabla.
 Está hecha con **JDBC Template + MySQL**,
 siguiendo la arquitectura por capas que subió Val a `master`.
 
@@ -18,11 +19,14 @@ siguiendo la arquitectura por capas que subió Val a `master`.
 - **Ver el detalle**: `GET /cliente/{id}` → todos los datos de un cliente, incluidos los que la
   tabla no enseña (dirección, código postal, población y provincia).
 - **Editar**: `PUT /cliente/{id}` → guarda los cambios del formulario que se abre en la fila.
+- **Dar de alta**: `POST /cliente` → crea el cliente que se rellena en el formulario que se
+  abre arriba de la tabla.
 - **Frontend**: `clientes.js` pide una página y pinta la tabla; arriba hay una barra con el
   buscador, los dos desplegables y el control de orden, y debajo los botones
   **"Anterior" / "Siguiente"** para moverse entre páginas. Al pulsar una fila (o el botón del
   ojo) se despliega **debajo** una fila con el detalle; con el lápiz, con los campos
-  editables.
+  editables. Y "Añadir Cliente" abre ese mismo formulario en blanco, en la primera posición
+  de la tabla.
 
 **¿Por qué buscar NO tiene endpoint propio?** Porque buscar es "listar con un filtro de texto
 más". Si `/cliente/buscar` fuera aparte, habría que darle su propia paginación, sus propios
@@ -31,13 +35,31 @@ hubiera texto escrito o no—. Compartiendo endpoint, la búsqueda hereda todo e
 
 ---
 
-## Qué entrega la rama `feature/verDetallesYEditar_Angel`
+## Qué entrega cada rama
+
+Este documento cubre **tres ramas apiladas**, y conviene saber qué toca cada una antes de
+leerlo, porque se integran en este orden y cada una da por hecha la anterior:
+
+| Rama | Qué añade | Se apoya en |
+|---|---|---|
+| `feature/verDetallesYEditar_Angel` | Ver el detalle y editar en la fila; `GET /cliente/{id}` y los arreglos del `PUT` | `master` |
+| `feature/modulosES_Angel` | Parte `clientes.js` en 16 módulos ES por capas. **No cambia ningún comportamiento** | la anterior |
+| `feature/añadirclientes_Angel` | El alta en la tabla y los colores de estado | `verDetallesYEditar` |
+
+Todo lo que se cuenta más abajo describe el **comportamiento**, que es el mismo en las tres.
+Cuando algo sea propio de una, se dice.
+
+> **Los nombres de fichero de este documento son los de `verDetallesYEditar_Angel`**, donde
+> todo vive en `clientes.js`. En `modulosES_Angel` ese fichero está partido: el mapa de qué
+> función vive en qué módulo está en la cabecera de `js/main.js`.
+
+### Lo que entrega `feature/verDetallesYEditar_Angel`
 
 Resumen de todo lo implementado, para no tener que reconstruirlo leyendo los commits uno a uno.
 Cada punto tiene su explicación completa más abajo; aquí está el **qué** y el enlace al
 **porqué**.
 
-### Backend
+#### Backend
 
 | Endpoint | Estado | Códigos que devuelve |
 |---|---|---|
@@ -67,7 +89,7 @@ Además: `actualizar` pasa a devolver `Optional<Cliente>` en vez de `null`, como
 ([por qué](#por-qué-el-carácter-de-escape-es--y-no-la-barra-invertida)); y los criterios sanean
 los saltos de línea antes de llegar al log ([por qué](#qué-registra-cada-endpoint)).
 
-### Frontend
+#### Frontend
 
 **El despliegue de la fila** ([detalle](#ver-el-detalle-y-editar-en-la-propia-fila)):
 
@@ -111,7 +133,7 @@ los saltos de línea antes de llegar al log ([por qué](#qué-registra-cada-endp
 - `integrity` + `crossorigin` en los tres CDN, fecha formateada en UTC y `colspan` calculado
   según las columnas visibles.
 
-### Calidad
+#### Calidad
 
 - **44 pruebas** en cuatro clases, **ninguna necesita MySQL**
   ([qué cubre cada una](#tests-automáticos)).
@@ -128,6 +150,28 @@ los saltos de línea antes de llegar al log ([por qué](#qué-registra-cada-endp
 > el código y contra los datos reales de la base de datos, y varias recomendaciones que parecían
 > razonables se han descartado precisamente por hacerlo —el `@Pattern` del NIF/CIF es el ejemplo
 > más claro y está contado en [Limitaciones conocidas](#limitaciones-conocidas)—.
+
+### Lo que entrega `feature/modulosES_Angel`
+
+**Ningún cambio de comportamiento**: parte `clientes.js` —que había llegado a 2.000 líneas— en
+16 módulos ES organizados por capas, con una sola regla que los mantiene ordenados: *un módulo
+solo importa de capas estrictamente inferiores*. El mapa completo está en la cabecera de
+`js/main.js`, que es el único fichero que carga el HTML.
+
+Los dos sitios que rompen la línea recta lo hacen con un evento y no con un `import`, porque un
+módulo de abajo necesita provocar algo de arriba: `clientes:cambiaron` y
+`clientes:limpiar-filtros`.
+
+### Lo que entrega `feature/añadirclientes_Angel`
+
+- **Alta de clientes en la propia tabla** (`POST /cliente`), reutilizando el formulario de la
+  edición. Sustituye al modal, que se borra: no funcionaba y le faltaban tres campos
+  obligatorios. Ver [El alta de clientes](#el-alta-de-clientes).
+- **Colores de estado repartidos en dos juegos**, uno para el borde y otro para el texto, que
+  es lo que permite que el recuadro se vea vivo sin bajar el contraste del cartel. El detalle
+  pasa de verde a **morado** y el alta se queda el verde.
+
+---
 
 ## Arquitectura por capas
 
@@ -156,10 +200,15 @@ Navegador ←──── JSON ─── PaginaClienteResponse ←(Mapper)─ Cl
 > simple, pero **el camino bueno es `listar-pagina`**: hace lo mismo y además admite búsqueda,
 > filtros y ordenación, y devuelve los metadatos de paginación.
 >
-> **Obsoleto no es lo mismo que roto**: sigue funcionando, con sus dos pruebas, y no se borra
-> porque lo consume `cors/inicio.js`. Lo que se ha añadido es `deprecated = true` en su
-> `@Operation`, para que Swagger lo pinte tachado: hasta ahora, quien lo encontrara ahí no
-> tenía ninguna forma de saber que no era el camino a seguir.
+> **Obsoleto no es lo mismo que roto**: sigue funcionando y con sus dos pruebas. Se mantiene
+> porque es el endpoint con el que se montó el listado y sirve de ejemplo del caso simple —el
+> que solo trae N filas, sin criterios ni metadatos—, y porque borrarlo sería romper el
+> contrato a cualquiera que ya lo estuviera llamando. Lo que se ha añadido es
+> `deprecated = true` en su `@Operation`, para que Swagger lo pinte tachado: hasta ahora,
+> quien lo encontrara ahí no tenía ninguna forma de saber que no era el camino a seguir.
+>
+> Hasta hace poco lo consumía además `cors/inicio.js`, la demostración de CORS y JSONP del
+> profesor. Esa demo ya no está en el proyecto, así que **hoy no lo llama nadie**.
 
 1. **`ClienteRepositoryJdbcImpl.findUltimos(limite)`** — ejecuta con `JdbcTemplate`:
    ```sql
@@ -596,16 +645,46 @@ Enseñar algo y cambiarlo un instante después puede ser peor que la espera, as�
 
 Es un *tooltip* de Bootstrap con `delay: { show: 1000 }`, **delegado** en el `<tbody>`
 (opción `selector`): así vale también para las filas que aún no existen y no hay que crearlo y
-destruirlo en cada repintado. Dos detalles que costaron:
+destruirlo en cada repintado.
 
 - **`container: 'body'`**: la tabla vive dentro de `.table-responsive`, que tiene `overflow`,
   y el globo se veía recortado por arriba.
 - El texto cambia según el estado ("Ver detalles" / "Ocultar detalles"), pero el globo se crea
   en el **primer** hover y se queda con el texto que hubiera entonces. Por eso, al alternar, se
   reescribe `data-bs-title` y se **destruye** la instancia: el hover siguiente la vuelve a
-  crear ya con el texto nuevo. Y antes de repintar la tabla se destruyen todas, o se quedan
-  globos flotando sobre una fila que ya no existe.
-- El aviso **no sale sobre la celda de acciones**: cada botón de allí explica lo suyo.
+  crear ya con el texto nuevo.
+- El aviso de la fila lo lleva **una sola celda, la del nombre** (`th.cliente-nombre`). Ni la
+  celda de acciones —cada botón de allí explica lo suyo— ni las demás columnas.
+
+> **Los cuatro motivos por los que salían varios globos a la vez y no se iban.** Esto costó
+> encontrarlo porque no era un fallo, eran cuatro independientes:
+>
+> 1. **El aviso lo llevaban las cinco celdas de la fila.** Recorrerla con el ratón encendía
+>    cinco instancias con sus cinco temporizadores para decir todas lo mismo. Que el resto de
+>    la fila también despliega ya lo cuenta el cursor de mano de `.fila-cliente`.
+> 2. **`hide()` no cierra el globo mientras quede un disparador activo.** En Bootstrap 5.3,
+>    tanto `_leave()` como el `complete()` de `hide()` se salen antes de tiempo si alguno lo
+>    está, y al pulsar un botón **ese botón se queda con el foco**: el globo sobrevivía al
+>    `hide()` y también al `mouseleave`. Se pasó a `dispose()`, que derriba el globo pase lo
+>    que pase; la raíz delegada vuelve a crear la instancia en el siguiente hover, así que no
+>    se pierde nada. Hecho eso, `ocultarPistas` y `limpiarPistas` hacían lo mismo sobre
+>    ámbitos distintos y **`ocultarPistas` desapareció**.
+> 3. **Con `container: 'body'` el globo cuelga del `<body>`, no del elemento.** Si su dueño se
+>    iba sin pasar por `limpiarPistas`, no lo cerraba nadie nunca. Ahora `limpiarPistas` barre
+>    además los `.tooltip` que no apunte ningún `aria-describedby`, que es la marca de que un
+>    globo sigue vivo. Es lo que cierra el problema de verdad, funcione o no el desmontaje de
+>    Bootstrap.
+> 4. **`escribirPista` destruía la instancia aunque el texto fuera el mismo**, en cada
+>    repintado, peleándose con los temporizadores de apertura en vuelo.
+>
+> Lo que **no** había que tocar, aunque lo pareciera: `trigger: "hover focus"`. En la `th` el
+> foco es inerte, pero los botones de acción lo necesitan para quien navega con teclado.
+
+> **Ojo: son DOS los sitios que vacían el `<tbody>`**, `pintarFilas` y `mostrarMensaje`, y lo
+> que haya que rescatar antes de vaciarlo hay que rescatarlo en los dos. A `mostrarMensaje` se
+> llega también desde `mostrarError`, que no pasa por `pintarFilas`, y ahí se escapaban dos
+> cosas: los globos —quedaba uno flotando sobre el mensaje de error, y sin filas detrás que
+> pulsar no había forma de provocar la limpieza— y los borradores de los formularios abiertos.
 
 #### Editar: dos arreglos en el `PUT` que ya existía
 
@@ -634,12 +713,11 @@ petición para recibir un `400`. Del servidor solo puede llegar un error que el 
 puede prever: el **`409` del NIF repetido**, y se señala en *su* campo y no en un aviso
 general, porque si no el usuario tendría que adivinar cuál de los ocho campos falla.
 
-> El modal de "Añadir Cliente" que hay hoy en la página solo tiene cuatro campos, y dirección,
+> El modal de "Añadir Cliente" que hubo en su día solo tenía cuatro campos, y dirección,
 > población y provincia son obligatorias en el backend: por eso el formulario de edición los
-> lleva **todos**. Y por eso la función de guardar se llama `guardarEdicion` y no
-> `guardarCliente`: ese nombre **se deja libre** para el alta, sea cual sea la forma que acabe
-> tomando —también si se resuelve en la propia tabla, que es donde la colisión de nombres sería
-> más fácil de provocar—.
+> lleva **todos**, y por eso el alta pudo reutilizarlo tal cual. La función de guardar se llama
+> `guardarEdicion` y no `guardarCliente` porque ese nombre estaba reservado para el alta, que
+> es quien lo ocupa ahora.
 
 #### Qué pasa exactamente al pulsar "Guardar"
 
@@ -752,6 +830,105 @@ Dos detalles que no son obvios:
   tiempo, y en ese rato la tabla ha podido repintarse: la fila de antes ya no está en pantalla y
   cerrarla no se vería. Con `confirm()` esto no pasaba, porque bloqueaba también los
   temporizadores.
+
+### El alta de clientes
+
+Rama `feature/añadirclientes_Angel`. "Añadir Cliente" abre **arriba del todo de la tabla** el
+mismo formulario de la edición, en blanco, y al guardar manda un `POST /cliente`.
+
+**Sustituye al modal, que se ha borrado.** No funcionaba: su botón llamaba a una
+`guardarCliente()` que no existía en ningún sitio y solo dejaba un `ReferenceError` en la
+consola, y además el formulario recogía cuatro de los ocho campos que `ClienteRequest` exige
+—le faltaban dirección, código postal, población y provincia—, así que el `POST` habría
+devuelto `400` aunque hubiera llegado a enviarse.
+
+**No lleva fila de cliente encima**, a diferencia del detalle y de la edición: un cliente que
+todavía no existe no tiene nombre ni CIF que enseñar, y los tres botones de acción no tendrían
+a qué apuntar. Solo se inserta el panel.
+
+#### Por qué el alta NO pasa por `abrirDespliegue`
+
+Ese camino gira entero alrededor de una `tr.fila-cliente` con su `data-cliente-id`: `filaViva`,
+`panelDe`, `modoDe` y `marcarFila` la buscan. El alta no tiene ni fila ni id, así que son cuatro
+funciones cortas propias —`abrirAlta`, `cerrarAlta`, `reabrirAlta` y `guardarCliente`— en vez de
+un puñado de condiciones repartidas por el despliegue preguntando *"¿y si es el alta?"*.
+
+Por lo mismo, el estado va en una variable suelta (`altaAbierta`) y **no** en
+`filasDesplegadas`, que es un `Map` indexado por id de cliente. Meter un `0` centinela parecía
+más corto y era peor: se colaría en esas cuatro funciones, que lo darían por un cliente de
+verdad y fallarían en silencio.
+
+#### El formulario se comparte con la edición
+
+`pintarPanelEdicion` hacía ya el 90 % de lo que necesita el alta, así que se partió en dos:
+`pintarFormularioCliente` clona la plantilla, sustituye los sufijos `PLANTILLA` de los `id` y
+rellena los campos, y encima quedan `pintarPanelEdicion` y `pintarPanelAlta`, que solo se
+diferencian en el sufijo, el cartel y con qué valores arrancan. El sufijo del alta es `nuevo`,
+que no puede chocar con ningún id de cliente porque esos son números.
+
+Los dos formularios comparten la clase `.formulario-edicion`, así que los dos *listeners*
+delegados del `<tbody>` recogen a los dos; los distingue `.formulario-alta`, que solo lleva el
+del alta. Y como el alta no tiene `dataset.clienteId`, `formularioVivo()` nunca la encuentra,
+que es justo lo que se quiere.
+
+#### "Lo he creado, ¿dónde está?"
+
+Es la pregunta incómoda del alta, y tiene respuesta porque se comprobó en el código:
+`fecha_alta` es un `date` **sin hora**, y el orden por defecto es
+`ORDER BY fecha_alta DESC, idcliente DESC`. Todos los clientes creados hoy empatan en la fecha
+y **desempata el `idcliente` más alto, que es el recién creado**: sale el primero. Lo que era
+la fila 10 pasa a la página 2 y el total sube uno, de lo que ya se encarga la paginación.
+
+Pero hay cuatro situaciones en las que lo creas y no lo ves:
+
+| Situación | Dónde acaba el cliente nuevo |
+|---|---|
+| Estabas en la página 2 o posterior | En la 1 |
+| Orden "Más antiguos" (`fecha_alta ASC`) | El desempate también invierte: al final de la última página |
+| Orden por nombre | Donde le toque alfabéticamente, en cualquier página |
+| Un filtro de provincia o población que no cumple | En ninguna página de la vista actual |
+
+Por eso, tras el `201` se pide la **página 0** conservando los criterios y se mira si el cliente
+ha salido de verdad. Si está, el foco va a su fila; si no, se dice **por qué** en vez de dejar
+al usuario buscándolo.
+
+> Se localiza por el **NIF/CIF** y no por el id porque `enviarJson` solo devuelve el código de
+> la respuesta, y ensancharlo para que a veces devuelva también el cuerpo le dejaría dos formas
+> de retorno según un parámetro. El NIF vale igual: es único —por eso el backend contesta `409`
+> cuando se repite— y es un dato que el usuario acaba de escribir.
+
+#### Detalles que costaron
+
+- **`focus()` sobre un elemento que no está en el documento no hace nada.** En la edición no se
+  plantea, porque allí el panel se inserta antes de pintarlo; aquí la fila se construía entera y
+  se insertaba después, así que el cursor nunca llegaba al campo Nombre. Por eso
+  `insertarFilaAlta` inserta ella misma: el orden *pintar → insertar → enfocar* tiene que estar
+  garantizado en un solo sitio.
+- **Pulsar "Añadir Cliente" dos veces no puede abrir dos formularios.** El segundo se llevaría
+  el mismo sufijo de `id` que el primero y los `<label for>` apuntarían al que no es. Si ya está
+  abierta, el botón solo lleva el foco al primer campo.
+- **El alta sobrevive a los repintados con lo tecleado**, igual que los paneles abiertos: el
+  borrador se guarda en `guardarBorradores()` y la fila se vuelve a insertar arriba, sin animar
+  y sin robar el foco, porque el repintado suele venir de que el usuario está escribiendo en el
+  buscador.
+- **El `404` de `mostrarErrorGuardado` no aplica al alta**, y por eso `contarErrorAlta` no lo
+  contempla: no hay ningún cliente que alguien haya podido borrar mientras tanto. Los códigos
+  del alta son `201`, `400`, `409` y el resto.
+
+### La pantalla de carga (viene de `master`)
+
+No es de estas ramas —entró con la PR #19 de Sergio y llegó por el `merge`—, pero conviene saber
+por qué al integrarla quedaron **dos contadores de peticiones en vuelo** y no hay que unificarlos:
+
+- `listadosEnVuelo` marca el `aria-busy` de la tabla, así que cuenta **solo** los listados: es
+  lo único que de verdad la deja a medias.
+- `peticionesActivas` tapa la pantalla entera, así que cuenta **todas** las llamadas a
+  `pedirJson`, incluidas las de los desplegables y las de los paneles.
+
+Con uno solo, rellenar un desplegable dejaría la tabla anunciada como ocupada sin estarlo. Son
+contadores y no booleanos por el mismo motivo en los dos casos: una petición cancelada termina
+**después** de que arranque la que la sustituye, así que con un booleano la que muere apagaría
+el indicador de la que sigue viva.
 
 ### El buscador se solapaba con el filtro de al lado
 
@@ -956,28 +1133,47 @@ Dos detalles que explican por qué se escaparon:
   > se queda entre 10,5:1 y 14,7:1 en los cuatro—, era que los avisos de fondo no hacían su
   > trabajo. De referencia, el rayado que trae Bootstrap de serie ronda 1,12, así que esto no
   > es más marcado de lo normal. Si hay que retocarlos, **se mueven los tres**.
-- **Recuadro de color en el bloque abierto**: verde si se está viendo, ámbar si se está
-  editando. Envuelve el bloque entero —la fila del cliente **más** las filas del panel, que en
-  edición son dos de rótulos y dos de campos— de modo que los dos `<tr>` se leen como una sola
-  tarjeta. La fila pone el borde de arriba y los laterales, el panel los laterales y el de
-  abajo, y el color viaja en una variable (`--color-modo`) declarada en las dos filas. Y como
-  el color por sí solo no vale (criterio **1.4.1**), el panel lo dice además con letras:
-  "Viendo detalles de García S.L." / "Editando García S.L.".
+- **Recuadro de color en el bloque abierto**: **morado** si se está viendo, **ámbar** si se
+  está editando y **verde** si es un alta. Envuelve el bloque entero —la fila del cliente
+  **más** las filas del panel, que en edición son dos de rótulos y dos de campos— de modo que
+  los dos `<tr>` se leen como una sola tarjeta. La fila pone el borde de arriba y los
+  laterales, el panel los laterales y el de abajo, y el color viaja en una variable
+  (`--color-modo`) declarada en las dos filas. Y como el color por sí solo no vale (criterio
+  **1.4.1**), el panel lo dice además con letras: "Viendo detalles de García S.L." /
+  "Editando García S.L." / "Nuevo cliente".
 
-  > **Los dos tonos son los oscuros, y el motivo es de contraste medido.** Como borde bastaría
-  > con 3:1 (criterio **1.4.11**), que es donde el `#ffc107` de Bootstrap ya se caía: da 1.6:1
-  > sobre blanco. Pero estos colores se usan **también para el texto del cartel**, y el texto
-  > necesita 4.5:1 (criterio **1.4.3**). Sobre el fondo del panel abierto (`--fila-abierta`),
-  > el verde `#157347` da 4.69:1 y el ámbar `#92400e` da 5.66:1. El ámbar que había antes
-  > (`#b45309`) se quedaba en **4.35:1**: valía como borde y no como texto, que es el tipo de
-  > fallo que no se ve mirando la pantalla.
+  > **El alta cierra su recuadro por arriba ella sola.** En los otros dos modos ese lado lo
+  > pone la fila del cliente, pero el alta no tiene fila encima —el cliente todavía no
+  > existe— y sin una regla propia el recuadro se quedaba abierto, como una U.
+
+  > **Son DOS juegos de color y no uno, y ese es el truco.** El borde y el texto no piden lo
+  > mismo: al borde le basta 3:1 (criterio **1.4.11**) y el texto del cartel necesita 4.5:1
+  > (criterio **1.4.3**). Mientras los dos papeles compartieron color mandaba el más exigente,
+  > y por eso los bordes salían apagados y oscuros. Separándolos, el borde se va al tono vivo y
+  > el cartel conserva el contraste:
   >
-  > Como **borde**, los dos van sobrados contra las cuatro superficies con las que se tocan: el
-  > peor caso es el verde contra el borde del contenedor, con 4,54:1 sobre un mínimo de 3:1.
+  > | Modo | Borde (`--borde-*`) | Texto del cartel (`--estado-*`) | Contraste del texto |
+  > |---|---|---|---|
+  > | Detalle | `#a855f7` | `#6b21a8` | 6,91:1 |
+  > | Edición | `#fb923c` | `#92400e` | 5,66:1 |
+  > | Alta | `#22c55e` | `#157347` | 4,69:1 |
   >
-  > Y sobre daltonismo: simulados los dos, en deuteranopia el verde se ve `#4a4357` y el ámbar
-  > `#7b8025`, con 2,22:1 entre ellos, así que siguen siendo distinguibles. Aunque no lo fueran,
-  > el criterio 1.4.1 está cubierto por el cartel con letras y por los iconos distintos.
+  > Medidos sobre `--fila-abierta` (`#dbe6ff`), que es el fondo del panel abierto. De
+  > referencia de lo justo que va esto: el ámbar que había antes de todo (`#b45309`) se
+  > quedaba en **4,35:1**, o sea que valía como borde y **no** como texto, que es el tipo de
+  > fallo que no se ve mirando la pantalla. Y el `#ffc107` de Bootstrap ni siquiera valía como
+  > borde: 1,6:1 sobre blanco.
+  >
+  > **Si algún día se vuelven a fundir en una sola variable, el que se rompe es el texto.**
+  >
+  > El brillo "neón" no es el color, es un halo (`box-shadow: 0 0 14px -4px`) del tono del
+  > borde sobre el `<td>` del panel. Va ahí y no en las celdas de la fila: aquellas llevan un
+  > `box-shadow: none` que no es decorativo, mata el resaltado de `table-hover` de Bootstrap,
+  > que es un `inset` gigante, y el halo lo reviviría partiendo el bloque en dos tonos.
+  >
+  > Y sobre daltonismo: los tres siguen distinguiéndose entre sí en deuteranopia. Aunque no lo
+  > hicieran, el criterio 1.4.1 está cubierto por el cartel con letras y por los iconos
+  > distintos (ojo, lápiz y `+`).
 
   > **El borde del panel va condicionado al modo, no puesto siempre**, y esto costó un fallo
   > entender por qué. Al cerrar, `marcarFila()` quita las clases `modo-detalle` y
@@ -991,9 +1187,15 @@ Dos detalles que explican por qué se escaparon:
   escribir, y va dentro del `<label>` con `aria-hidden="true"`, porque es decorativo: que el
   campo sea editable ya lo dice el propio `<input>`. La diferencia con el panel de detalle está
   garantizada **por el marcado** —el detalle es una `<dl>` y no tiene ningún `<label>`— y no
-  por una clase que alguien pueda olvidarse de quitar al cambiar de modo. Va en el mismo ámbar
-  que el borde del bloque, para que se lea como parte del mismo estado y no como un icono
-  suelto.
+  por una clase que alguien pueda olvidarse de quitar al cambiar de modo.
+
+  > **El color del lápiz sigue al formulario en el que está**, ámbar al editar y verde al dar
+  > de alta, porque los dos paneles clonan la **misma** plantilla y si no saldrían lápices
+  > ámbar dentro del recuadro verde del alta. Se distingue por la clase del `<form>` y no por
+  > el modo de la fila: las clases de modo se quitan al cerrar y el panel se queda 250 ms
+  > plegándose, así que el icono cambiaría de color a media animación. Y va en el tono
+  > **oscuro**, no en el del borde: es un glifo de 0,7 em y en el tono vivo se lee mucho peor
+  > a ese tamaño.
 - **Esquinas redondeadas**: van en el contenedor, no en la `<table>`. Con
   `border-collapse: collapse` el radio de la tabla no recorta el fondo de las celdas y la
   cabecera azul seguiría saliendo en pico; el `.table-responsive` ya tiene `overflow-x: auto`,
@@ -1278,19 +1480,6 @@ Seis cosas que se han mirado y se dejan como están, a propósito:
   hacerlo bien de verdad haría falta comprobar además la **letra de control**, que es un
   cálculo y no un patrón, así que su sitio sería un validador propio y no una anotación.
 
-- **El modal de "Añadir Cliente" no funciona, y su botón está inhabilitado.** El alta de
-  clientes en frontend no es parte de esta feature: la función `guardarCliente()` que llamaba
-  ese botón no existe en ningún sitio, así que pulsarlo solo dejaba un `ReferenceError` en la
-  consola. Se ha inhabilitado para que no parezca que hace algo. Además el formulario recoge
-  cuatro de los siete campos que `ClienteRequest` exige —le faltan dirección, población y
-  provincia, las tres `@NotBlank`—, con lo que el `POST` devolvería `400` aunque se conectara.
-
-  **El modal no es la única salida, y quien haga el alta decide.** La otra es resolverla en la
-  propia tabla, reutilizando el panel de edición que ya está montado; en ese caso el modal sobra
-  entero y se puede borrar con su botón y con el *listener* que lo vacía al abrir. Lo que vale
-  para las dos opciones —cómo se enganchan los botones de la fila y el evento que hay que
-  disparar al recibir el `201`— está en el comentario junto al propio botón, en `clientes.html`.
-
 - **La última edición gana, sin avisar.** Si dos personas abren el mismo cliente y guardan, la
   segunda pisa lo de la primera y nadie se entera. Resolverlo bien pide una columna de versión
   en la tabla (bloqueo optimista): el `UPDATE` llevaría `WHERE version = ?`, 0 filas afectadas
@@ -1403,8 +1592,10 @@ tuvimos, `bd_facturacion.sql`, se retiró porque usaba nombres antiguos.)*
     desaparece.
 26. **Rayado con paneles abiertos**: abrir el detalle de la 1.ª y la 3.ª fila y comprobar que
     las filas de cliente **siguen alternando** color (con `table-striped` no lo hacían).
-27. **Colores de estado**: abrir el detalle → recuadro verde y el cartel "Viendo detalles";
-    pulsar el lápiz de esa misma fila → el recuadro pasa a ámbar y el cartel a "Editando".
+27. **Colores de estado**: abrir el detalle → recuadro **morado** y el cartel "Viendo
+    detalles"; pulsar el lápiz de esa misma fila → el recuadro pasa a **ámbar** y el cartel a
+    "Editando"; pulsar "Añadir Cliente" → el de arriba sale en **verde** con "Nuevo cliente".
+    Los tres carteles tienen que leerse cómodamente: el borde va vivo, el texto no.
 28. **Enlaces de la tabla**: pulsar el email → abre el cliente de correo y **la fila no se
     despliega**; pulsar en el hueco de esa misma celda, al lado del enlace → sí se despliega.
 29. **Lector de pantalla** (NVDA o el Narrador de Windows): en la lista de botones, cada uno
@@ -1510,8 +1701,9 @@ tuvimos, `bd_facturacion.sql`, se retiró porque usaba nombres antiguos.)*
     ámbar delante. Pulsar el ojo de esa misma fila → el panel cambia a detalle y **no queda ni
     un lápiz**.
 60. **El recuadro no parpadea al cerrar**: abrir un detalle y cerrarlo mirando el borde mientras
-    se pliega → tiene que irse en verde, **sin ningún destello oscuro**. Repetirlo en edición
-    (ámbar). Antes se veía una raya negra durante el plegado.
+    se pliega → tiene que irse en morado, **sin ningún destello oscuro**, y el cartel tiene que
+    conservar su color hasta el final. Repetirlo en edición (ámbar). Antes se veía una raya
+    negra durante el plegado.
 61. **El recuadro envuelve el bloque entero**: con el panel de edición abierto, el rectángulo
     ámbar tiene que rodear la fila del cliente **y las cuatro filas del panel** (dos de rótulos
     y dos de campos), sin cortarse por dentro. Probarlo también con el **último** cliente de la
@@ -1531,6 +1723,31 @@ tuvimos, `bd_facturacion.sql`, se retiró porque usaba nombres antiguos.)*
     → el mensaje rojo tiene que aparecer justo debajo de ese campo. (Depende de que el
     `<input>` y su `.invalid-feedback` sigan siendo hermanos, que es lo que mira el selector de
     Bootstrap.)
+
+### El alta
+
+66. **Abrir el alta**: pulsar "Añadir Cliente" → arriba del todo aparece un formulario en
+    blanco con el recuadro **verde**, el cartel "Nuevo cliente" y el cursor ya en Nombre.
+67. **No se abre dos veces**: volver a pulsar el botón → **no** sale un segundo formulario; el
+    foco vuelve al campo Nombre del que ya está.
+68. **Validación antes de salir a la red**: pulsar Guardar con todo vacío → el navegador marca
+    los cinco obligatorios y **no se manda ninguna petición** (mirarlo en la pestaña Red).
+69. **Crear**: rellenar los ocho campos y Guardar → la tabla salta a la primera página y el
+    cliente sale **el primero**, con el foco en su lápiz.
+70. **NIF repetido**: crear un cliente con un NIF/CIF que ya exista → `409`, el campo NIF en
+    rojo con "Ya existe otro cliente con este NIF/CIF" y el formulario **sigue abierto** para
+    corregirlo.
+71. **Sobrevive a la búsqueda**: con el alta a medio rellenar, escribir algo en el buscador →
+    el formulario sigue arriba **con lo tecleado**, y el cursor no se va del buscador.
+72. **Sobrevive a "sin coincidencias"**: con el alta a medio rellenar, buscar algo que no
+    exista → sale el mensaje de la tabla vacía y el formulario **sigue ahí**, encima.
+73. **Cancelar con algo escrito**: pulsar Cancelar con un campo relleno → sale el diálogo de
+    "Hay cambios sin guardar". Con todo vacío, se cierra sin preguntar.
+74. **Creado pero fuera de la vista**: filtrar por una provincia y crear un cliente de otra →
+    avisa de que no se ve por los filtros. Lo mismo poniendo el orden "Más antiguos": avisa de
+    que con ese orden no está en la primera página.
+75. **El recuadro cierra por arriba**: mirar el borde verde del alta → tiene que rodear el
+    formulario por los **cuatro** lados, no quedarse en forma de U.
 
 ## ⚠️ Si en la BD real la tabla o las columnas se llaman distinto
 
@@ -1769,12 +1986,15 @@ quedó: hoy **el HTML no llama a ninguna función desde un `onclick`** —no que
 
 | Tipo | Nombres ocupados |
 |---|---|
-| Estado | `criterios`, `paginaActual`, `filasDesplegadas`, `clientesEnPagina`, `peticionesEnVuelo`, `focoPendiente`, `listadosEnVuelo` |
+| Estado | `criterios`, `paginaActual`, `filasDesplegadas`, `clientesEnPagina`, `peticionesEnVuelo`, `focoPendiente`, `listadosEnVuelo`, `peticionesActivas`, `altaAbierta` |
 | Peticiones | `pedirJson`, `enviarJson`, `cerrarCanal`, `cargarClientes`, `cargarProvincias`, `cargarPoblaciones` |
-| Pintado | `pintarFilas`, `pintarCeldasFila`, `pintarPaginacion`, `pintarEnlace`, `mostrarMensaje`, `mostrarError` |
+| Pintado | `pintarFilas`, `pintarCeldasFila`, `pintarPaginacion`, `pintarEnlace`, `mostrarMensaje`, `mostrarError`, `pintarFormularioCliente`, `pintarPanelEdicion`, `pintarPanelAlta` |
 | Despliegue | `abrirDespliegue`, `cerrarDespliegue`, `alternarDespliegue`, `marcarFila`, `nombrarPanel`, `filaViva`, `formularioVivo` |
-| Avisos | `anunciar`, `escribirPista`, `ocultarPistas`, `limpiarPistas` |
+| Alta | `abrirAlta`, `cerrarAlta`, `reabrirAlta`, `insertarFilaAlta`, `filaAlta`, `formularioAlta`, `guardarCliente`, `contarErrorAlta`, `avisarClienteCreado`, `confirmarDescarteAlta` |
+| Avisos | `anunciar`, `escribirPista`, `limpiarPistas` |
+| Pantalla de carga | `mostrarCarga`, `ocultarCarga` |
 
-El nombre **`guardarCliente` está libre a propósito**: es el que le corresponde al alta de
-clientes. La función que guarda la edición en la fila se llama `guardarEdicion` para no ocuparlo.
+`guardarEdicion` y `guardarCliente` son **dos funciones distintas y ninguna es la otra**: la
+primera manda el `PUT` de una fila que se está editando y la segunda el `POST` del alta. El
+nombre estuvo reservado a propósito hasta que la feature del alta llegó a ocuparlo.
 

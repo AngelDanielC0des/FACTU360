@@ -77,6 +77,7 @@ const contenedorTabla = cuerpoTabla.closest(".table-responsive");
 const dialogoDescartar = document.getElementById("modal-descartar");
 const btnDescartar = document.getElementById("btn-descartar");
 const pantallaCarga = document.getElementById("pantalla-carga");
+const btnAnadirCliente = document.getElementById("btn-anadir-cliente");
 
 // El diálogo de descartar: se construye la primera vez que hace falta y se reutiliza.
 let modalDescartar = null;
@@ -166,6 +167,23 @@ const filasDesplegadas = new Map();
  * (ver abrirDespliegue).
  */
 const clientesEnPagina = new Map();
+
+/*
+ * El alta abierta, o null si no hay ninguna: { borrador } con lo que se lleve tecleado.
+ *
+ * Va en su propia variable y NO en filasDesplegadas, aunque sea otro panel desplegado, por dos
+ * motivos que no tienen vuelta: ese mapa se indexa por id de cliente y un cliente que todavía
+ * no existe no tiene id; y el alta tampoco tiene fila de cliente encima, así que filaViva,
+ * panelDe, modoDe y marcarFila —que buscan una tr.fila-cliente— no le sirven de nada.
+ *
+ * Meter un id falso (un 0 centinela) parecía más corto y es peor: se colaría en esas cuatro
+ * funciones, que lo darían por un cliente de verdad y fallarían en silencio.
+ */
+let altaAbierta = null;
+
+// El sufijo de los id del formulario del alta. Los de la edición llevan el id del cliente, que
+// siempre es un número, así que "nuevo" no puede chocar con ninguno.
+const SUFIJO_ALTA = "nuevo";
 
 // Los campos que se pueden editar, en un orden fijo. Se usa para leer el formulario, para
 // rellenarlo y para comparar si algo ha cambiado: al recorrer siempre esta misma lista, los
@@ -391,6 +409,7 @@ function pintarFilas(clientes) {
     }
 
     reabrirDespliegues();
+    reabrirAlta();
     devolverFoco();
 }
 
@@ -661,12 +680,19 @@ function pintarEstadoFiltros() {
  *        sale vacía por un filtro, la salida tiene que estar donde se ve el problema
  */
 function mostrarMensaje(texto, { conLimpiar = false } = {}) {
-    // Este es el OTRO sitio que vacía la tabla, además de pintarFilas, y la limpieza tiene que
-    // estar en los dos. Sin esto, el error de carga se lleva por delante las filas y deja
-    // flotando sobre el mensaje el globo que hubiera abierto: como detrás no queda ninguna
-    // fila que pulsar, no hay manera de provocar la limpieza y se queda hasta la siguiente
-    // búsqueda. La segunda pasada cuando viene de pintarFilas no molesta: es idempotente.
+    // Este es el OTRO sitio que vacía la tabla, además de pintarFilas, así que lo que hay que
+    // rescatar antes de vaciarla hay que rescatarlo también aquí. Cuando se llega desde
+    // pintarFilas las dos llamadas se repiten, y no pasa nada porque son idempotentes; cuando
+    // se llega desde mostrarError, este es el ÚNICO sitio donde se hacen.
+    //
+    // Los avisos emergentes, porque el globo que hubiera abierto se queda flotando sobre el
+    // mensaje: con container "body" cuelga del <body>, y como detrás no queda ninguna fila que
+    // pulsar, no hay forma de provocar la limpieza hasta la siguiente búsqueda.
+    //
+    // Y los borradores, porque el alta va a volver a pintarse abajo y lo haría con lo que
+    // tuviera guardado de antes, perdiendo lo tecleado desde entonces.
     limpiarPistas();
+    guardarBorradores();
     cuerpoTabla.replaceChildren();
     const fila = document.createElement("tr");
     const celda = document.createElement("td");
@@ -685,6 +711,12 @@ function mostrarMensaje(texto, { conLimpiar = false } = {}) {
 
     fila.appendChild(celda);
     cuerpoTabla.appendChild(fila);
+
+    // Y el alta vuelve arriba: sin esto, buscar algo que no existe se llevaba por delante el
+    // formulario a medio rellenar. reabrirAlta hace prepend, así que queda por encima del
+    // mensaje, que es donde tiene sentido: el formulario es lo que el usuario está usando y
+    // el "no hay coincidencias" habla de la tabla que tiene debajo.
+    reabrirAlta();
 }
 
 /** Muestra el error al usuario y lo deja en consola para depurar. */
@@ -1431,6 +1463,72 @@ function nombrarPanel(panel, accion, cliente) {
 }
 
 /**
+ * Clona el formulario del <template> y lo deja listo. Lo comparten la EDICIÓN y el ALTA, que
+ * usan la misma plantilla y solo se diferencian en tres cosas: el sufijo de los id, el cartel
+ * de estado y con qué valores se rellenan los campos.
+ *
+ * @param {Element} contenido el hueco del panel donde va el formulario
+ * @param {Object} opciones
+ * @param {string|number} opciones.sufijo lo que distingue los id de ESTE formulario de los de
+ *        los demás que puedan estar abiertos a la vez
+ * @param {Object} opciones.valoresBase contra qué se compara para saber si hay cambios sin
+ *        guardar: lo que hay en la BD al editar, y todo en blanco al dar de alta
+ * @param {Object|null} opciones.borrador lo que el usuario tenía escrito antes de un repintado
+ * @param {string} opciones.etiqueta el texto del cartel ("Editando", "Nuevo cliente")
+ * @param {string} opciones.clase la clase del cartel, que es la que le da su color
+ * @param {boolean} opciones.enfocar si se lleva el cursor al primer campo
+ * @return {HTMLFormElement} el formulario ya insertado, para que quien llame lo remate
+ */
+function pintarFormularioCliente(contenido,
+    { sufijo, valoresBase, borrador, etiqueta, clase, enfocar }) {
+
+    const panel = plantillaPanelEdicion.content.cloneNode(true);
+    const formulario = panel.querySelector(".formulario-edicion");
+
+    // Se rellena con el borrador si lo hay, para no perder lo tecleado.
+    const valores = borrador ?? valoresBase;
+
+    for (const campo of CAMPOS_EDITABLES) {
+        const control = formulario.elements[campo];
+
+        // Cada campo necesita su propio id para que el <label for> lo apunte, y con varios
+        // formularios abiertos a la vez no pueden repetirse: se les pega el sufijo. El
+        // template los trae con el sufijo PLANTILLA, que además hace que cante a la vista en
+        // el inspector si alguno se quedara sin sustituir.
+        const idControl = `campo-${campo}-${sufijo}`;
+        formulario.querySelector(`label[for="campo-${campo}-PLANTILLA"]`).htmlFor = idControl;
+        control.id = idControl;
+
+        control.value = valores[campo];
+    }
+
+    // El cartel de estado: el <template> viene con el de edición, que es el caso más común.
+    const cartel = formulario.querySelector(".etiqueta-estado");
+    cartel.classList.remove("etiqueta-edicion");
+    cartel.classList.add(clase);
+    cartel.querySelector(".texto-estado").textContent = etiqueta;
+
+    // Contra qué se compara al cerrar para saber si hay algo sin guardar. Al editar es lo que
+    // hay en la BD y NO el borrador: si el usuario lo deja como estaba, no hay nada que
+    // descartar y no tiene sentido preguntarle.
+    formulario.dataset.valoresOriginales = JSON.stringify(valoresBase);
+
+    // El hueco del error del NIF/CIF necesita id propio para que el campo pueda apuntarle con
+    // aria-describedby cuando el servidor rechace el guardado. Lleva el sufijo por lo mismo
+    // que los campos: puede haber varios formularios abiertos y dos elementos no pueden
+    // compartir id.
+    mensajeDe(formulario, "nifCif").id = `error-nifcif-${sufijo}`;
+
+    contenido.replaceChildren(panel);
+
+    if (enfocar) {
+        formulario.elements.nombre.focus();
+    }
+
+    return formulario;
+}
+
+/**
  * Pinta el formulario de edición con los datos del cliente.
  * @param {Element} contenido el hueco del panel donde va el formulario
  * @param {Object} cliente lo que hay ahora mismo en la base de datos
@@ -1438,45 +1536,50 @@ function nombrarPanel(panel, accion, cliente) {
  * @param {boolean} enfocar si se lleva el cursor al primer campo
  */
 function pintarPanelEdicion(contenido, cliente, borrador, enfocar) {
-    const panel = plantillaPanelEdicion.content.cloneNode(true);
-    const formulario = panel.querySelector(".formulario-edicion");
-    const valoresBd = valoresDe(cliente);
-
-    // Se rellena con el borrador si lo hay, para no perder lo tecleado.
-    const valores = borrador ?? valoresBd;
-
-    for (const campo of CAMPOS_EDITABLES) {
-        const control = formulario.elements[campo];
-
-        // Cada campo necesita su propio id para que el <label for> lo apunte, y con varios
-        // formularios abiertos a la vez no pueden repetirse: se le pega el id del cliente. El
-        // template los trae con el sufijo PLANTILLA, que además hace que cante a la vista en
-        // el inspector si alguno se quedara sin sustituir.
-        const idControl = `campo-${campo}-${cliente.idCliente}`;
-        formulario.querySelector(`label[for="campo-${campo}-PLANTILLA"]`).htmlFor = idControl;
-        control.id = idControl;
-
-        control.value = valores[campo];
-    }
-
-    nombrarPanel(formulario, "Editando", cliente);
+    const formulario = pintarFormularioCliente(contenido, {
+        sufijo: cliente.idCliente,
+        valoresBase: valoresDe(cliente),
+        borrador,
+        etiqueta: "Editando",
+        clase: "etiqueta-edicion",
+        enfocar,
+    });
 
     formulario.dataset.clienteId = cliente.idCliente;
-    // Cómo está el cliente en la BD, para saber al cerrar si hay algo sin guardar. Se compara
-    // contra la BD y no contra el borrador: si el usuario lo deja como estaba, no hay nada
-    // que descartar y no tiene sentido preguntarle.
-    formulario.dataset.valoresOriginales = JSON.stringify(valoresBd);
+    nombrarPanel(formulario, "Editando", cliente);
+}
 
-    // El hueco del error del NIF/CIF necesita id propio para que el campo pueda apuntarle con
-    // aria-describedby cuando el servidor rechace el guardado. Lleva el id del cliente porque
-    // puede haber varios formularios abiertos y dos elementos no pueden compartir id.
-    mensajeDe(formulario, "nifCif").id = `error-nifcif-${cliente.idCliente}`;
+/**
+ * Pinta el formulario del alta: la misma plantilla, en blanco y con el cartel en verde.
+ *
+ * NO lleva dataset.clienteId, y eso es lo que lo distingue del de edición en todas partes:
+ * formularioVivo() busca por ese atributo y aquí nunca lo va a encontrar, que es justo lo que
+ * se quiere. Quien tenga que distinguirlos a propósito usa la clase .formulario-alta.
+ *
+ * @param {Element} contenido el hueco del panel donde va el formulario
+ * @param {Object|null} borrador lo que se llevara tecleado antes de un repintado
+ * @param {boolean} enfocar si se lleva el cursor al primer campo
+ */
+function pintarPanelAlta(contenido, borrador, enfocar) {
+    // Todo en blanco. Se construye con valoresDe({}) y no con un objeto escrito a mano para
+    // que siga a CAMPOS_EDITABLES: añadir un campo a esa lista no puede obligar a acordarse
+    // de venir aquí a añadirlo también.
+    const formulario = pintarFormularioCliente(contenido, {
+        sufijo: SUFIJO_ALTA,
+        valoresBase: valoresDe({}),
+        borrador,
+        etiqueta: "Nuevo cliente",
+        clase: "etiqueta-alta",
+        enfocar,
+    });
 
-    contenido.replaceChildren(panel);
+    formulario.classList.add("formulario-alta");
+    formulario.setAttribute("aria-label", "Nuevo cliente");
 
-    if (enfocar) {
-        formulario.elements.nombre.focus();
-    }
+    // El icono del cartel viene siendo el lápiz de "Editando"; aquí lo que se hace es añadir.
+    const icono = formulario.querySelector(".etiqueta-estado i");
+    icono.classList.remove("fa-pencil");
+    icono.classList.add("fa-plus");
 }
 
 /**
@@ -1601,6 +1704,21 @@ async function confirmarDescarte(fila) {
 }
 
 /**
+ * Pregunta antes de cerrar un alta con algo escrito.
+ *
+ * Comparte el diálogo con la edición, y también su regla: si el formulario está como nació
+ * —todo en blanco— no hay nada que descartar y no se molesta al usuario.
+ *
+ * @return {Promise<boolean>} si se puede cerrar
+ */
+async function confirmarDescarteAlta() {
+    const formulario = formularioAlta();
+    if (!formulario || !hayCambios(formulario)) return true;
+
+    return preguntarDescarte();
+}
+
+/**
  * Abre el diálogo de descartar y espera la respuesta.
  *
  * La promesa se resuelve en 'hidden.bs.modal', cuando el diálogo ya se ha cerrado del todo y
@@ -1659,6 +1777,12 @@ dialogoDescartar.addEventListener("hidden.bs.modal", () => {
 /** Guarda lo escrito en los formularios abiertos antes de que la tabla se repinte. */
 function guardarBorradores() {
     for (const formulario of cuerpoTabla.querySelectorAll(".formulario-edicion")) {
+        // El del alta no está en filasDesplegadas —no tiene id de cliente— y se guarda aparte.
+        if (formulario.classList.contains("formulario-alta")) {
+            if (altaAbierta) altaAbierta.borrador = leerFormulario(formulario);
+            continue;
+        }
+
         const estado = filasDesplegadas.get(Number(formulario.dataset.clienteId));
         if (estado) {
             estado.borrador = leerFormulario(formulario);
@@ -1750,8 +1874,19 @@ if (window.bootstrap) {
 // cada repintado, así que los suyos habría que volver a enlazarlos cada vez (y los que había
 // antes en este archivo ni siquiera llegaban a enlazarse, porque se registraban al cargar la
 // página, cuando los botones aún vivían dentro del <template>).
-cuerpoTabla.addEventListener("click", (evento) => {
-    // Primero los controles del panel: viven en la fila hermana, no en la del cliente.
+cuerpoTabla.addEventListener("click", async (evento) => {
+    // El alta, la primera: comparte clases con el panel de una fila (fila-despliegue, el
+    // botón de cancelar) pero no tiene fila de cliente ni id, así que manejarClicPanel se
+    // saldría sin hacer nada al buscarla con filaViva.
+    if (evento.target.closest("tr.fila-alta")) {
+        if (evento.target.closest(".btn-cancelar") && await confirmarDescarteAlta()) {
+            cerrarAlta();
+        }
+        return;
+    }
+
+    // Después los controles del panel de una fila: viven en la fila hermana, no en la del
+    // cliente.
     const panel = evento.target.closest("tr.fila-despliegue");
     if (panel) {
         manejarClicPanel(evento, panel);
@@ -1817,6 +1952,263 @@ cuerpoTabla.addEventListener("input", (evento) => {
     }
 });
 
+// --- Alta de cliente ---
+//
+// El alta es un panel más, pero NO pasa por abrirDespliegue: ese camino gira todo alrededor de
+// una tr.fila-cliente con su id, y aquí no hay ni fila ni id. Son cuatro funciones cortas
+// —abrir, cerrar, reabrir tras un repintado y guardar— en vez de un puñado de condiciones
+// repartidas por el despliegue preguntando "¿y si es el alta?".
+
+/** La fila del alta si está en el documento ahora mismo, o null. */
+function filaAlta() {
+    return cuerpoTabla.querySelector("tr.fila-alta");
+}
+
+/** El formulario del alta si está en el documento ahora mismo, o null. */
+function formularioAlta() {
+    return cuerpoTabla.querySelector(".formulario-alta");
+}
+
+/**
+ * Abre el alta arriba del todo de la tabla, o lleva el foco a la que ya hubiera.
+ *
+ * No lleva fila de cliente encima, a diferencia del detalle y de la edición: un cliente que
+ * todavía no existe no tiene nombre ni CIF que enseñar, y los tres botones de acción no
+ * tendrían a qué apuntar.
+ */
+function abrirAlta() {
+    // Pulsar dos veces no puede dejar dos formularios: el segundo se llevaría el sufijo de los
+    // id del primero y los <label for> apuntarían al que no es.
+    //
+    // Se pregunta por el ESTADO y no por si el formulario está en el documento, y esa es la
+    // diferencia que importa: al cerrar, la fila se queda 250 ms plegándose, así que hay una
+    // ventana en la que el formulario sigue ahí pero el alta ya no está abierta. Mirando el
+    // documento, ese caso se confundía con "ya hay una abierta", el botón llevaba el foco a un
+    // formulario que estaba desapareciendo y el usuario se quedaba sin nada.
+    if (altaAbierta) {
+        formularioAlta()?.elements.nombre.focus();
+        return;
+    }
+
+    // Y si quedaba una plegándose, se retira YA: dos filas de alta a la vez repetirían los id
+    // de los campos durante ese cuarto de segundo.
+    retirarFilaAlta();
+
+    altaAbierta = { borrador: null };
+    insertarFilaAlta(null, { animar: true, enfocar: true });
+}
+
+/**
+ * Monta la fila del alta con el formulario dentro y la pone arriba del todo.
+ *
+ * Inserta ella misma en vez de devolver la fila para que quien llame la coloque, y no es un
+ * detalle: focus() sobre un elemento que todavía no está en el documento no hace nada, así que
+ * el orden "pintar, insertar, enfocar" tiene que estar garantizado en un solo sitio. En la
+ * edición no se plantea el problema porque allí el panel se inserta antes de pintarlo.
+ *
+ * @param {Object|null} borrador lo que se llevara tecleado, al reabrirla tras un repintado
+ * @param {Object} opciones
+ * @param {boolean} opciones.animar si se despliega con transición
+ * @param {boolean} opciones.enfocar si se lleva el cursor al primer campo
+ */
+function insertarFilaAlta(borrador, { animar, enfocar }) {
+    const fila = plantillaDespliegue.content.firstElementChild.cloneNode(true);
+
+    // Comparte plantilla y clases con el despliegue de una fila —el envoltorio que anima el
+    // alto y el recuadro de color son los mismos—, y añade fila-alta, que es por donde la
+    // reconocen el manejador de clics y el repintado.
+    fila.classList.add("fila-alta", "modo-alta");
+    fila.querySelector("td").colSpan = columnasVisibles();
+
+    // Se pinta SIN foco y se pide después de insertar, por lo dicho arriba.
+    pintarPanelAlta(fila.querySelector(".despliegue-contenido"), borrador, false);
+    cuerpoTabla.prepend(fila);
+
+    if (enfocar) {
+        fila.querySelector(".formulario-alta").elements.nombre.focus();
+    }
+
+    // Igual que en obtenerPanel: la clase que lo abre va en el frame siguiente, porque puesta
+    // a la vez que se inserta el navegador no llega a ver dos estados y no hay transición.
+    if (animar) {
+        requestAnimationFrame(() => fila.classList.add("abierto"));
+    } else {
+        fila.classList.add("abierto");
+    }
+}
+
+/**
+ * Cierra el alta y olvida lo escrito.
+ *
+ * @param {boolean} devolverElFoco si el foco vuelve al botón de "Añadir Cliente". Al cancelar
+ *        sí: el botón que se acaba de pulsar desaparece y el foco se iría al principio de la
+ *        página. Tras guardar no, porque de eso se encarga el repintado.
+ */
+function cerrarAlta({ devolverElFoco = true } = {}) {
+    altaAbierta = null;
+
+    const fila = filaAlta();
+    if (!fila) return;
+
+    fila.classList.remove("abierto");
+
+    // El identificador se guarda en la propia fila para poder cancelarlo: si se vuelve a pulsar
+    // "Añadir Cliente" antes de que termine el plegado, hay que retirarla en ese momento y no
+    // dejar que el temporizador la borre después, cuando ya habría otra en su sitio. Es lo
+    // mismo que hace obtenerPanel con el panel de una fila.
+    fila.dataset.temporizadorCierre = setTimeout(() => fila.remove(), DURACION_PLEGADO_MS);
+
+    if (devolverElFoco) {
+        btnAnadirCliente.focus();
+    }
+}
+
+/**
+ * Retira del documento la fila del alta que estuviera plegándose, cancelando su borrado
+ * programado.
+ *
+ * Sin cancelar el temporizador no basta con quitarla: el que quedó pendiente se dispararía
+ * 250 ms después sobre un nodo que ya no está, y aunque eso no da error, deja el código
+ * dependiendo de que ese remove() no encuentre nada.
+ */
+function retirarFilaAlta() {
+    const fila = filaAlta();
+    if (!fila) return;
+
+    clearTimeout(Number(fila.dataset.temporizadorCierre));
+    fila.remove();
+}
+
+/**
+ * Vuelve a poner el alta arriba después de que la tabla se repinte.
+ *
+ * Se llama desde los DOS sitios que vacían el <tbody>, pintarFilas y mostrarMensaje: buscar
+ * algo que no existe también borra la tabla, y sin esto el alta desaparecía justo ahí.
+ *
+ * Sin animar y sin robar el foco, por lo mismo que reabrirDespliegues: el repintado suele
+ * venir de que el usuario está escribiendo en el buscador, y llevarle el cursor al formulario
+ * lo sacaría de donde está.
+ */
+function reabrirAlta() {
+    if (!altaAbierta) return;
+
+    insertarFilaAlta(altaAbierta.borrador, { animar: false, enfocar: false });
+}
+
+/**
+ * Manda el cliente nuevo al backend y actúa según lo que responda.
+ *
+ * Es la hermana de guardarEdicion: mismo guion —validar en el navegador, desactivar el botón,
+ * enviar y contar el resultado— con POST en vez de PUT y sin id en la URL, porque lo asigna
+ * la base de datos.
+ *
+ * @param {HTMLFormElement} formulario el formulario del alta
+ */
+async function guardarCliente(formulario) {
+    limpiarErrores(formulario);
+
+    // Las restricciones del HTML son las mismas que valida el backend, así que el navegador
+    // corta aquí lo que el servidor rechazaría con un 400 y nos ahorramos la petición.
+    formulario.classList.add("was-validated");
+    if (!formulario.checkValidity()) {
+        formulario.querySelector(":invalid")?.focus();
+        return;
+    }
+
+    const boton = formulario.querySelector(".btn-guardar");
+    boton.disabled = true;   // sin esto, dos clics seguidos crean dos clientes
+
+    // Se lee ANTES de enviar: el formulario desaparece al cerrar el alta, y después del await
+    // ya no habría de dónde sacarlo.
+    const nifCreado = formulario.elements.nifCif.value.trim();
+
+    try {
+        const estado = await enviarJson("alta", "POST", API_CLIENTE, cuerpoPeticion(formulario));
+
+        if (estado === 201) {
+            cerrarAlta({ devolverElFoco: false });
+            avisarClienteCreado(nifCreado);
+            return;
+        }
+
+        contarErrorAlta(estado);
+    } catch (error) {
+        if (esCancelacion(error)) return;
+        console.error("No se pudo crear el cliente:", error);
+        contarErrorAlta(0);
+    } finally {
+        // El botón, el vivo: si la tabla se repintó mientras viajaba la petición, el que
+        // teníamos ya no está y el nuevo nace habilitado de todos modos.
+        const botonVivo = formularioAlta()?.querySelector(".btn-guardar");
+        if (botonVivo) botonVivo.disabled = false;
+    }
+}
+
+/**
+ * Cuenta un alta que no ha salido bien, en el formulario que esté en pantalla AHORA.
+ *
+ * Misma regla que contarErrorGuardado: el formulario desde el que se pulsó Guardar puede haber
+ * desaparecido mientras viajaba la petición, y escribir el error en él no falla, simplemente
+ * no lo lee nadie. El 404 de mostrarErrorGuardado no puede darse aquí —no hay ningún cliente
+ * que pueda haber sido borrado— y por eso no se contempla.
+ *
+ * @param {number} estado el código HTTP (0 si ni siquiera hubo respuesta)
+ */
+function contarErrorAlta(estado) {
+    const formulario = formularioAlta();
+
+    if (formulario) {
+        mostrarErrorGuardado(formulario, estado);
+        return;
+    }
+
+    anunciar("No se pudo crear el cliente. Vuelve a intentarlo.",
+        { visible: true, esError: true });
+}
+
+/**
+ * Refresca la tabla tras crear un cliente y cuenta si se puede ver o no.
+ *
+ * Es lo que resuelve la pregunta incómoda de "lo he creado, ¿dónde está?". Con el orden por
+ * defecto sale el primero: fecha_alta es una fecha SIN hora, así que todos los de hoy empatan
+ * y desempata el idcliente más alto, que es el recién creado. Pero con el orden invertido se
+ * va a la última página, ordenando por nombre cae donde le toque, y con un filtro de provincia
+ * que no cumpla no sale en ninguna.
+ *
+ * Por eso se pide la página 0 —donde estará si el orden es el de siempre— y después se mira si
+ * de verdad ha salido. Si no, se dice por qué en vez de dejar al usuario buscándolo.
+ *
+ * Se busca por el NIF/CIF y no por el id porque enviarJson solo devuelve el código de la
+ * respuesta, y ensancharlo para que a veces devuelva también el cuerpo dejaría a la función
+ * con dos formas de retorno según un parámetro. El NIF vale igual de bien: es único —por eso
+ * el backend contesta 409 cuando se repite— y es un dato que el usuario acaba de escribir.
+ *
+ * @param {string} nifCreado el NIF/CIF con el que se ha creado el cliente
+ */
+async function avisarClienteCreado(nifCreado) {
+    // La tabla se pide desde aquí y no con el evento clientes:cambiaron porque hay que esperar
+    // a que termine para poder mirar si el cliente está: el evento no devuelve nada que esperar.
+    await cargarClientes(0);
+
+    const creado = [...clientesEnPagina.values()].find((c) => c.nifCif === nifCreado);
+
+    if (creado) {
+        anunciar("Cliente creado.", { visible: true });
+
+        // El foco, a su fila. Es el mismo mecanismo que usa el guardado de la edición, salvo
+        // que aquí la tabla ya está pintada, así que se coloca directamente.
+        filaViva(creado.idCliente)?.querySelector(".btn-editar")?.focus();
+        return;
+    }
+
+    // Está creado, pero no se ve. Decirlo importa: si no, parece que no se ha guardado.
+    const porFiltros = hayCriteriosActivos();
+    anunciar(porFiltros
+        ? "Cliente creado, pero no se ve porque no cumple los filtros que tienes puestos."
+        : "Cliente creado. Con este orden no aparece en la primera página.",
+        { visible: true });
+}
+
 // --- Guardado de la edición ---
 
 // El envío se atiende también aquí arriba, por lo mismo: el formulario aparece y desaparece.
@@ -1824,7 +2216,13 @@ cuerpoTabla.addEventListener("submit", (evento) => {
     evento.preventDefault();
 
     const formulario = evento.target.closest(".formulario-edicion");
-    if (formulario) {
+    if (!formulario) return;
+
+    // Los dos formularios salen de la misma plantilla y comparten .formulario-edicion, así que
+    // este listener los recoge a los dos. Los distingue la clase que solo lleva el del alta.
+    if (formulario.classList.contains("formulario-alta")) {
+        guardarCliente(formulario);
+    } else {
         guardarEdicion(formulario);
     }
 });
@@ -2118,7 +2516,7 @@ const observadorTabla = new ResizeObserver(() => {
 observadorTabla.observe(contenedorTabla);
 observadorTabla.observe(cuerpoTabla.closest("table"));
 
-// --- Enlazado del modal de "Añadir Cliente" ---
+// --- Enlazado del botón "Añadir Cliente" ---
 
 // Los botones de la fila NO se enlazan aquí: van por delegación en el <tbody>, arriba, en la
 // sección del despliegue. Las filas se clonan de un <template> y no existen todavía cuando
@@ -2127,20 +2525,9 @@ observadorTabla.observe(cuerpoTabla.closest("table"));
 // feature: cuando se implemente, su sitio es un caso más en ese manejador, junto a los de ver
 // y editar.
 
-/*
- * El modal de "Añadir Cliente" se vacía cada vez que se abre. Bootstrap no lo hace solo, así
- * que quien escriba medio cliente, cierre sin guardar y vuelva a abrirlo se encontraría lo de
- * antes dentro y podría creer que son los datos de un cliente que ya existe. Al ABRIR y no al
- * cerrar, porque cerrar se puede de cuatro maneras (botón, X, Escape y fondo).
- *
- * Si el alta acaba haciéndose en la tabla y no aquí, esto sobra: ver el comentario del botón
- * "Guardar Cambios" en clientes.html.
- */
-const botonAnadirCliente = document.querySelector('[data-bs-target="#clienteModal"]');
-
-botonAnadirCliente.addEventListener("click", () => {
-    document.querySelector("#clienteModal form")?.reset();
-});
+// Este sí se enlaza directamente: vive en la cabecera de la página, fuera de la tabla, así que
+// existe desde que se carga el documento y no lo destruye ningún repintado.
+btnAnadirCliente.addEventListener("click", abrirAlta);
 
 // --- Enlazado del buscador ---
 

@@ -25,18 +25,33 @@
     --white: #ffffff;
     --focus-ring: #f59e0b; /* Contraste alto para accesibilidad */
 
-    /* Colores de estado de la fila desplegada. Son las versiones OSCURAS del verde y el
-       ámbar, y el motivo es de contraste, no de gusto.
+    /* Colores de estado de la fila desplegada. Son DOS JUEGOS y no uno, y el motivo es que
+       el borde y el texto no piden lo mismo.
 
-       Como BORDE bastaría con menos: el criterio 1.4.11 de WCAG pide 3:1 para algo que
-       transmite información, y ahí el #ffc107 de Bootstrap ya se caía (da 1.6:1 sobre
-       blanco). Pero estos dos colores se usan además para el TEXTO del cartel ("Viendo
-       detalles de…", "Editando…"), y el texto necesita 4.5:1 (criterio 1.4.3). Medidos
-       sobre el fondo del panel abierto (#e7efff): el verde da 5.09:1 y el ámbar 6.14:1.
-       El ámbar anterior (#b45309) se quedaba en 4.35:1, o sea que valía como borde pero
-       NO como texto. */
-    --estado-detalle: #157347;
+       El BORDE solo transmite estado: el criterio 1.4.11 de WCAG le pide 3:1, y con eso
+       puede ir vivo. El TEXTO del cartel ("Viendo detalles de…", "Editando…") necesita
+       4.5:1 (criterio 1.4.3), que es bastante más, y por eso va en tonos oscuros.
+
+       Cuando los dos papeles compartían color mandaba el más exigente y los bordes salían
+       apagados. Separándolos, el borde se lleva el tono neón y el cartel conserva el
+       contraste. Si algún día se vuelven a fundir en una sola variable, el que se rompe es
+       el texto, no el borde.
+
+       Los del texto, medidos sobre --fila-abierta (#dbe6ff), que es el fondo del panel
+       abierto: el morado da 6.91:1, el verde 4.69:1 y el ámbar 5.66:1. De referencia de lo
+       justo que va esto: el ámbar anterior (#b45309) se quedaba en 4.35:1, o sea que valía
+       como borde pero NO como texto.
+
+       OJO al medir: durante un tiempo estas cuentas se hicieron contra #e7efff, que fue el
+       valor de --fila-abierta hasta que los tres tonos de fila se reajustaron. El fondo bueno
+       es el de la variable, no un número escrito a mano que se queda viejo en silencio. */
+    --borde-detalle: #a855f7;
+    --borde-edicion: #fb923c;
+    --borde-alta: #22c55e;
+
+    --estado-detalle: #6b21a8;
     --estado-edicion: #92400e;
+    --estado-alta: #157347;
 
     /* Los tres tonos de fila de la tabla. Van JUNTOS y aquí a propósito: son una escala, y el
        valor de cada uno solo tiene sentido mirando los otros dos. Estuvieron repartidos por
@@ -530,7 +545,11 @@ footer {
 .aviso-clientes {
     margin: 0 0 0.75rem;
     padding: 0.5rem 0.85rem;
-    border-left: 4px solid var(--estado-detalle);
+    /* Verde de confirmacion, el mismo del alta. Antes leia --estado-detalle, que servia
+       porque tambien era verde; al pasar el detalle a morado se habria quedado un borde
+       morado sobre fondo verde. El color de esta franja depende de lo que significa
+       (algo ha ido bien), no del estado en que este una fila. */
+    border-left: 4px solid var(--estado-alta);
     border-radius: 0.35rem;
     background-color: #eaf6ef;
     color: #14532d;
@@ -625,17 +644,26 @@ footer {
     cursor: pointer;
 }
 
-/* Color del estado: verde si se está viendo, ámbar si se está editando. Se declara en la
-   fila y lo heredan las celdas y el panel, así que el borde de todo el bloque cambia de
-   color con una sola clase. */
+/* Color del estado: morado si se está viendo, ámbar si se está editando, verde si es un alta.
+   Se declara en la fila y lo heredan las celdas y el panel, así que todo el bloque cambia de
+   color con una sola clase.
+
+   Aquí solo va el color del BORDE. El del cartel lo pone cada .etiqueta-* por su cuenta, y el
+   motivo está explicado junto a ellas: una variable de modo no sobrevive al plegado. */
 .fila-cliente.modo-detalle,
 .fila-despliegue.modo-detalle {
-    --color-modo: var(--estado-detalle);
+    --color-modo: var(--borde-detalle);
 }
 
 .fila-cliente.modo-edicion,
 .fila-despliegue.modo-edicion {
-    --color-modo: var(--estado-edicion);
+    --color-modo: var(--borde-edicion);
+}
+
+/* El alta no tiene fila de cliente encima —el cliente todavía no existe—, así que este modo
+   solo lo lleva el panel. */
+.fila-despliegue.modo-alta {
+    --color-modo: var(--borde-alta);
 }
 
 /* La fila abierta y su panel se resaltan juntos para que se vea de un vistazo a quién
@@ -685,12 +713,35 @@ footer {
    Al cerrar, marcarFila() quita las clases de modo pero el panel se queda 250 ms en el
    documento plegándose: sin esta condición, --color-modo deja de existir, el var() no
    resuelve, border-color cae a su valor inicial (currentColor, o sea el color del texto) y
-   se veía una raya oscura parpadear en cada cierre. */
-.fila-despliegue.modo-detalle > td,
-.fila-despliegue.modo-edicion > td {
+   se veía una raya oscura parpadear en cada cierre.
+
+   El '.tabla-clientes' del principio no sobra: sin él, esto pesa exactamente lo mismo que la
+   regla del fondo de unas líneas más arriba, que también pone box-shadow, y cuál gana pasaría
+   a depender de cuál esté escrita más abajo. */
+.tabla-clientes .fila-despliegue.modo-detalle > td,
+.tabla-clientes .fila-despliegue.modo-edicion > td,
+.tabla-clientes .fila-despliegue.modo-alta > td {
     border-left: 2px solid var(--color-modo);
     border-right: 2px solid var(--color-modo);
     border-bottom: 2px solid var(--color-modo);
+
+    /* El halo del color del estado: es lo que hace que el borde se lea como neón en vez de
+       como una raya de color. Va con radio negativo (-4px) para que quede pegado y tenue,
+       no como una sombra de tarjeta.
+
+       Se pone en el <td> del PANEL y no en las celdas de la fila a propósito. Aquellas llevan
+       un 'box-shadow: none' que no es decorativo: mata el resaltado de table-hover de
+       Bootstrap, que es un inset gigante. Puesto ahí, el halo lo reviviría y el bloque se
+       vería partido en dos tonos. */
+    box-shadow: 0 0 14px -4px var(--color-modo);
+}
+
+/* El alta cierra su recuadro por arriba ella sola. En el detalle y en la edición ese lado lo
+   pone la fila del cliente ('.fila-cliente.desplegada > *', más arriba), pero el alta no tiene
+   fila encima —el cliente todavía no existe— y sin esto el recuadro se quedaba abierto por
+   arriba, como una U. */
+.tabla-clientes .fila-despliegue.modo-alta > td {
+    border-top: 2px solid var(--color-modo);
 }
 
 /* Cartel de estado del panel. El borde de color por sí solo no vale: quien no distingue
@@ -706,12 +757,21 @@ footer {
     gap: 0.4rem;
 }
 
+/* Cada cartel lleva su color DIRECTO, y no una variable que ponga el modo como hace el borde.
+   Al cerrar, marcarFila() quita las clases de modo pero el panel se queda 250 ms plegándose:
+   una var() declarada en el modo dejaría de resolver a media animación y el texto cambiaría
+   de color mientras se pliega. Es el mismo motivo por el que los bordes del panel van
+   condicionados al modo unas líneas más arriba. */
 .etiqueta-detalle {
     color: var(--estado-detalle);
 }
 
 .etiqueta-edicion {
     color: var(--estado-edicion);
+}
+
+.etiqueta-alta {
+    color: var(--estado-alta);
 }
 
 /* Truco de grid para animar una altura que no se conoce de antemano: 0fr -> 1fr sí
@@ -776,7 +836,8 @@ footer {
    de la lista. Mismo aspecto para el <dt> del detalle y el <label> de la edición. */
 /* El gris es el más claro que se puede usar aquí: a 0.75rem y en negrita esto NO cuenta como
    texto grande, así que necesita 4.5:1 (criterio 1.4.3), y sobre el fondo del panel abierto
-   (#e7efff) el #64748b que había antes se quedaba en 4.12:1. Con #475569 sube a 6.56:1. */
+   (--fila-abierta, #dbe6ff) el #64748b que había antes se quedaba en 4.12:1. Con #475569
+   sube a 6.56:1. */
 .datos-cliente dt,
 .campo-edicion label {
     display: block;
@@ -796,14 +857,27 @@ footer {
     overflow-wrap: anywhere;   /* un correo largo no debe ensanchar la columna */
 }
 
-/* El lápiz de cada campo editable: en el mismo ámbar que el borde del bloque en edición,
-   para que se lea como parte de ese estado y no como un icono suelto. Solo existe en el
-   panel de edición, así que la diferencia con el detalle está garantizada por el marcado y
-   no por una clase que alguien pueda olvidarse de quitar. */
+/* El lápiz de cada campo editable, en el color del estado al que pertenece el formulario:
+   ámbar al editar, verde al dar de alta. Los dos paneles clonan la MISMA plantilla, así que
+   sin distinguirlos saldrían lápices ámbar dentro del recuadro verde del alta.
+
+   Se distingue por la clase del <form> y no por el modo de la fila a propósito: las clases
+   de modo se quitan al cerrar y el panel se queda 250 ms plegándose, así que el icono
+   cambiaría de color a media animación. La del formulario no se va nunca.
+
+   Va en el tono OSCURO y no en el del borde: es un glifo de 0.7em, y en el ámbar vivo del
+   borde se lee mucho peor a ese tamaño. */
 .icono-editable {
-    color: var(--estado-edicion);
     font-size: 0.7em;
     margin-right: 0.15rem;
+}
+
+.formulario-edicion .icono-editable {
+    color: var(--estado-edicion);
+}
+
+.formulario-alta .icono-editable {
+    color: var(--estado-alta);
 }
 
 /* El campo ocupa el ancho de su columna; si no, los input cortos dejan la rejilla desigual. */

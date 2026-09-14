@@ -59,10 +59,10 @@
 			<!-- Es el título de la página, así que es un h1 y no un h2: una página sin h1 deja
                  a quien navega por encabezados sin punto de entrada. La clase .h2 de Bootstrap
                  conserva el tamaño visual de antes. -->
-			<h1 class="h2 mb-0">Panel de Gestión de Clientes</h1>
-			<button class="btn btn-primary-custom" data-bs-toggle="modal"
-				data-bs-target="#clienteModal">Añadir Cliente</button>
-		</div>
+            <h1 class="h2 mb-0">Panel de Gestión de Clientes</h1>
+            <button id="btn-anadir-cliente" type="button" class="btn btn-primary-custom">Añadir Cliente</button>
+        </div>
+
 
 
 		<!-- Barra de criterios: buscador + filtros + ordenación. Todos escriben en el
@@ -499,82 +499,8 @@
 		</div>
 	</footer>
 
-	<!-- Modal -->
-	<div class="modal fade" id="clienteModal" tabindex="-1"
-		aria-labelledby="clienteModalLabel" aria-hidden="true">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="clienteModalLabel">Gestionar
-						Cliente</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal"
-						aria-label="Cerrar"></button>
-				</div>
-				<div class="modal-body">
-					<form id="formCliente">
-						<div class="mb-3">
-							<label for="nombreCliente" class="form-label">Nombre o
-								Empresa</label> <input type="text" class="form-control"
-								id="nombreCliente" required>
-						</div>
-						<div class="mb-3">
-							<label for="cifCliente" class="form-label">CIF</label> <input
-								type="text" class="form-control" id="cifCliente" required>
-						</div>
-						<div class="mb-3">
-							<label for="emailCliente" class="form-label">Email</label> <input
-								type="email" class="form-control" id="emailCliente" required>
-						</div>
-						<div class="mb-3">
-							<label for="telefonoCliente" class="form-label">Teléfono</label>
-							<input type="tel" class="form-control" id="telefonoCliente"
-								required>
-						</div>
-					</form>
-				</div>
-				<div class="modal-footer">
-					<!-- La explicación va escrita y no en un aviso emergente. Antes era un
-                         data-bs-title en el botón, que no salía nunca: los dos avisos delegados
-                         cuelgan del <tbody> y de la barra de filtros, y este modal no está en
-                         ninguno de los dos; y aunque lo estuviera, un control deshabilitado no
-                         emite eventos de ratón. Escrito se ve siempre, también en el móvil y
-                         sin ratón, que es lo que necesita algo que explica por qué no se puede
-                         usar la pantalla. me-auto lo manda a la izquierda del pie y deja los
-                         botones a la derecha. -->
-					<p id="alta-no-disponible" class="text-muted small mb-0 me-auto">
-						El alta de clientes todavía no está disponible.</p>
-					<button type="button" class="btn btn-secondary"
-						data-bs-dismiss="modal">Cancelar</button>
-					<!-- Inhabilitado a propósito: el alta de clientes todavía no tiene lógica de
-                         frontend. La función guardarCliente() que llamaba este botón no existe en
-                         ningún sitio, así que pulsarlo solo dejaba un ReferenceError en la consola,
-                         y además este formulario recoge 4 de los 7 campos que ClienteRequest exige
-                         (faltan dirección, población y provincia, las tres @NotBlank), con lo que
-                         el POST devolvería 400 igualmente.
 
-                         PARA QUIEN IMPLEMENTE EL ALTA: decide tú por dónde va. Este modal es una
-                         opción; la otra es hacerlo en la propia tabla, reutilizando el panel de
-                         edición que ya existe. Si eliges el modal, quita el disabled y añade los
-                         tres campos que faltan; si eliges la tabla, este modal sobra entero y se
-                         puede borrar con su botón de arriba y el listener que lo vacía al abrir,
-                         al final de clientes.js.
-
-                         Vaya por donde vaya, dos cosas valen igual: los botones de la fila se
-                         enganchan por delegación en el <tbody> (está explicado en clientes.js,
-                         donde se resuelven ver y editar), y hay que disparar
-                         document.dispatchEvent(new CustomEvent('clientes:cambiaron')) al recibir
-                         el 201 para que la tabla se refresque sola. -->
-					<!-- aria-describedby ata el botón a su explicación: los botones
-                         deshabilitados siguen en el árbol de accesibilidad, así que un lector
-                         de pantalla lee el porqué junto al nombre del botón. -->
-					<button type="button" class="btn btn-primary-custom" disabled
-						aria-describedby="alta-no-disponible">Guardar Cambios</button>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<!-- Confirmación de descartar lo escrito sin guardar. Antes era el confirm() del
+    <!-- Confirmación de descartar lo escrito sin guardar. Antes era el confirm() del
          navegador: funcionaba, pero bloquea la página entera mientras está abierto, no se
          puede dar estilo y en algunos navegadores el usuario puede silenciarlo (y entonces
          cuenta como un "no", así que la fila no se cerraba nunca). Este es el mismo diálogo
