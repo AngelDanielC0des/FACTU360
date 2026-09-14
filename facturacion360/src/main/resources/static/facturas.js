@@ -1,5 +1,6 @@
 const RUTA_FACTURAS = "/factura/buscar";
 const RUTA_CREAR_FACTURA = "/factura";
+const RUTA_FACTURAS_TRIMESTRE = "/factura/trimestral";
 const RUTA_CLIENTES = "/cliente/listar-ultimos?limite=100";
 
 const tablaFacturas = document.getElementById("tablaFacturas");
@@ -10,6 +11,12 @@ const selectCliente = document.getElementById("clienteFactura");
 const inputSubtotal = document.getElementById("subtotalFactura");
 const inputIva = document.getElementById("ivaFactura");
 const inputTotal = document.getElementById("totalFactura");
+const inputAnio = document.getElementById("anioTrimestre");
+const selectTrimestre = document.getElementById("trimestreFactura");
+const resumenTrimestral = document.getElementById("resumenTrimestral");
+const subtotalTrimestre = document.getElementById("subtotalTrimestre");
+const ivaTrimestre = document.getElementById("ivaTrimestre");
+const totalTrimestre = document.getElementById("totalTrimestre");
 
 /** Carga las facturas que coinciden con el texto buscado. */
 async function cargarFacturas() {
@@ -59,23 +66,34 @@ function mostrarFacturas(facturas) {
     }
 }
 
-/** Añade a la fila el botón que abre la factura preparada para imprimir. */
-function agregarAccionVisor(fila, idFactura) {
-    const celda = document.createElement("td");
-    celda.className = "text-end";
+/** Consulta las facturas del año y trimestre elegidos y muestra sus totales. */
+async function cargarListadoTrimestral() {
+    if (inputAnio.reportValidity()) {
+        const parametros = new URLSearchParams({
+            anio: inputAnio.value,
+            trimestre: selectTrimestre.value
+        });
 
-    const boton = document.createElement("button");
-    boton.type = "button";
-    boton.className = "btn btn-sm btn-outline-primary";
-    boton.title = "Ver e imprimir factura";
-    boton.setAttribute("aria-label", "Ver e imprimir factura");
-    boton.textContent = "Ver / PDF";
-    boton.addEventListener("click", function () {
-        window.open("factura-imprimir.html?idFactura=" + idFactura, "_blank");
-    });
+        try {
+            const respuesta = await fetch(RUTA_FACTURAS_TRIMESTRE + "?" + parametros);
+            if (respuesta.ok) {
+                const resumen = await respuesta.json();
+                mostrarFacturas(resumen.facturas);
+                subtotalTrimestre.textContent = formatearImporte(resumen.subtotal);
+                ivaTrimestre.textContent = formatearImporte(resumen.importeIva);
+                totalTrimestre.textContent = formatearImporte(resumen.total);
+                resumenTrimestral.classList.remove("d-none");
+                mostrarMensaje("Mostrando el " + resumen.trimestre + "º trimestre de " + resumen.anio + ".", "info");
+            } else {
+                const mensajeError = await respuesta.text();
+                mostrarMensaje(mensajeError || "No se pudo cargar el listado trimestral.", "danger");
+            }
+        } catch (error) {
+            console.error("Error al cargar el listado trimestral", error);
+            mostrarMensaje("No se pudo conectar con el servidor.", "danger");
+        }
+    }
 
-    celda.appendChild(boton);
-    fila.appendChild(celda);
 }
 
 /** Añade una celda de texto a una fila. */
@@ -177,6 +195,7 @@ document.getElementById("botonLimpiar").addEventListener("click", function () {
     cargarFacturas();
 });
 document.getElementById("botonGuardarFactura").addEventListener("click", guardarFactura);
+document.getElementById("botonListarTrimestre").addEventListener("click", cargarListadoTrimestral);
 inputSubtotal.addEventListener("input", calcularTotal);
 inputIva.addEventListener("input", calcularTotal);
 inputBusqueda.addEventListener("keydown", function (evento) {
@@ -185,5 +204,6 @@ inputBusqueda.addEventListener("keydown", function (evento) {
     }
 });
 
+inputAnio.value = new Date().getFullYear();
 cargarClientes();
 cargarFacturas();
