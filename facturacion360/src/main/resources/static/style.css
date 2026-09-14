@@ -1,5 +1,5 @@
 /* style.css */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
     --primary-color: #0d6efd;
@@ -8,8 +8,11 @@
     --border-color: #4D82F3;
     --bg-body: #f8fafc;
     --text-main: #1f2937;
+    --text-muted: #6b7280;
     --white: #ffffff;
     --focus-ring: #f59e0b;
+    --navbar-bg: #024ebc;
+    --dark-footer: #1f2328;
 }
 
 /* ==========================================
@@ -46,7 +49,7 @@ img {
    NAVEGACIÓN (Fondo Azul y Enlaces Blancos)
    ========================================== */
 .navbar {
-    background-color: #024ebc !important; /* Fondo Azul Oscuro */
+    background-color: var(--navbar-bg) !important; /* Fondo Azul Oscuro */
     padding: 0.75rem 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
@@ -114,12 +117,191 @@ img {
 
 .navbar #authContainer .btn-outline-primary:hover {
     background-color: #ffffff !important;
-    color: #024ebc !important;
+    color: var(--navbar-bg) !important;
 }
 
 /* Texto de usuario logueado en la Navbar */
 .navbar #authContainer span {
     color: #ffffff !important;
+}
+
+/* ==========================================
+   HEADER HERO (PÁGINA SOBRE NOSOTROS)
+   ========================================== */
+.hero-section {
+    background: linear-gradient(135deg, var(--navbar-bg) 0%, #01317a 100%);
+    box-shadow: inset 0 -10px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* ==========================================
+   SECCIONES Y TARJETAS (PÁGINA SOBRE NOSOTROS)
+   ========================================== */
+.section-title {
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+}
+
+/* Sección Historia e Intro */
+/* Estilo editorial para Nuestra Historia (sin recuadro) */
+.intro-box-editorial {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 1rem 0;
+}
+
+.intro-image-container {
+    background-color: var(--white);
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.intro-image-container img {
+    max-height: 220px;
+    object-fit: contain;
+}
+
+.stats-box {
+    display: inline-flex;
+    align-items: center;
+    background-color: #eff6ff;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--navbar-bg);
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--navbar-bg);
+    margin-right: 0.75rem;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    text-transform: uppercase;
+}
+
+/* Tarjetas Misión, Visión y Valores */
+.mvv-card {
+    background: var(--white);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.mvv-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.card-icon {
+    font-size: 1.6rem;
+    color: var(--navbar-bg);
+    margin-bottom: 1rem;
+}
+
+.mvv-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.85rem;
+}
+
+.mvv-card p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+/* Sección Logros */
+.logros-box {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 2.5rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.logros-list li {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+}
+
+.logro-icon {
+    font-size: 1.2rem;
+    color: var(--navbar-bg);
+    background: #eff6ff;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.talent-img {
+    max-height: 220px;
+    object-fit: cover;
+    border: 1px solid #e2e8f0;
+}
+
+/* Sección Equipo */
+.team-card {
+    background: var(--white);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.team-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.team-photo {
+    width: 95px;
+    height: 95px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 1rem auto;
+    border: 3px solid #eff6ff;
+    transition: border-color 0.25s ease;
+}
+
+.team-card:hover .team-photo {
+    border-color: var(--navbar-bg);
+}
+
+.team-card h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.team-role {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--navbar-bg);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+}
+
+.team-bio {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    margin-bottom: 0;
 }
 
 /* ==========================================
@@ -134,7 +316,7 @@ img {
 
 /* Estilo de Tarjeta Principal (Index/Empresa) */
 .card {
-    background-color: #ffffff;
+    background-color: var(--white);
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
@@ -144,7 +326,7 @@ img {
 .card div[style*="border:1px solid"] {
     border: 1.5px solid var(--border-color) !important;
     border-radius: 10px;
-    background-color: #ffffff;
+    background-color: var(--white);
 }
 
 .card h3 {
@@ -167,7 +349,7 @@ img {
 }
 
 .feature-card h3 {
-    color: #0d6efd;
+    color: var(--primary-color);
     margin-bottom: 1rem;
     font-weight: 600;
 }
@@ -244,7 +426,7 @@ img {
 }
 
 .table thead.table-primary-custom {
-    background-color: #0d6efd;
+    background-color: var(--primary-color);
     color: white;
 }
 
@@ -277,7 +459,7 @@ img {
 
 .btn-outline-danger:hover {
     background-color: #ef4444;
-    color: #ffffff;
+    color: var(--white);
     border-radius: 4px;
 }
 
@@ -299,45 +481,10 @@ img {
     min-width: 195px;
 }
 
-
-/* ==========================================
-   BARRA DE FILTROS (buscador + filtros + ordenación)
-   ========================================== */
-
-/* Una sola fila flexible. Con flex-wrap, en pantallas estrechas los controles se
-   apilan solos y no hace falta una media query aparte para colocarlos. */
-.barra-filtros {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* El buscador convive con el resto de controles: al abrirse crece hasta un ancho
-   cómodo pero acotado. Si se dejara el 100% original, empujaría los desplegables
-   fuera de la fila cada vez que el usuario pincha en la lupa. */
-.barra-filtros .buscador-clientes.expandido {
-    width: 320px;
-    max-width: 100%;
-}
-
-/* Ancho natural de cada desplegable, con un mínimo para que quepa el texto de las
-   opciones ("Todas las provincias") sin recortarlo. */
-.barra-filtros .control-filtro {
-    width: auto;
-    min-width: 195px;
-}
-
-
 .barra-filtros .control-orden {
     width: auto;
     min-width: 265px;
 }
-
-
-/* Los controles de Bootstrap con el mismo aire que el buscador: bordes suaves y
-   esquinas redondeadas, para que la barra se lea como un conjunto y no como
-   piezas sueltas de dos diseños distintos. */
 
 .barra-filtros .form-select,
 .barra-filtros .input-group-text,
@@ -348,9 +495,7 @@ img {
 }
 
 .barra-filtros .input-group-text {
-
-    color: #9ca3af;   /* mismo gris que la lupa del buscador */
-
+    color: #9ca3af;
 }
 
 .barra-filtros .form-select:focus,
@@ -359,12 +504,8 @@ img {
     box-shadow: 0 0 0 0.2rem rgba(71, 118, 247, 0.15);
 }
 
-
-
-
-/* El botón de dirección se lee como parte del selector que tiene al lado. */
 .barra-filtros .btn-direccion {
-    white-space: nowrap;   /* "Más recientes" no debe partirse en dos líneas */
+    white-space: nowrap;
     font-weight: 600;
 }
 
@@ -380,17 +521,14 @@ img {
     color: #64748b;
     text-decoration: none;
     white-space: nowrap;
-    margin-left: auto;   /* se va al extremo derecho de la fila */
+    margin-left: auto;
 }
 
 .barra-filtros .btn-limpiar:hover {
     color: var(--primary-color);
 }
 
-/* --- Cabeceras de tabla ordenables --- */
-
-/* Es un <button> de verdad (para poder usarlo con el teclado), así que hay que
-   quitarle el aspecto de botón y devolverle el de cabecera. */
+/* Cabeceras de tabla ordenables */
 .th-ordenable {
     background: none;
     border: none;
@@ -408,9 +546,6 @@ img {
     text-decoration: underline;
 }
 
-
-/* La flecha se ve tenue en las columnas por las que NO se está ordenando: así se
-   sabe que son pulsables sin competir con la que marca el orden real. */
 .caret-orden {
     opacity: 0.45;
     font-size: 0.85em;
@@ -421,12 +556,7 @@ img {
     opacity: 1;
 }
 
-
-/* --- Buscador de clientes ---
-   Campo redondeado, borde fino y una lupa gris dentro, a la izquierda, imitando
-   el diseño de Figma. */
-/* --- Buscador de clientes animado --- */
-
+/* Buscador de clientes animado */
 .buscador-clientes {
     position: relative;
     width: 50px;
@@ -485,6 +615,15 @@ img {
 }
 
 /* ==========================================
+   PIE DE PÁGINA
+   ========================================== */
+.footer {
+    background-color: var(--dark-footer);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.875rem;
+}
+
+/* ==========================================
    RESPONSIVE
    ========================================== */
 @media (max-width: 768px) {
@@ -500,9 +639,6 @@ img {
         gap: 0.5rem;
     }
 
-    /* En móvil cada control ocupa el ancho completo: apilados se leen mejor que
-       apretados, y así ninguno queda cortado. */
-
     .barra-filtros .control-filtro,
     .barra-filtros .control-orden,
     .barra-filtros .buscador-clientes.expandido {
@@ -510,8 +646,6 @@ img {
         min-width: 0;
     }
 
-
-    /* Sin espacio de sobra a la izquierda, el "Limpiar" se alinea con el resto. */
     .barra-filtros .btn-limpiar {
         margin-left: 0;
     }
@@ -526,21 +660,18 @@ img {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(255, 255, 255, 0.7); /* Fondo blanco semitransparente */
+    background-color: rgba(255, 255, 255, 0.7);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 9999; /* Asegura que quede por encima de modales y navbars */
+    z-index: 9999;
 }
 
-/* Forzar la ocultación cuando tenga la clase d-none */
 .pantalla-carga.d-none {
     display: none !important;
 }
 
-/* Ajusta el tamaño de tu GIF aquí */
 .spinner-carga {
     width: 80px;
     height: 80px;
-
 }
