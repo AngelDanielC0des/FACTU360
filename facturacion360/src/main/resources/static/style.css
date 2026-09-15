@@ -48,10 +48,12 @@
     --borde-detalle: #a855f7;
     --borde-edicion: #fb923c;
     --borde-alta: #22c55e;
+    --borde-borrado: #ef4444;
 
     --estado-detalle: #6b21a8;
     --estado-edicion: #92400e;
     --estado-alta: #157347;
+    --estado-borrado: #b91c1c;
 
     /* Los tres tonos de fila de la tabla. Van JUNTOS y aquí a propósito: son una escala, y el
        valor de cada uno solo tiene sentido mirando los otros dos. Estuvieron repartidos por
@@ -677,6 +679,14 @@ footer {
     --color-modo: var(--borde-alta);
 }
 
+/* Rojo para el borrado. Es el único de los cuatro que pregunta antes de hacer algo que no se
+   puede deshacer, y el color es la mitad del aviso: la otra mitad la pone el cartel escrito
+   dentro del panel, porque el color por sí solo no vale (criterio 1.4.1 de WCAG). */
+.fila-cliente.modo-borrado,
+.fila-despliegue.modo-borrado {
+    --color-modo: var(--borde-borrado);
+}
+
 /* La fila abierta y su panel se resaltan juntos para que se vea de un vistazo a quién
    pertenece lo que hay debajo.
 
@@ -731,7 +741,8 @@ footer {
    a depender de cuál esté escrita más abajo. */
 .tabla-clientes .fila-despliegue.modo-detalle > td,
 .tabla-clientes .fila-despliegue.modo-edicion > td,
-.tabla-clientes .fila-despliegue.modo-alta > td {
+.tabla-clientes .fila-despliegue.modo-alta > td,
+.tabla-clientes .fila-despliegue.modo-borrado > td {
     border-left: 2px solid var(--color-modo);
     border-right: 2px solid var(--color-modo);
     border-bottom: 2px solid var(--color-modo);
@@ -783,6 +794,10 @@ footer {
 
 .etiqueta-alta {
     color: var(--estado-alta);
+}
+
+.etiqueta-borrado {
+    color: var(--estado-borrado);
 }
 
 /* Truco de grid para animar una altura que no se conoce de antemano: 0fr -> 1fr sí
@@ -950,6 +965,39 @@ footer {
     display: flex;
     gap: 0.5rem;
     margin-left: auto;
+}
+
+/* --- Panel de borrado ---------------------------------------------------------------- */
+
+.borrado-pregunta {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+    max-width: 60ch;
+}
+
+/* El nombre del cliente que se va a borrar, destacado dentro de la frase: es el dato que hay
+   que leer antes de decidir, y el <strong> lo marca también para quien no ve la pantalla. */
+.borrado-pregunta .borrado-nombre {
+    font-weight: 700;
+}
+
+/* El motivo cuando el servidor rechaza el borrado (409: el cliente tiene facturas). Mismo
+   tratamiento que .alerta-edicion, y por el mismo motivo va con :empty y no con hidden: el
+   role="alert" solo anuncia si el elemento ya estaba en el documento antes del mensaje. */
+.alerta-borrado {
+    margin: 0 0 0.75rem;
+    color: var(--estado-borrado);
+    font-size: 0.9rem;
+}
+
+.alerta-borrado:empty {
+    display: none;
+}
+
+.acciones-borrado {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
 }
 
 /* Quien tenga desactivadas las animaciones del sistema abre y cierra sin transición. */

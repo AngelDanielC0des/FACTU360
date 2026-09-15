@@ -37,21 +37,29 @@ hubiera texto escrito o no—. Compartiendo endpoint, la búsqueda hereda todo e
 
 ## Qué entrega cada rama
 
-Este documento cubre **tres ramas apiladas**, y conviene saber qué toca cada una antes de
+Este documento cubre **una pila de ramas**, y conviene saber qué toca cada una antes de
 leerlo, porque se integran en este orden y cada una da por hecha la anterior:
 
-| Rama | Qué añade | Se apoya en |
-|---|---|---|
-| `feature/verDetallesYEditar_Angel` | Ver el detalle y editar en la fila; `GET /cliente/{id}` y los arreglos del `PUT` | `master` |
-| `feature/modulosES_Angel` | Parte `clientes.js` en 16 módulos ES por capas. **No cambia ningún comportamiento** | la anterior |
-| `feature/añadirclientes_Angel` | El alta en la tabla y los colores de estado | `verDetallesYEditar` |
+| Rama | Qué añade | Se apoya en | Estado |
+|---|---|---|---|
+| `feature/verDetallesYEditar_Angel` | Ver el detalle y editar en la fila; `GET /cliente/{id}` y los arreglos del `PUT` | `master` | integrada |
+| `feature/añadirclientes_Angel` | El alta en la tabla y los colores de estado | la anterior | integrada |
+| `feature/borrarClientes_Angel` | El borrado con confirmación en la propia fila | la anterior | **PR #25, abierta** |
+| `feature/modulosES_Angel_v2` | Parte `clientes.js` en **18 módulos ES** por capas. **No cambia ningún comportamiento** | `borrarClientes` | **PR #26, abierta** |
 
-Todo lo que se cuenta más abajo describe el **comportamiento**, que es el mismo en las tres.
+El orden de integración importa: la **#25 primero y la #26 después**, porque los módulos ya
+contienen el borrado. Al revés no compila.
+
+> La rama `feature/modulosES_Angel` (sin `_v2`) es la versión anterior del troceado, hecha cuando
+> el fichero tenía 16 módulos y aún no existía el borrado. Se quedó atrás y su PR está cerrada;
+> queda en el remoto sólo como registro.
+
+Todo lo que se cuenta más abajo describe el **comportamiento**, que es el mismo en todas.
 Cuando algo sea propio de una, se dice.
 
-> **Los nombres de fichero de este documento son los de `verDetallesYEditar_Angel`**, donde
-> todo vive en `clientes.js`. En `modulosES_Angel` ese fichero está partido: el mapa de qué
-> función vive en qué módulo está en la cabecera de `js/main.js`.
+> **Los nombres de fichero de este documento son los de `verDetallesYEditar_Angel`**, donde todo
+> vive en un único `clientes.js`. **En la rama actual ese fichero ya no existe**: está partido en
+> `static/js/`, y el mapa de qué función vive en qué módulo está en la cabecera de `js/main.js`.
 
 ### Lo que entrega `feature/verDetallesYEditar_Angel`
 
@@ -151,16 +159,40 @@ los saltos de línea antes de llegar al log ([por qué](#qué-registra-cada-endp
 > razonables se han descartado precisamente por hacerlo —el `@Pattern` del NIF/CIF es el ejemplo
 > más claro y está contado en [Limitaciones conocidas](#limitaciones-conocidas)—.
 
-### Lo que entrega `feature/modulosES_Angel`
+### Lo que entrega `feature/borrarClientes_Angel`
 
-**Ningún cambio de comportamiento**: parte `clientes.js` —que había llegado a 2.000 líneas— en
-16 módulos ES organizados por capas, con una sola regla que los mantiene ordenados: *un módulo
+- **Borrado con la confirmación en la propia fila** (`DELETE /cliente/{id}`), no en un modal
+  suelto: el cliente que se va a eliminar se marca con un contorno rojo y el panel de confirmación
+  se abre debajo de su fila, de modo que nunca hay duda de a cuál se refiere.
+- **El 404 cuenta como éxito.** Si alguien se ha adelantado y el cliente ya no está, el resultado
+  para quien pulsa es el mismo: desaparece de la lista. Tratarlo como error sería confundirlo.
+- **El 409 deja el panel abierto** con el motivo: un cliente con facturas no se puede borrar, y
+  cerrar el panel escondería la explicación.
+- **El foco no se pierde.** Al desaparecer la fila, el foco pasa a la vecina en vez de caer al
+  `<body>`, que es lo que ocurría antes y dejaba a quien navega con teclado sin punto de partida.
+
+Esta rama corrige además un fallo que venía de antes: **el borrado enlazaba una escucha nueva en
+cada repintado de la tabla**. Tras cinco aperturas del panel, un solo clic disparaba cinco
+peticiones `DELETE`. La escucha pasó a delegarse en un contenedor que no se destruye.
+
+### Lo que entrega `feature/modulosES_Angel_v2`
+
+**Ningún cambio de comportamiento**: parte `clientes.js` —que había llegado a 2.800 líneas— en
+**18 módulos ES** organizados por capas, con una sola regla que los mantiene ordenados: *un módulo
 solo importa de capas estrictamente inferiores*. El mapa completo está en la cabecera de
 `js/main.js`, que es el único fichero que carga el HTML.
+
+Son 18 y no 16 porque esta versión parte también del borrado, que se lleva sus dos módulos
+propios: `borrado.js` con la operación y `paneles.js` con el panel de confirmación.
 
 Los dos sitios que rompen la línea recta lo hacen con un evento y no con un `import`, porque un
 módulo de abajo necesita provocar algo de arriba: `clientes:cambiaron` y
 `clientes:limpiar-filtros`.
+
+> Lo llamativo del reparto, y va contra la intuición, es que **`tabla` está por ENCIMA de
+> `despliegue` y `edicion`**: repintar la tabla necesita volver a abrir los paneles que estaban
+> abiertos y conservar los borradores sin guardar, así que el repintado depende de ellos y no al
+> revés.
 
 ### Lo que entrega `feature/añadirclientes_Angel`
 
@@ -1452,8 +1484,13 @@ Seis cosas que se han mirado y se dejan como están, a propósito:
   `ClienteRequest`, y no se ha puesto por dos motivos concretos:
 
   El primero es que **rompería la aplicación con los datos que hay**, y no en un caso aislado:
-  al repasar `backupFacturacion360.sql` uno por uno, **tres de los siete identificadores
-  fiscales semilla son inválidos**.
+  al repasar uno por uno los clientes de la base de datos de desarrollo, **tres de los siete
+  identificadores fiscales son inválidos**.
+
+  > **Ojo si vas a comprobarlo:** esos siete clientes **no están en el volcado versionado**.
+  > `backupFacturacion360v1.sql` sólo crea las cuatro tablas y mete una fila, la del emisor. Los
+  > clientes de prueba viven en la base local de cada uno, así que abrir el `.sql` buscando estos
+  > NIF no sirve de nada.
 
   | Cliente | Valor | Letra que le tocaría | |
   |---|---|---|---|
@@ -1846,12 +1883,16 @@ return clientes;
 
 
 
-### B. Manejo de errores centralizado (`@RestControllerAdvice`) — 🤝 ASIGNADO A OTRA FEATURE
+### B. Manejo de errores centralizado (`@RestControllerAdvice`) — ✅ HECHO, por otra feature
 
-> **Esto ya no es un pendiente nuestro**: la *gestión centralizada de excepciones* es una feature
-> propia dentro del reparto del equipo. Lo que queda aquí es el análisis hecho, para que quien la
-> implemente lo aproveche en vez de repetirlo; el caso concreto que la justifica, con los dos
-> caminos ya descartados, está en
+> **Ya está implementado.** Lo escribió Fran (`ftauro333`) el 31 de julio de 2026 en
+> `controller/ManejadorExcepciones.java`, y lleva en `master` desde entonces. Cubre cinco tipos:
+> `DuplicateKeyException`, `DataIntegrityViolationException`, `DataAccessException`,
+> `TransactionException` y `ResponseStatusException`.
+>
+> Se conserva el análisis de abajo porque explica **por qué no se metió en esta rama**, que sigue
+> siendo la decisión correcta y es el tipo de criterio que conviene tener escrito. El caso concreto
+> que lo justificaba, con los dos caminos ya descartados, está en
 > ["Logs y manejo de errores"](#logs-y-manejo-de-errores).
 >
 > **No lo hemos metido en esta rama a propósito.** Un `@RestControllerAdvice` cambia por
@@ -1880,6 +1921,9 @@ global para todos los controllers.
   (`/cliente/abc`, `?limite=abc`), explicadas en
   ["Logs y manejo de errores"](#logs-y-manejo-de-errores). El manejador central arregla las dos
   cosas: quita la repetición y cubre también lo que ocurre fuera del método.
+  - **Qué falta todavía**: el manejador que existe **no cubre los errores de validación**. No hay
+    ningún `@ExceptionHandler` para `BindException` ni para `MethodArgumentNotValidException`, y
+    por eso los controladores siguen declarando `BindingResult` a mano. Se analiza en el punto G.
 
 ### C, D y E — cerrados
 
@@ -1922,9 +1966,94 @@ un índice compuesto se puede usar "de izquierda a derecha", así que `(provinci
 para `WHERE provincia = ?` pero **no** para `WHERE poblacion = ?` a solas.
 
 **Por qué está pendiente y no hecho:** con las 7 filas actuales no se nota absolutamente nada —es
-una mejora pensada para cuando la tabla crezca—, y sobre todo **toca `backupFacturacion360.sql`,
-que es un script compartido por todo el equipo**. Conviene comentarlo con Val antes de meterlo en
+una mejora pensada para cuando la tabla crezca—, y sobre todo **toca
+`backupFacturacion360v1.sql`, que es un script compartido por todo el equipo**. Conviene comentarlo con Val antes de meterlo en
 ninguna rama, para no pisar el esquema de los demás.
+
+---
+
+### G. Los mensajes de validación no llegan al navegador — 📋 PROPUESTA PARA EL EQUIPO
+
+Detectado al revisar el proyecto entero. **No es un pendiente de esta rama**, y conviene explicar
+por qué antes que el qué.
+
+#### El mecanismo, que es poco conocido
+
+Declarar un `BindingResult` justo detrás de un parámetro `@Valid` **cambia el comportamiento de
+Spring**: en vez de lanzar la excepción de validación, se la traga y te deja los errores en ese
+objeto para que los trates tú. O sea, al declararlo **asumes la responsabilidad** de entregar los
+mensajes.
+
+Y esto es lo que hacen hoy los controladores:
+
+```java
+if (bindingResult.hasErrors()) {
+    respuesta = ResponseEntity.badRequest().build();   // .build() = cuerpo VACIO
+}
+```
+
+La cadena completa: `ClienteRequest` lleva ocho mensajes escritos a mano
+(`@NotBlank(message = "El nombre es obligatorio")`, etc.) → Spring los mete en el `BindingResult`
+→ el controlador devuelve un 400 sin cuerpo → el front hace `await respuesta.text()` y recibe una
+cadena vacía → siempre cae al mensaje genérico.
+
+**Resultado: esos ocho mensajes nunca han llegado a una pantalla.**
+
+#### Dónde importa y dónde no
+
+Ésta es la parte que cambia la conclusión, y por la que no vale con "quitarlo en todas partes":
+
+| Endpoint | Valida | ¿Debe devolver los mensajes? |
+|---|---|---|
+| `POST /cliente` (`@RequestBody`) | lo rellena una persona | **Sí** |
+| `PUT /cliente/{id}` (`@RequestBody`) | lo rellena una persona | **Sí** |
+| `GET /cliente/listar-pagina` (`@ModelAttribute`) | lo construye el propio JavaScript | **No** |
+
+En el tercero, los parámetros no los teclea nadie: los monta el front al construir la URL. Un 400
+ahí significa que hay un **bug en el JavaScript**, no que el usuario se haya equivocado, y por eso
+el sitio correcto para el detalle es el log — que es justo lo que se hace ya:
+
+```java
+log.warn("GET /cliente/listar-pagina -> 400, criterios no válidos: {}",
+        bindingResult.getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage()).toList());
+```
+
+Además `CriteriosCliente` **normaliza los valores raros en su constructor** (`pagina < 0` pasa a
+`0`, un `tamano` absurdo al valor por defecto), así que quitarle el `BindingResult` a ese endpoint
+lo empeoraría: empezaría a devolver 400 donde hoy se apaña solo.
+
+#### El detalle técnico que se escapa
+
+No son la misma excepción. `@RequestBody` lanza `MethodArgumentNotValidException`;
+`@ModelAttribute` lanza `BindException`. Un manejador único tiene que apuntar a **`BindException`**,
+de la que la primera hereda. Un `@ExceptionHandler(MethodArgumentNotValidException.class)` dejaría
+fuera el tercer caso.
+
+#### Cómo se haría, si el equipo lo aprueba
+
+1. Un `@ExceptionHandler(BindException.class)` en `ManejadorExcepciones`, que devuelva un mapa
+   `campo -> mensaje`.
+2. Quitar el parámetro `BindingResult` **sólo** en los dos endpoints de cuerpo JSON.
+3. Generalizar `mostrarErrorGuardado`, que hoy sólo trata el 409 del NIF duplicado, para que pinte
+   cualquier campo que venga en la respuesta. La parte difícil ya está resuelta ahí: marcar el
+   campo con `aria-invalid` y `aria-describedby` y llevarle el foco.
+
+#### Por qué NO se hace desde aquí
+
+Por lo mismo que el punto B: **una rama que se llama "módulos ES" no puede traer un cambio en el
+contrato de respuesta de tres endpoints**. Y aquí además se tocaría:
+
+- `ClienteController.java`, que han escrito cinco personas (Angel 290 líneas, Val 121, Jaime 77,
+  Fran 18, FazSergio 5)
+- `ManejadorExcepciones.java`, que es de Fran
+- `FacturaController.java`, también de Fran, si se quiere coherencia
+- `clientes.js` y `facturas.js`
+
+Con dos PR ya en cola, es una propuesta que se lleva al equipo, no un parche que se cuela. **Y hay
+que decir de quién es la decisión**: el patrón lo puso Val en el `POST /cliente` original. Aquí sólo
+se siguió lo que ya estaba montado — y en `listar-pagina` se mejoró, porque al menos los mensajes
+acaban en el log en vez de perderse.
 
 ---
 
