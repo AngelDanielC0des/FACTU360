@@ -5,6 +5,7 @@ const RUTA_CLIENTES = "/cliente/listar-ultimos?limite=100";
 
 const tablaFacturas = document.getElementById("tablaFacturas");
 const inputBusqueda = document.getElementById("busquedaFactura");
+const contenedorBuscador = document.getElementById("buscadorFacturas");
 const mensajeFacturas = document.getElementById("mensaje-facturas");
 const formularioFactura = document.getElementById("formularioFactura");
 const selectCliente = document.getElementById("clienteFactura");
@@ -18,8 +19,15 @@ const subtotalTrimestre = document.getElementById("subtotalTrimestre");
 const ivaTrimestre = document.getElementById("ivaTrimestre");
 const totalTrimestre = document.getElementById("totalTrimestre");
 
+
+// Ambas búsquedas comparten la tabla: una respuesta anterior no debe reemplazar la última consulta.
+let ultimaConsultaFacturas = 0;
+
+
 /** Carga las facturas que coinciden con el texto buscado. */
 async function cargarFacturas() {
+    ultimaConsultaFacturas++;
+    const numeroConsulta = ultimaConsultaFacturas;
     const textoBuscado = inputBusqueda.value.trim();
     const parametros = new URLSearchParams({ busqueda: textoBuscado });
 
@@ -27,14 +35,19 @@ async function cargarFacturas() {
         const respuesta = await fetch(`${RUTA_FACTURAS}?${parametros}`);
         if (respuesta.ok) {
             const facturas = await respuesta.json();
-            mostrarFacturas(facturas);
-            ocultarMensaje();
-        } else {
+            if (numeroConsulta == ultimaConsultaFacturas) {
+                mostrarFacturas(facturas);
+                resumenTrimestral.classList.add("d-none");
+                ocultarMensaje();
+            }
+        } else if (numeroConsulta == ultimaConsultaFacturas) {
             mostrarMensaje("No se pudieron consultar las facturas.", "danger");
         }
     } catch (error) {
-        console.error("Error al buscar facturas", error);
-        mostrarMensaje("No se pudo conectar con el servidor.", "danger");
+        if (numeroConsulta == ultimaConsultaFacturas) {
+            console.error("Error al buscar facturas", error);
+            mostrarMensaje("No se pudo conectar con el servidor.", "danger");
+        }
     }
 }
 
@@ -94,6 +107,43 @@ async function cargarListadoTrimestral() {
         }
     }
 
+}
+
+/** Consulta las facturas del año y trimestre elegidos y muestra sus totales. */
+async function cargarListadoTrimestral() {
+    if (inputAnio.reportValidity()) {
+        ultimaConsultaFacturas++;
+        const numeroConsulta = ultimaConsultaFacturas;
+        const parametros = new URLSearchParams({
+            anio: inputAnio.value,
+            trimestre: selectTrimestre.value
+        });
+
+        try {
+            const respuesta = await fetch(RUTA_FACTURAS_TRIMESTRE + "?" + parametros);
+            if (respuesta.ok) {
+                const resumen = await respuesta.json();
+                if (numeroConsulta == ultimaConsultaFacturas) {
+                    mostrarFacturas(resumen.facturas);
+                    subtotalTrimestre.textContent = formatearImporte(resumen.subtotal);
+                    ivaTrimestre.textContent = formatearImporte(resumen.importeIva);
+                    totalTrimestre.textContent = formatearImporte(resumen.total);
+                    resumenTrimestral.classList.remove("d-none");
+                    mostrarMensaje("Mostrando el " + resumen.trimestre + "º trimestre de " + resumen.anio + ".", "info");
+                }
+            } else {
+                const mensajeError = await respuesta.text();
+                if (numeroConsulta == ultimaConsultaFacturas) {
+                    mostrarMensaje(mensajeError || "No se pudo cargar el listado trimestral.", "danger");
+                }
+            }
+        } catch (error) {
+            if (numeroConsulta == ultimaConsultaFacturas) {
+                console.error("Error al cargar el listado trimestral", error);
+                mostrarMensaje("No se pudo conectar con el servidor.", "danger");
+            }
+        }
+    }
 }
 
 /** Añade una celda de texto a una fila. */
@@ -192,15 +242,27 @@ function ocultarMensaje() {
 document.getElementById("botonBuscar").addEventListener("click", cargarFacturas);
 document.getElementById("botonLimpiar").addEventListener("click", function () {
     inputBusqueda.value = "";
+    contenedorBuscador.classList.remove("expandido");
     cargarFacturas();
 });
 document.getElementById("botonGuardarFactura").addEventListener("click", guardarFactura);
 document.getElementById("botonListarTrimestre").addEventListener("click", cargarListadoTrimestral);
 inputSubtotal.addEventListener("input", calcularTotal);
 inputIva.addEventListener("input", calcularTotal);
+inputBusqueda.addEventListener("focus", function () {
+    contenedorBuscador.classList.add("expandido");
+});
+// Se recoge después del clic para no desplazar el botón antes de activarlo.
+document.addEventListener("click", function (evento) {
+    if (!contenedorBuscador.contains(evento.target) && inputBusqueda.value.trim() == "") {
+        contenedorBuscador.classList.remove("expandido");
+    }
+});
 inputBusqueda.addEventListener("keydown", function (evento) {
     if (evento.key == "Enter") {
         cargarFacturas();
+    } else if (evento.key == "Tab" && inputBusqueda.value.trim() == "") {
+        contenedorBuscador.classList.remove("expandido");
     }
 });
 

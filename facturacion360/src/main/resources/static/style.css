@@ -400,10 +400,21 @@ footer {
     color: var(--primary-color);
 }
 
-/* Contador de filtros activos: pequeño, no compite con el texto del botón. */
-.barra-filtros .btn-limpiar .badge {
-    padding: 0.25em 0.55em;
-    font-size: 0.7rem;
+
+.barra-filtros-facturas .form-control {
+    border-color: #cbd5e1;
+    color: var(--text-main);
+}
+
+.barra-filtros-facturas .buscador-clientes {
+    /* Reserva el ancho real del campo cerrado: rellenos de clientes y bordes. */
+    width: calc(3.2rem + 1rem + 2px);
+    flex-shrink: 0;
+}
+
+.barra-filtros-facturas .buscador-icono {
+    line-height: 1;
+
 }
 
 /* --- Cabeceras de tabla ordenables --- */

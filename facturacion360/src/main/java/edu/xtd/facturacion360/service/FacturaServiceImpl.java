@@ -56,6 +56,27 @@ public class FacturaServiceImpl implements FacturaService {
 		return facturaRepository.buscar(busqueda);
 	}
 
+	@Transactional(readOnly = true)
+	@Override
+	public DetalleFactura obtenerDetalle(int idFactura) {
+		if (idFactura <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El identificador de factura no es válido");
+		}
+
+		Factura factura = facturaRepository.buscarPorId(idFactura);
+		if (factura == null) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la factura");
+		}
+
+		ClienteFactura cliente = facturaRepository.buscarCliente(factura.idCliente());
+		if (cliente == null) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el cliente de la factura");
+		}
+
+		List<ConceptoFactura> conceptos = facturaRepository.buscarConceptos(idFactura);
+		return new DetalleFactura(factura, cliente, conceptos);
+	}
+
 
 	@Override
 	public ResumenTrimestralFactura listarTrimestre(int anio, int trimestre) {
@@ -82,6 +103,5 @@ public class FacturaServiceImpl implements FacturaService {
 
 		return new ResumenTrimestralFactura(anio, trimestre, facturas, subtotal, importeIva, total);
 	}
-
 
 }
