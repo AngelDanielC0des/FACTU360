@@ -8,9 +8,9 @@
 |---|---|
 | EXISTENTE | Modelo, tablas y consulta de detalle con conceptos. |
 | APROBADO | Numeración automática, cálculo de conceptos, guardado conjunto y edición de borradores según este documento. |
-| IMPLEMENTADO | Bloques 1 y 2 de backend y bloque 3A de formulario de alta con conceptos. |
-| VERIFICADO | Compilación, 40 pruebas Java (nueve con MySQL aislado) y 12 pruebas de navegador (dos E2E reales). |
-| PENDIENTE | Bloque 3B y edición de borradores; no iniciados en 3A. |
+| IMPLEMENTADO | Alta con conceptos, numeración, cálculo y persistencia transaccional, autocompletado, UX y edición de borradores. |
+| VERIFICADO | Las secciones de cada bloque recogen su evidencia; la regresión integral se registra al cierre. |
+| RESERVAS | Última edición completa prevalece; móvil en Chrome, sin dispositivo físico ni lector de pantalla. |
 
 El backend y, desde el bloque 3A, el formulario utilizan el nuevo contrato. El bloque 2 no modificó la interfaz; su adaptación y verificación se describen al final de este documento.
 
@@ -26,7 +26,7 @@ El backend y, desde el bloque 3A, el formulario utilizan el nuevo contrato. El b
 - Descuento `DECIMAL(5,2)` y porcentaje de IVA `DECIMAL(4,2)`.
 - Tablas InnoDB, sin cascadas declaradas.
 
-Estas restricciones proceden del archivo SQL. Las pruebas recrean únicamente las tablas necesarias en una instancia aislada y comprueban InnoDB, índice único y FK allí; no se ha consultado el esquema de `bd_facturacion`. No se ha modificado el esquema del proyecto.
+Estas restricciones proceden del archivo SQL. Las pruebas recrean únicamente las tablas necesarias en una instancia aislada y comprueban InnoDB, índice único y FK allí; no se ha consultado el esquema de `bd_facturacion`. El usuario ajustó el ENUM del archivo SQL al contrato de tres estados. Se conserva ese cambio, sin ejecutar migraciones ni modificar datos históricos.
 
 ## Contrato operativo del backend
 
@@ -35,6 +35,8 @@ Estas restricciones proceden del archivo SQL. Las pruebas recrean únicamente la
 Cada concepto aporta únicamente `descripcion`, `cantidad`, `precioUnitario`, `descuento` y `porcentajeIva`. El número y los importes resultantes son responsabilidad del servidor.
 
 Un BORRADOR puede guardarse con cero conceptos. Para emitir es obligatorio al menos uno.
+
+Los estados actuales son BORRADOR, EMITIDA y ANULADA. EMITIDA asume también el caso anteriormente denominado PAGADA, según la decisión funcional vigente; no existe un registro independiente del cobro. Esto no convierte ni altera facturas históricas.
 
 ### Sustitución del contrato del bloque 1
 
@@ -68,7 +70,7 @@ Subtotal, IVA y total de cabecera son las sumas de los importes ya redondeados p
 
 El resultado `CalculoFactura`, definido dentro del servicio, contiene las líneas calculadas y los tres totales. Los conceptos calculados aún no tienen identificador persistido. La entrada no se modifica y la lista de salida no admite modificaciones.
 
-El navegador ofrecerá una previsualización en un bloque posterior; Spring determinará lo almacenado.
+El navegador ofrece una previsualización provisional; Spring determina lo almacenado.
 
 ## Numeración implementada
 
@@ -94,21 +96,19 @@ Una petición incluye cabecera y conceptos. La validación y el cálculo puro se
 
 Si falla cualquier escritura, se revierte el intento completo. No hay peticiones ni transacciones independientes por concepto. Se comunica éxito únicamente después de confirmar la transacción. Errores de conceptos, conexión, otros índices o SQL no acreditado como colisión de número no se reintentan.
 
-## Edición de borradores aprobada, pendiente de implementar
+## Edición de borradores
 
-`PUT /factura/{idFactura}/borrador` deberá:
+`PUT /factura/{idFactura}/borrador` reutiliza `FacturaRequest` y devuelve una `Factura`, igual que el alta. Valida la petición y recalcula todos los importes antes de escribir. No llama al flujo de creación ni genera numeración.
 
-1. Bloquear y leer la cabecera dentro de una transacción.
-2. Comprobar en servidor que continúa en BORRADOR.
-3. Validar y recalcular las líneas.
-4. Mantener número y estado, permitiendo cambios de fecha solo dentro del mismo año del número.
-5. Reemplazar los conceptos y actualizar los importes conjuntamente.
+Una sola transacción lee y bloquea directamente la cabecera mediante `SELECT ... FOR UPDATE`, comprueba que sigue en BORRADOR, actualiza cliente, fecha, observaciones y totales, y reemplaza sus conceptos. El identificador, número, estado y fecha de creación no cambian. La fecha nueva debe pertenecer al año del número; para un número manual ajeno al formato automático, se conserva el año de la fecha anterior. No se renumeran históricos.
 
-Se acepta que cambien los identificadores internos de las líneas. Un fallo restaurará mediante rollback tanto la cabecera como los conceptos anteriores.
+Los identificadores internos de las líneas pueden cambiar. Un fallo revierte cabecera y conceptos anteriores, incluidos sus identificadores.
 
-En dos ediciones concurrentes prevalecerá el último guardado válido. No se incorpora control de versiones optimista. EMITIDA, PAGADA y ANULADA no permitirán editar directamente sus conceptos.
+Dos ediciones concurrentes se serializan: prevalece la última edición completa, sin mezclar conceptos. No se incorpora control de versiones optimista. EMITIDA y ANULADA se rechazan en backend, aunque la interfaz hubiera cargado antes un borrador. El contrato actual admite únicamente BORRADOR, EMITIDA y ANULADA.
 
-## Verificación del bloque 2
+El listado y el visor ofrecen Editar solo para BORRADOR. Se reutiliza el modal con los datos y conceptos precargados; Estado queda fijo. El cliente actual se añade al selector si no aparece entre los últimos cien. Cerrar o cambiar de formulario invalida una precarga pendiente. Se conserva el autocompletado, la navegación por teclado, la previsualización y el bloqueo de doble envío. Ante error se conserva lo escrito. Tras guardar se refresca el listado o trimestre actual; si se llegó desde el visor, se vuelve a cargar su detalle. Un fallo de refresco se distingue del éxito del guardado.
+
+## Verificación histórica del bloque 2
 
 Desde la carpeta `facturacion360/`, selección sin integración:
 
@@ -163,13 +163,13 @@ Durante la preparación fallaron un permiso REFERENCES ausente y una fila sinté
 
 El método original de prueba de factura inexistente se conserva; solo se adaptó su repositorio falso a la interfaz. No se ejecutó `Facturacion360ApplicationTests` ni la suite completa. Los avisos de Jansi y carga dinámica de Mockito no impidieron las pruebas y no se alteró configuración para ocultarlos.
 
-## Límites y siguientes bloques
+## Límites operativos
 
 Los bloques 1 y 2 no modificaron esquema, configuración, dependencias, datos históricos ni interfaz. Antes del uso real deberá verificarse `num_factura_UNIQUE`, la FK de conceptos y el motor InnoDB con autorización.
 
 El índice único evita números duplicados, pero no dos facturas distintas por reenvío de la misma petición. La estrategia del máximo requiere conservar las facturas también frente a eliminaciones externas.
 
-La adaptación del alta se completó en 3A, según la evidencia siguiente. La edición y el bloque 3B requieren nueva autorización. No se ha verificado la base real.
+El alta, el autocompletado, la UX y la edición están implementados. No se ha verificado la base real.
 
 ## Bloque 3A: formulario de alta
 
@@ -177,7 +177,7 @@ Fecha: 15 de septiembre de 2026.
 
 ### IMPLEMENTADO
 
-El formulario permite añadir, modificar y eliminar conceptos antes de guardar, mediante fichas sencillas dentro del modal existente. El modal tiene desplazamiento interno y conserva las acciones de guardar y cancelar visibles. No permite editar facturas ya guardadas.
+El formulario permite añadir, modificar y eliminar conceptos antes de guardar, mediante fichas sencillas dentro del modal existente. El modal tiene desplazamiento interno y conserva las acciones de guardar y cancelar visibles. El bloque 4 reutiliza este mismo formulario para editar borradores guardados.
 
 Se envía una sola `POST /factura`, con esta estructura:
 
@@ -255,9 +255,9 @@ Los informes y capturas quedan locales en `target/`, excluidos de Git. Los infor
 
 Al finalizar se cerraron la sesión de navegador, Spring y MySQL de pruebas; se conservaron los archivos temporales. El cierre deliberado de Spring con SIGTERM produjo salida 143 del proceso y salida 1 del comando `spring-boot:run`, después de completar el apagado ordenado. No es el resultado de las pruebas, que terminaron con salida 0.
 
-### RESERVA y PENDIENTE
+### RESERVA
 
-El bloqueo de Guardar mitiga envíos simultáneos, pero no garantiza idempotencia frente a reintentos posteriores. La edición de facturas existentes y el bloque 3B permanecen pendientes, sin iniciarse. Los cambios previos de extracción de estilos de filtros se conservan locales, fuera del commit de 3A.
+El bloqueo de Guardar mitiga envíos simultáneos, pero no garantiza idempotencia frente a reintentos posteriores. Los cambios previos de extracción de estilos de filtros se conservaron locales, fuera del commit de 3A.
 
 ## Bloque 3A.1: sugerencias de conceptos históricos
 
@@ -277,7 +277,7 @@ Una única consulta sobre `conceptos` y `facturas` busca coincidencias en cualqu
 
 Cada línea mantiene su temporizador, consulta y selección. Espera 250 ms tras la última entrada y muestra hasta ocho sugerencias. Las versiones de consulta impiden que una respuesta obsoleta reabra o sustituya resultados, incluso cuando la cancelación del transporte no es efectiva.
 
-Ratón o flechas y Enter permiten seleccionar. Escape, pérdida de foco y click fuera cierran la lista. Eliminar la línea, cerrar el modal, reiniciar el formulario o iniciar el guardado invalidan también las operaciones pendientes. Se utiliza el patrón combobox/listbox, con selección activa y foco conservado en Descripción; el desplegable queda debajo del campo, dentro del flujo del formulario.
+Ratón o flechas y Enter permiten seleccionar. Escape, pérdida de foco y click fuera cierran la lista. Eliminar la línea, cerrar el modal, reiniciar el formulario o iniciar el guardado invalidan también las operaciones pendientes. Se utiliza el patrón combobox/listbox, con selección activa y foco conservado en Descripción; desde 3B el desplegable se superpone en escritorio y permanece en el flujo en móvil.
 
 Solo seleccionar rellena descripción, precio, descuento e IVA. La cantidad se conserva y todos los campos continúan editables. Los valores históricos nulos dejan campos vacíos para completarlos, sin inventar ceros ni recuperar una tarifa antigua. Un fallo de sugerencias no bloquea el alta manual ni muestra errores técnicos intrusivos.
 
@@ -304,9 +304,9 @@ Al terminar se cerraron únicamente el navegador diagnóstico, Spring en 18082 y
 
 La deduplicación limita los resultados devueltos, pero la consulta ordena las coincidencias históricas y el driver JDBC puede almacenarlas en memoria. No se acredita rendimiento con históricos voluminosos. No se añade optimización preventiva a este bloque.
 
-### PENDIENTE
+### ALCANCE DEL BLOQUE
 
-Bloque 3B y edición de facturas existentes sin iniciar. Este bloque no publica cambios ni integra trabajo en `master`. La extracción local previa de estilos de filtros en `style.css` y `facturas.css` se conserva fuera del commit 3A.1.
+Este bloque no publicó cambios ni integró trabajo en `master`. La extracción local previa de estilos de filtros en `style.css` y `facturas.css` se conservó fuera del commit 3A.1.
 
 ## Bloque 3B: experiencia del formulario de alta
 
@@ -346,6 +346,27 @@ NODE_PATH="$MODULOS_PRUEBAS" \
 
 Se utilizó una instancia nueva de MySQL 8.4.11 en `/tmp/facturas-mysql-hRBb95/datos/`, puerto 19370, con el esquema `facturas_pruebas`. Se comprobaron UUID, directorio y puerto antes de preparar las tablas y el cliente sintético. Spring escuchó únicamente en `127.0.0.1:18083`, con configuración temporal y datasource explícito; sus conexiones TCP apuntaron al MySQL aislado. Tras el ajuste CSS se reinició solo ese Spring con `--spring.web.resources.static-locations` apuntando a los recursos de trabajo, sin recompilar ni cambiar archivos de configuración. No se accedió a `bd_facturacion`. Los informes y capturas permanecen en `target/`, fuera de Git.
 
-### LÍMITES Y SIGUIENTE BLOQUE
+### LÍMITES
 
-La comprobación móvil utiliza Chrome con viewport reducido, no un dispositivo físico ni su teclado virtual. No se acredita una auditoría completa con lector de pantalla. La suite general queda para el bloque 5; el siguiente bloque permitido es el 4, sin iniciarse aquí. La extracción preexistente de estilos de filtros se mantiene local y fuera del commit de 3B. Sin push, PR ni integración en `master`.
+La comprobación móvil utiliza Chrome con viewport reducido, no un dispositivo físico ni su teclado virtual. No se acredita una auditoría completa con lector de pantalla. La extracción preexistente de estilos de filtros se mantiene local y fuera del commit de 3B. Sin push, PR ni integración en `master`.
+
+## Bloque 4: edición segura de borradores
+
+Fecha: 15 de septiembre de 2026. Base: `17144cb`.
+
+La implementación sigue el contrato descrito en «Edición de borradores». Se mantiene la decisión de tres estados del usuario, también en el archivo SQL de referencia, sin modificar la base real.
+
+### VERIFICADO
+
+- Focal Java: 12 pruebas superadas, cero fallos, errores u omisiones, salida 0: seis HTTP y seis de MySQL real aislado. Selección `-Dtest=FacturaControllerTests#edicion*+edita*,FacturaGuardadoIntegracionTests#edicion*+ediciones*` con los parámetros de identidad de la instancia temporal.
+- Cubren edición, número e identificador inmutables, totales definitivos, cambio de cliente, sustitución de líneas, borrador vacío, año incompatible, inexistencia y estados no editables. Verifican que no se genera numeración ni se modifica otra factura.
+- Rollback real: un espía introduce un total nulo en la segunda línea; MySQL falla después del UPDATE de cabecera, DELETE de conceptos e INSERT de la primera línea. La instantánea completa anterior, incluidos identificadores, se restaura.
+- Concurrencia real: una edición espera al bloqueo y rechaza la factura tras pasar a EMITIDA. Dos ediciones simultáneas dejan una cabecera y sus líneas completas, sin mezclarlas.
+- Navegador: diez casos de interfaz superados en la primera ejecución. Los dos E2E reales pasan juntos tras corregir una carrera de la propia prueba: Chrome descartaba el cuerpo de la PUT al navegar al visor; ahora se comprueba HTTP 200 y el detalle persistido mediante GET real. No se simula la persistencia.
+- Los casos de interfaz comprueban precarga, cliente fuera de los cien recientes, autocompletado, una sola PUT, doble envío, errores 400/404/409/500/conexión con conservación y reintento, precarga obsoleta, enlace forzado, refresco fallido y conservación del filtro trimestral con sus totales actualizados.
+- El E2E de edición móvil confirma en interfaz y MySQL base `40.00`, IVA `7.30`, total `47.30`, número conservado y líneas sustituidas. El E2E de protección confirma datos intactos ante cambio de estado y peticiones forzadas.
+- Sintaxis de los dos JavaScript de aplicación afectados y de la prueba, y `git diff --check`: salida 0. Revisión independiente final sin nuevos defectos materiales.
+
+El entorno final utiliza MySQL 8.4.11 en `/tmp/facturas-mysql-VjTP30/datos/`, puerto 19372, esquema `facturas_pruebas`, y Spring en `127.0.0.1:18084`. Se verificaron UUID, directorio, puerto y ENUM de tres estados. Las conexiones de Spring apuntan únicamente a ese MySQL. El primer arranque de Playwright no pudo crear su directorio de resultados dentro del aislamiento de herramientas; la ejecución autorizada fuera de ese límite sí pudo hacerlo, sin cambiar permisos del proyecto.
+
+La extracción preexistente de filtros entre `style.css` y `facturas.css` no es necesaria para la edición: se conserva intacta y excluida del commit. No se añaden dependencias, tablas ni migraciones.

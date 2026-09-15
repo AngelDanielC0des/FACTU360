@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
- * Datos que recibimos para dar de alta una factura.
+ * Datos que recibimos para crear una factura o editar un borrador.
  * El número y los importes resultantes los determina el servidor.
  */
 public record FacturaRequest(
@@ -23,7 +23,7 @@ public record FacturaRequest(
 		LocalDate fechaEmision,
 
 		@NotBlank(message = "El estado es obligatorio")
-		@Pattern(regexp = "BORRADOR|EMITIDA|PAGADA|ANULADA", message = "El estado de la factura no es válido")
+		@Pattern(regexp = "BORRADOR|EMITIDA|ANULADA", message = "El estado de la factura no es válido")
 		String estado,
 
 		@Size(max = 90, message = "Las observaciones no pueden superar 90 caracteres")

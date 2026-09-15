@@ -53,7 +53,7 @@ public class FacturaServiceImpl implements FacturaService {
 
 	/** Calcula sin acceder al repositorio ni modificar los datos recibidos. */
 	public CalculoFactura calcularImportes(List<ConceptoRequest> conceptos, String estado) {
-		if (estado == null || !List.of("BORRADOR", "EMITIDA", "PAGADA", "ANULADA").contains(estado)) {
+		if (estado == null || !List.of("BORRADOR", "EMITIDA", "ANULADA").contains(estado)) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El estado de la factura no es válido");
 		}
 		if (conceptos == null) {
@@ -108,17 +108,8 @@ public class FacturaServiceImpl implements FacturaService {
 
 	@Override
 	public Factura crear(FacturaRequest facturaRequest) {
-		if (facturaRequest == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La petición es obligatoria");
-		}
-		Set<ConstraintViolation<FacturaRequest>> errores = validador.validate(facturaRequest);
-		if (!errores.isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errores.iterator().next().getMessage());
-		}
+		validarPeticion(facturaRequest);
 		int anio = facturaRequest.fechaEmision().getYear();
-		if (anio < 1000 || anio > 9999) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El año debe estar entre 1000 y 9999");
-		}
 		CalculoFactura calculo = calcularImportes(facturaRequest.conceptos(), facturaRequest.estado());
 		TransactionTemplate transaccion = new TransactionTemplate(gestorTransacciones);
 		transaccion.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -150,6 +141,59 @@ public class FacturaServiceImpl implements FacturaService {
 			}
 		}
 		throw new IllegalStateException("No se completó el guardado de la factura");
+	}
+
+	private void validarPeticion(FacturaRequest facturaRequest) {
+		if (facturaRequest == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La petición es obligatoria");
+		}
+		Set<ConstraintViolation<FacturaRequest>> errores = validador.validate(facturaRequest);
+		if (!errores.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errores.iterator().next().getMessage());
+		}
+		int anio = facturaRequest.fechaEmision().getYear();
+		if (anio < 1000 || anio > 9999) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El año debe estar entre 1000 y 9999");
+		}
+	}
+
+	@Override
+	public Factura editarBorrador(int idFactura, FacturaRequest facturaRequest) {
+		if (idFactura <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El identificador de factura no es válido");
+		}
+		validarPeticion(facturaRequest);
+		if (!"BORRADOR".equals(facturaRequest.estado())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La edición debe conservar el estado BORRADOR");
+		}
+		CalculoFactura calculo = calcularImportes(facturaRequest.conceptos(), "BORRADOR");
+		TransactionTemplate transaccion = new TransactionTemplate(gestorTransacciones);
+		return transaccion.execute(estadoTransaccion -> {
+			Factura anterior = facturaRepository.buscarPorIdParaActualizar(idFactura);
+			if (anterior == null) {
+				throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la factura");
+			}
+			if (!"BORRADOR".equals(anterior.estado())) {
+				throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo se pueden editar facturas en estado BORRADOR");
+			}
+			int anioNumero = anterior.fechaEmision().getYear();
+			// Los números manuales ajenos al formato mantienen el año de su fecha anterior.
+			if (anterior.numeroFactura().matches("(?i)F-[0-9]{4}-[0-9]{4}")) {
+				anioNumero = Integer.parseInt(anterior.numeroFactura().substring(2, 6));
+			}
+			if (facturaRequest.fechaEmision().getYear() != anioNumero) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha debe conservar el año " + anioNumero + " del número de factura");
+			}
+			Factura modificada = new Factura(idFactura, facturaRequest.idCliente(), null, anterior.numeroFactura(),
+					facturaRequest.fechaEmision(), "BORRADOR", facturaRequest.observaciones(),
+					calculo.subtotal(), calculo.importeIva(), calculo.total());
+			if (facturaRepository.actualizarBorrador(modificada) != 1) {
+				throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo actualizar el borrador");
+			}
+			facturaRepository.eliminarConceptos(idFactura);
+			facturaRepository.insertarConceptos(idFactura, calculo.conceptos());
+			return facturaRepository.buscarPorId(idFactura);
+		});
 	}
 
 	@Override

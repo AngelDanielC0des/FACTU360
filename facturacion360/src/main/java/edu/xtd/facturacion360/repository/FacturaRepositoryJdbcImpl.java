@@ -147,6 +147,28 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 	}
 
 	@Override
+	public Factura buscarPorIdParaActualizar(int idFactura) {
+		// Bloquea solo la cabecera, no las filas del cliente, hasta finalizar la transacción.
+		String sql = "SELECT f.*, NULL AS nombre_cliente FROM facturas f WHERE f.idfactura = ? FOR UPDATE";
+		List<Factura> facturas = jdbcTemplate.query(sql, facturaRowMapper, idFactura);
+		return facturas.isEmpty() ? null : facturas.get(0);
+	}
+
+	@Override
+	public int actualizarBorrador(Factura factura) {
+		String sql = "UPDATE facturas SET idcliente=?, fecha_emision=?, observaciones=?, "
+				+ "subtotal=?, importe_iva=?, total=?, fecha_actualizacion=NOW() "
+				+ "WHERE idfactura=? AND estado='BORRADOR'";
+		return jdbcTemplate.update(sql, factura.idCliente(), factura.fechaEmision(), factura.observaciones(),
+				factura.subtotal(), factura.importeIva(), factura.total(), factura.idFactura());
+	}
+
+	@Override
+	public void eliminarConceptos(int idFactura) {
+		jdbcTemplate.update("DELETE FROM conceptos WHERE idfactura=?", idFactura);
+	}
+
+	@Override
 	public ClienteFactura buscarCliente(int idCliente) {
 		String sql = "SELECT idcliente, nombre, nif_cif, direccion, codigopostal, poblacion, "
 				+ "provincia, telefono, email FROM clientes WHERE idcliente = ?";

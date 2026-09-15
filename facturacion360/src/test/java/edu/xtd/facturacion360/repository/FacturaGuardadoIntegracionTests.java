@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -113,6 +116,160 @@ class FacturaGuardadoIntegracionTests {
 	}
 
 	@Test
+	void edicionReemplazaLineasYConservaNumeroSinTocarOtraFactura() {
+		Factura anterior = servicio.crear(peticion(2026, "BORRADOR", List.of(linea("5", 1, "0", "21"), linea("6", 1, "0", "21"))));
+		Factura ajena = servicio.crear(peticion(2026, "EMITIDA", List.of(linea("8", 1, "0", "0"))));
+		var ajenaAntes = instantanea(ajena.idFactura());
+		jdbc.update("INSERT INTO clientes (idcliente,nombre,nif_cif,direccion,poblacion,provincia) VALUES (2,'Otro','PRUEBA-2','Calle','Población','Provincia')");
+		var idsAntes = repositorio.buscarConceptos(anterior.idFactura()).stream().map(ConceptoFactura::idConcepto).toList();
+		clearInvocations(repositorio);
+		FacturaRequest cambios = new FacturaRequest(2, LocalDate.of(2026, 12, 31), "BORRADOR", "Actualizada",
+				List.of(linea("19.99", 3, "10", "21"), linea("5", 2, "0", "10")));
+		Factura guardada = servicio.editarBorrador(anterior.idFactura(), cambios);
+		assertEquals(anterior.numeroFactura(), guardada.numeroFactura());
+		assertEquals(anterior.idFactura(), guardada.idFactura());
+		assertEquals(2, guardada.idCliente());
+		assertEquals("Actualizada", guardada.observaciones());
+		assertEquals(cambios.fechaEmision(), guardada.fechaEmision());
+		assertEquals(new BigDecimal("63.97"), guardada.subtotal());
+		assertEquals(new BigDecimal("12.33"), guardada.importeIva());
+		assertEquals(new BigDecimal("76.30"), guardada.total());
+		assertEquals(2, repositorio.buscarConceptos(guardada.idFactura()).size());
+		assertTrue(repositorio.buscarConceptos(guardada.idFactura()).stream().noneMatch(c -> idsAntes.contains(c.idConcepto())));
+		assertEquals(ajenaAntes, instantanea(ajena.idFactura()));
+		assertEquals(guardada, servicio.editarBorrador(guardada.idFactura(), cambios));
+		Factura vacia = servicio.editarBorrador(guardada.idFactura(), peticion(2026, "BORRADOR", List.of()));
+		assertEquals(new BigDecimal("0.00"), vacia.total());
+		assertTrue(repositorio.buscarConceptos(vacia.idFactura()).isEmpty());
+		assertEquals(2, contar("facturas"));
+		verify(repositorio, never()).obtenerUltimoNumero(anyInt());
+		verify(repositorio, never()).insertar(any());
+	}
+
+	@Test
+	void edicionRechazadaNoModificaEstadosNoEditables() {
+		for (String estado : List.of("EMITIDA", "ANULADA")) {
+			Factura factura = servicio.crear(peticion(2026, estado, List.of(linea("10", 1, "0", "0"))));
+			var antes = instantanea(factura.idFactura());
+			ResponseStatusException error = assertThrows(ResponseStatusException.class,
+					() -> servicio.editarBorrador(factura.idFactura(), peticion(2026, "BORRADOR", List.of())));
+			assertEquals(409, error.getStatusCode().value());
+			assertEquals(antes, instantanea(factura.idFactura()));
+		}
+	}
+
+	@Test
+	void edicionRechazaAnoYClienteInexistenteSinPerderLineas() {
+		Factura factura = servicio.crear(peticion(2026, "BORRADOR", List.of(linea("10", 1, "0", "0"))));
+		var antes = instantanea(factura.idFactura());
+		assertEquals(400, assertThrows(ResponseStatusException.class,
+				() -> servicio.editarBorrador(factura.idFactura(), peticion(2027, "BORRADOR", List.of()))).getStatusCode().value());
+		assertEquals(antes, instantanea(factura.idFactura()));
+		assertThrows(DataIntegrityViolationException.class, () -> servicio.editarBorrador(factura.idFactura(),
+				new FacturaRequest(999, LocalDate.of(2026, 1, 1), "BORRADOR", "", List.of())));
+		assertEquals(antes, instantanea(factura.idFactura()));
+		assertEquals(404, assertThrows(ResponseStatusException.class,
+				() -> servicio.editarBorrador(999999, peticion(2026, "BORRADOR", List.of()))).getStatusCode().value());
+	}
+
+	@Test
+	void edicionFalloSqlTrasBorrarEInsertarPrimeraLineaRestauraTodo() {
+		Factura factura = servicio.crear(peticion(2026, "BORRADOR", List.of(linea("10", 1, "0", "0"))));
+		var antes = instantanea(factura.idFactura());
+		clearInvocations(repositorio);
+		doAnswer(invocacion -> {
+			List<ConceptoFactura> lineas = new ArrayList<>(invocacion.getArgument(1));
+			ConceptoFactura segunda = lineas.get(1);
+			lineas.set(1, new ConceptoFactura(0, segunda.descripcion(), segunda.cantidad(), segunda.precioUnitario(),
+					segunda.descuento(), segunda.porcentajeIva(), segunda.importeIva(), segunda.baseImponible(), null));
+			FacturaRepositoryJdbcImpl escritor = new FacturaRepositoryJdbcImpl();
+			escritor.jdbcTemplate = jdbc;
+			escritor.insertarConceptos(invocacion.getArgument(0), lineas);
+			return null;
+		}).when(repositorio).insertarConceptos(anyInt(), anyList());
+		assertThrows(DataIntegrityViolationException.class, () -> servicio.editarBorrador(factura.idFactura(),
+				peticion(2026, "BORRADOR", List.of(linea("2", 3, "0", "21"), linea("3", 4, "0", "0")))));
+		assertEquals(antes, instantanea(factura.idFactura()));
+		verify(repositorio).eliminarConceptos(factura.idFactura());
+		verify(repositorio, never()).obtenerUltimoNumero(anyInt());
+		verify(repositorio, never()).insertar(any());
+	}
+
+	@Test
+	void edicionEsperaBloqueoYRevalidaEstadoDentroDeTransaccion() throws Exception {
+		Factura factura = servicio.crear(peticion(2026, "BORRADOR", List.of(linea("10", 1, "0", "0"))));
+		var cabeceraEsperada = jdbc.queryForMap("SELECT * FROM facturas WHERE idfactura=?", factura.idFactura());
+		cabeceraEsperada.put("estado", "EMITIDA");
+		var conceptosEsperados = jdbc.queryForList("SELECT * FROM conceptos WHERE idfactura=? ORDER BY idconcepto", factura.idFactura());
+		CountDownLatch entrando = new CountDownLatch(1);
+		doAnswer(invocacion -> {
+			assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+			entrando.countDown();
+			return invocacion.callRealMethod();
+		}).when(repositorio).buscarPorIdParaActualizar(factura.idFactura());
+		var tareas = Executors.newSingleThreadExecutor();
+		try (var conexion = datos.getConnection()) {
+			conexion.setAutoCommit(false);
+			try {
+				try (var cambio = conexion.prepareStatement("UPDATE facturas SET estado='EMITIDA' WHERE idfactura=?")) {
+					cambio.setInt(1, factura.idFactura());
+					cambio.executeUpdate();
+				}
+				var futura = tareas.submit(() -> servicio.editarBorrador(factura.idFactura(), peticion(2026, "BORRADOR", List.of())));
+				assertTrue(entrando.await(5, TimeUnit.SECONDS));
+				assertThrows(TimeoutException.class, () -> futura.get(200, TimeUnit.MILLISECONDS));
+				conexion.commit();
+				ExecutionException error = assertThrows(ExecutionException.class, () -> futura.get(5, TimeUnit.SECONDS));
+				assertEquals(409, ((ResponseStatusException) error.getCause()).getStatusCode().value());
+				assertEquals(List.of(List.of(cabeceraEsperada), conceptosEsperados), instantanea(factura.idFactura()));
+			} finally {
+				conexion.rollback();
+			}
+		} finally {
+			tareas.shutdownNow();
+			assertTrue(tareas.awaitTermination(5, TimeUnit.SECONDS));
+		}
+	}
+
+	@Test
+	void edicionesSimultaneasNoMezclanCabeceraNiConceptos() throws Exception {
+		Factura factura = servicio.crear(peticion(2026, "BORRADOR", List.of()));
+		CyclicBarrier barrera = new CyclicBarrier(2);
+		doAnswer(invocacion -> {
+			barrera.await(5, TimeUnit.SECONDS);
+			return invocacion.callRealMethod();
+		}).when(repositorio).buscarPorIdParaActualizar(factura.idFactura());
+		var tareas = Executors.newFixedThreadPool(2);
+		try {
+			var primera = tareas.submit(() -> servicio.editarBorrador(factura.idFactura(), new FacturaRequest(1,
+					LocalDate.of(2026, 1, 1), "BORRADOR", "A", List.of(linea("10", 1, "0", "0"), linea("11", 1, "0", "0")))));
+			var segunda = tareas.submit(() -> servicio.editarBorrador(factura.idFactura(), new FacturaRequest(1,
+					LocalDate.of(2026, 2, 1), "BORRADOR", "B", List.of(linea("20", 2, "0", "0"), linea("21", 2, "0", "0")))));
+			primera.get(10, TimeUnit.SECONDS);
+			segunda.get(10, TimeUnit.SECONDS);
+			Factura guardada = repositorio.buscarPorId(factura.idFactura());
+			boolean esPrimera = guardada.observaciones().equals("A");
+			assertTrue(esPrimera || guardada.observaciones().equals("B"));
+			assertEquals(factura.numeroFactura(), guardada.numeroFactura());
+			assertEquals(esPrimera ? new BigDecimal("21.00") : new BigDecimal("82.00"), guardada.total());
+			assertEquals(LocalDate.of(2026, esPrimera ? 1 : 2, 1), guardada.fechaEmision());
+			var conceptos = repositorio.buscarConceptos(factura.idFactura());
+			assertEquals(2, conceptos.size());
+			assertEquals(esPrimera ? new BigDecimal("10.00") : new BigDecimal("20.00"), conceptos.get(0).precioUnitario());
+			assertEquals(esPrimera ? new BigDecimal("11.00") : new BigDecimal("21.00"), conceptos.get(1).precioUnitario());
+			assertTrue(conceptos.stream().allMatch(c -> c.cantidad() == (esPrimera ? 1 : 2)));
+		} finally {
+			tareas.shutdownNow();
+			assertTrue(tareas.awaitTermination(5, TimeUnit.SECONDS));
+		}
+	}
+
+	private List<Object> instantanea(int idFactura) {
+		return List.of(jdbc.queryForList("SELECT * FROM facturas WHERE idfactura=?", idFactura),
+				jdbc.queryForList("SELECT * FROM conceptos WHERE idfactura=? ORDER BY idconcepto", idFactura));
+	}
+
+	@Test
 	void siguienteNumeroSinRellenarHuecosYAnosIndependientes() {
 		manual("F-2026-0002", "EMITIDA");
 		manual("F-2026-0008", "BORRADOR");
@@ -134,7 +291,7 @@ class FacturaGuardadoIntegracionTests {
 	@Test
 	void reservaManualesTodosLosEstadosYVariantesDeMayusculas() {
 		int numero = 1;
-		for (String estado : List.of("BORRADOR", "EMITIDA", "PAGADA", "ANULADA")) {
+		for (String estado : List.of("BORRADOR", "EMITIDA", "ANULADA")) {
 			manual("F-2026-000" + numero, estado);
 			assertEquals(numero, repositorio.obtenerUltimoNumero(2026));
 			numero++;

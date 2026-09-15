@@ -33,12 +33,19 @@ const sinConceptos = document.getElementById("sinConceptosFactura");
 const campoEstado = document.getElementById("estadoFactura");
 let guardandoFactura = false;
 let siguienteListaSugerencias = 0;
+let idFacturaEnEdicion = null;
+let ultimaCargaBorrador = 0;
+let formularioDisponible = true;
+let volverAlDetalle = false;
+let listadoTrimestralActivo = false;
 
 // Ambas búsquedas comparten la tabla: una respuesta anterior no debe reemplazar la última consulta.
 let ultimaConsultaFacturas = 0;
 
 /** Carga las facturas que coinciden con el texto buscado. */
 async function cargarFacturas() {
+    listadoTrimestralActivo = false;
+    let actualizada = false;
     ultimaConsultaFacturas++;
     const numeroConsulta = ultimaConsultaFacturas;
     const textoBuscado = inputBusqueda.value.trim();
@@ -52,6 +59,7 @@ async function cargarFacturas() {
                 mostrarFacturas(facturas);
                 resumenTrimestral.classList.add("d-none");
                 ocultarMensaje();
+                actualizada = true;
             }
         } else if (numeroConsulta == ultimaConsultaFacturas) {
             mostrarMensaje("No se pudieron consultar las facturas.", "danger");
@@ -62,6 +70,7 @@ async function cargarFacturas() {
             mostrarMensaje("No se pudo conectar con el servidor.", "danger");
         }
     }
+    return actualizada;
 }
 
 /** Muestra las facturas recibidas dentro de la tabla. */
@@ -86,14 +95,14 @@ function mostrarFacturas(facturas) {
             agregarCelda(fila, formatearImporte(factura.subtotal), "text-end");
             agregarCelda(fila, formatearImporte(factura.importeIva), "text-end");
             agregarCelda(fila, formatearImporte(factura.total), "text-end fw-bold");
-            agregarAccionVisor(fila, factura.idFactura);
+            agregarAccionVisor(fila, factura);
             tablaFacturas.appendChild(fila);
         }
     }
 }
 
 /** Añade a la fila el botón que abre la factura preparada para imprimir. */
-function agregarAccionVisor(fila, idFactura) {
+function agregarAccionVisor(fila, factura) {
     const celda = document.createElement("td");
     celda.className = "text-end";
 
@@ -104,16 +113,27 @@ function agregarAccionVisor(fila, idFactura) {
     boton.setAttribute("aria-label", "Ver e imprimir factura");
     boton.textContent = "Ver / PDF";
     boton.addEventListener("click", function () {
-        window.open("factura-imprimir.html?idFactura=" + idFactura, "_blank");
+        window.open("factura-imprimir.html?idFactura=" + factura.idFactura, "_blank");
     });
 
     celda.appendChild(boton);
+    if (factura.estado == "BORRADOR") {
+        const editar = document.createElement("button");
+        editar.type = "button";
+        editar.className = "btn btn-sm btn-outline-primary ms-1";
+        editar.textContent = "Editar";
+        editar.setAttribute("aria-label", "Editar borrador " + factura.numeroFactura);
+        editar.addEventListener("click", () => abrirBorrador(factura.idFactura));
+        celda.appendChild(editar);
+    }
     fila.appendChild(celda);
 }
 
 /** Consulta las facturas del año y trimestre elegidos y muestra sus totales. */
 async function cargarListadoTrimestral() {
+    let actualizada = false;
     if (inputAnio.reportValidity()) {
+        listadoTrimestralActivo = true;
         ultimaConsultaFacturas++;
         const numeroConsulta = ultimaConsultaFacturas;
         const parametros = new URLSearchParams({
@@ -132,6 +152,7 @@ async function cargarListadoTrimestral() {
                     totalTrimestre.textContent = formatearImporte(resumen.total);
                     resumenTrimestral.classList.remove("d-none");
                     mostrarMensaje("Mostrando el " + resumen.trimestre + "º trimestre de " + resumen.anio + ".", "info");
+                    actualizada = true;
                 }
             } else {
                 const mensajeError = await respuesta.text();
@@ -146,6 +167,7 @@ async function cargarListadoTrimestral() {
             }
         }
     }
+    return actualizada;
 }
 
 /** Añade una celda de texto a una fila. */
@@ -179,13 +201,93 @@ async function cargarClientes() {
     }
 }
 
-/** Envía los datos del formulario para guardar una factura. */
+function prepararAlta() {
+    ultimaCargaBorrador++;
+    if (idFacturaEnEdicion != null) {
+        formularioFactura.reset();
+    }
+    idFacturaEnEdicion = null;
+    volverAlDetalle = false;
+    formularioDisponible = true;
+    campoEstado.disabled = false;
+    document.getElementById("facturaModalLabel").textContent = "Dar de alta una factura";
+    document.getElementById("ayudaNumeroFactura").textContent = "Número automático al guardar por primera vez.";
+    document.getElementById("fechaEmision").min = "1000-01-01";
+    document.getElementById("fechaEmision").max = "9999-12-31";
+    cambiarEstadoGuardado(false);
+}
+
+/** Reutiliza el alta; una respuesta tardía no puede rellenar otro formulario. */
+async function abrirBorrador(idFactura, desdeDetalle = false) {
+    if (!guardandoFactura) {
+        const consulta = ++ultimaCargaBorrador;
+        formularioFactura.reset();
+        idFacturaEnEdicion = idFactura;
+        volverAlDetalle = desdeDetalle;
+        formularioDisponible = false;
+        document.getElementById("facturaModalLabel").textContent = "Editar borrador";
+        document.getElementById("ayudaNumeroFactura").textContent = "Cargando borrador…";
+        cambiarEstadoGuardado(false);
+        bootstrap.Modal.getOrCreateInstance(modalFactura).show();
+        try {
+            const [respuesta] = await Promise.all([fetch("/factura/" + idFactura + "/detalle"), cargaClientes]);
+            if (consulta == ultimaCargaBorrador) {
+                if (respuesta.ok) {
+                    const detalle = await respuesta.json();
+                    if (consulta == ultimaCargaBorrador) {
+                        const factura = detalle.factura;
+                        if (factura.estado == "BORRADOR") {
+                            if (!Array.from(selectCliente.options).some(opcion => opcion.value == String(factura.idCliente))) {
+                                const opcion = document.createElement("option");
+                                opcion.value = factura.idCliente;
+                                opcion.textContent = detalle.cliente.nombre + " - " + detalle.cliente.nifCif;
+                                selectCliente.appendChild(opcion);
+                            }
+                            selectCliente.value = factura.idCliente;
+                            const fecha = document.getElementById("fechaEmision");
+                            const anio = /^[fF]-[0-9]{4}-[0-9]{4}$/.test(factura.numeroFactura)
+                                ? factura.numeroFactura.substring(2, 6) : factura.fechaEmision.substring(0, 4);
+                            fecha.min = anio + "-01-01";
+                            fecha.max = anio + "-12-31";
+                            fecha.value = factura.fechaEmision;
+                            campoEstado.value = "BORRADOR";
+                            campoEstado.disabled = true;
+                            campoObservaciones.value = factura.observaciones ?? "";
+                            for (const concepto of detalle.conceptos) {
+                                anadirConcepto(concepto);
+                            }
+                            actualizarContadorObservaciones();
+                            document.getElementById("ayudaNumeroFactura").textContent = "Número " + factura.numeroFactura + " · Se conserva al guardar.";
+                            formularioDisponible = true;
+                        } else {
+                            mostrarErrorFormularioFactura("La factura ya no está en BORRADOR y no se puede editar.");
+                        }
+                    }
+                } else {
+                    mostrarErrorFormularioFactura(respuesta.status == 404 ? "No se encontró la factura." : "No se pudo cargar el borrador. Cierra y vuelve a intentarlo.");
+                }
+            }
+        } catch (error) {
+            if (consulta == ultimaCargaBorrador) {
+                mostrarErrorFormularioFactura("No se pudo conectar con el servidor para cargar el borrador.");
+            }
+        } finally {
+            if (consulta == ultimaCargaBorrador) {
+                cambiarEstadoGuardado(false);
+            }
+        }
+    }
+}
+
+/** Envía cabecera y conceptos en una sola petición, tanto al crear como al editar. */
 async function guardarFactura() {
-    if (!guardandoFactura && validarFormularioFactura()) {
+    if (!guardandoFactura && formularioDisponible && validarFormularioFactura()) {
+        const editando = idFacturaEnEdicion != null;
+        const regresar = volverAlDetalle;
         const datosFactura = {
             idCliente: Number(selectCliente.value),
             fechaEmision: document.getElementById("fechaEmision").value,
-            estado: campoEstado.value,
+            estado: editando ? "BORRADOR" : campoEstado.value,
             observaciones: campoObservaciones.value.trim(),
             conceptos: recogerConceptos()
         };
@@ -194,8 +296,9 @@ async function guardarFactura() {
         mensajeFormularioFactura.classList.add("d-none");
         let facturaGuardada = null;
         try {
-            const respuesta = await fetch(RUTA_CREAR_FACTURA, {
-                method: "POST",
+            const ruta = editando ? "/factura/" + idFacturaEnEdicion + "/borrador" : RUTA_CREAR_FACTURA;
+            const respuesta = await fetch(ruta, {
+                method: editando ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(datosFactura)
             });
@@ -206,24 +309,38 @@ async function guardarFactura() {
             } else {
                 // No mostramos cuerpos de error que puedan contener SQL o trazas del servidor.
                 if (respuesta.status == 400) {
-                    mostrarErrorFormularioFactura("El servidor ha rechazado los datos. Revisa los campos y los importes de los conceptos.");
+                    mostrarErrorFormularioFactura(editando
+                        ? "Revisa los conceptos y la fecha: debe conservar el año del número y el estado BORRADOR."
+                        : "El servidor ha rechazado los datos. Revisa los campos y los importes de los conceptos.");
+                } else if (respuesta.status == 404 && editando) {
+                    mostrarErrorFormularioFactura("No se encontró la factura. Conservamos los datos del formulario.");
                 } else if (respuesta.status == 409) {
-                    mostrarErrorFormularioFactura("No se pudo asignar un número de factura. Puede haberse alcanzado el límite anual o coincidir con otras altas. Revisa antes de reintentar.");
+                    mostrarErrorFormularioFactura(editando
+                        ? "No se pudo guardar: la factura puede haber dejado de ser BORRADOR o el cliente ya no estar disponible. Conservamos tus cambios."
+                        : "No se pudo asignar un número de factura. Puede haberse alcanzado el límite anual o coincidir con otras altas. Revisa antes de reintentar.");
                 } else {
                     mostrarErrorFormularioFactura("El servidor no pudo completar el guardado. Conservamos tus datos; comprueba si la factura se guardó antes de reintentar.");
                 }
             }
         } catch (error) {
-            console.error("Error al crear la factura", error);
+            console.error("Error al guardar la factura", error);
             mostrarErrorFormularioFactura("No se pudo conectar con el servidor. Comprueba si la factura se guardó antes de volver a intentarlo.");
         } finally {
             cambiarEstadoGuardado(false);
         }
         if (facturaGuardada) {
             bootstrap.Modal.getOrCreateInstance(modalFactura).hide();
-            await cargarFacturas();
-            mostrarMensaje("Factura " + facturaGuardada.numeroFactura + " creada. Total confirmado: "
-                + formatearImporte(facturaGuardada.total) + ".", "success");
+            if (regresar) {
+                window.location.href = "factura-imprimir.html?idFactura=" + facturaGuardada.idFactura;
+            } else {
+                const consulta = ultimaConsultaFacturas + 1;
+                const actualizada = await (listadoTrimestralActivo ? cargarListadoTrimestral() : cargarFacturas());
+                if (consulta == ultimaConsultaFacturas) {
+                    mostrarMensaje("Factura " + facturaGuardada.numeroFactura + (editando ? " actualizada. Total confirmado: " : " creada. Total confirmado: ")
+                        + formatearImporte(facturaGuardada.total) + (actualizada ? "." : ". No se pudo actualizar el listado; vuelve a consultarlo."),
+                        actualizada ? "success" : "warning");
+                }
+            }
         }
     }
 }
@@ -233,9 +350,9 @@ function cambiarEstadoGuardado(guardando) {
     if (guardando) {
         cerrarSugerenciasConceptos();
     }
-    botonGuardarFactura.disabled = guardando;
-    botonGuardarFactura.textContent = guardando ? "Guardando…" : "Guardar factura";
-    camposFactura.disabled = guardando;
+    botonGuardarFactura.disabled = guardando || !formularioDisponible;
+    botonGuardarFactura.textContent = guardando ? "Guardando…" : (idFacturaEnEdicion == null ? "Guardar factura" : "Guardar cambios");
+    camposFactura.disabled = guardando || !formularioDisponible;
     formularioFactura.setAttribute("aria-busy", String(guardando));
     for (const boton of botonesCerrarFactura) {
         boton.disabled = guardando;
@@ -252,8 +369,13 @@ function actualizarContadorObservaciones() {
     contadorObservaciones.textContent = campoObservaciones.value.length + " / " + campoObservaciones.maxLength + " caracteres";
 }
 
-function anadirConcepto() {
+function anadirConcepto(datos = null) {
     const concepto = plantillaConcepto.content.firstElementChild.cloneNode(true);
+    if (datos) {
+        for (const campo of ["descripcion", "cantidad", "precioUnitario", "descuento", "porcentajeIva"]) {
+            concepto.querySelector('[name="' + campo + '"]').value = datos[campo] ?? "";
+        }
+    }
     prepararSugerenciasConcepto(concepto);
     concepto.querySelector(".eliminar-concepto").addEventListener("click", function () {
         concepto.dispatchEvent(new Event("cerrar-sugerencias"));
@@ -487,6 +609,7 @@ modalFactura.addEventListener("hide.bs.modal", function (evento) {
     if (guardandoFactura) {
         evento.preventDefault();
     } else {
+        ultimaCargaBorrador++;
         cerrarSugerenciasConceptos();
     }
 });
@@ -498,7 +621,8 @@ document.addEventListener("pointerdown", function (evento) {
     }
 });
 document.getElementById("botonListarTrimestre").addEventListener("click", cargarListadoTrimestral);
-botonAnadirConcepto.addEventListener("click", anadirConcepto);
+botonAnadirConcepto.addEventListener("click", () => anadirConcepto());
+document.getElementById("botonAltaFactura").addEventListener("click", prepararAlta);
 inputBusqueda.addEventListener("focus", function () {
     contenedorBuscador.classList.add("expandido");
 });
@@ -518,5 +642,9 @@ inputBusqueda.addEventListener("keydown", function (evento) {
 
 inputAnio.value = new Date().getFullYear();
 actualizarContadorObservaciones();
-cargarClientes();
+const cargaClientes = cargarClientes();
 cargarFacturas();
+const identificadorEdicion = Number(new URLSearchParams(window.location.search).get("editar"));
+if (Number.isInteger(identificadorEdicion) && identificadorEdicion > 0) {
+    abrirBorrador(identificadorEdicion, true);
+}

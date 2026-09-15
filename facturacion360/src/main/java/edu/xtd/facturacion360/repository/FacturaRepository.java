@@ -30,6 +30,12 @@ public interface FacturaRepository {
 
 	public Factura buscarPorId(int idFactura);
 
+	public Factura buscarPorIdParaActualizar(int idFactura);
+
+	public int actualizarBorrador(Factura factura);
+
+	public void eliminarConceptos(int idFactura);
+
 	public ClienteFactura buscarCliente(int idCliente);
 
 	public List<ConceptoFactura> buscarConceptos(int idFactura);

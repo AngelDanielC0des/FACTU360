@@ -38,6 +38,21 @@ class FacturaServiceImplTests {
 	private static class FacturaRepositoryFalso implements FacturaRepository {
 
 		@Override
+		public Factura buscarPorIdParaActualizar(int idFactura) {
+			throw new UnsupportedOperationException("Esta prueba no edita borradores");
+		}
+
+		@Override
+		public int actualizarBorrador(Factura factura) {
+			throw new UnsupportedOperationException("Esta prueba no edita borradores");
+		}
+
+		@Override
+		public void eliminarConceptos(int idFactura) {
+			throw new UnsupportedOperationException("Esta prueba no edita borradores");
+		}
+
+		@Override
 		public List<edu.xtd.facturacion360.dto.SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite) {
 			return List.of();
 		}

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -53,6 +54,16 @@ public class FacturaController {
 		}
 
 		return respuesta;
+	}
+
+	@PutMapping("/{idFactura}/borrador")
+	public ResponseEntity<Factura> editarBorrador(@PathVariable int idFactura,
+			@Valid @RequestBody FacturaRequest facturaRequest, BindingResult errores) {
+		if (errores.hasErrors()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					errores.getAllErrors().get(0).getDefaultMessage());
+		}
+		return ResponseEntity.ok(facturaService.editarBorrador(idFactura, facturaRequest));
 	}
 
 	@ExceptionHandler(ResponseStatusException.class)

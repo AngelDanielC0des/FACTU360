@@ -15,6 +15,8 @@ public interface FacturaService {
 
 	public Factura crear(FacturaRequest facturaRequest);
 
+	public Factura editarBorrador(int idFactura, FacturaRequest facturaRequest);
+
 	public List<Factura> buscar(String busqueda);
 
 	public List<SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite);

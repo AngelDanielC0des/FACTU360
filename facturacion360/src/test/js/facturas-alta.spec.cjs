@@ -522,6 +522,231 @@ test("modal utilizable en móvil y conceptos accesibles por teclado", async ({ p
     await expect(pagina.getByRole("button", { name: "Añadir concepto", exact: true })).toBeFocused();
 });
 
+async function simularBorrador(pagina, estado = "BORRADOR") {
+    const factura = { idFactura: 7, idCliente: 999, nombreCliente: "Cliente antiguo", numeroFactura: "F-2026-0007",
+        fechaEmision: "2026-09-15", estado, observaciones: "Original", subtotal: 25, importeIva: 4.2, total: 29.2 };
+    const conceptos = [
+        { descripcion: "Servicio anterior", cantidad: 2, precioUnitario: 10, descuento: 0, porcentajeIva: 21 },
+        { descripcion: "Eliminar", cantidad: 1, precioUnitario: 5, descuento: 0, porcentajeIva: 0 }
+    ];
+    await pagina.route("**/factura/buscar?*", ruta => ruta.fulfill({ json: [factura,
+        ...["EMITIDA", "ANULADA"].map((valor, indice) => ({ ...factura, idFactura: 8 + indice, estado: valor }))] }));
+    await pagina.route("**/factura/7/detalle", ruta => ruta.fulfill({ json: {
+        factura, cliente: { nombre: "Cliente antiguo", nifCif: "ANTIGUO" }, conceptos
+    } }));
+    return factura;
+}
+
+async function abrirEdicionSimulada(pagina) {
+    await pagina.goto("/facturas.html");
+    await pagina.getByRole("button", { name: "Editar borrador F-2026-0007", exact: true }).click();
+    await expect(pagina.locator("#facturaModal")).toBeFocused();
+    await expect(pagina.locator("#botonGuardarFactura")).toBeEnabled();
+}
+
+test("4: precarga, edita conceptos y envía una sola PUT con respuesta definitiva", async ({ page: pagina }) => {
+    const factura = await simularBorrador(pagina);
+    await simularSugerencias(pagina);
+    await abrirEdicionSimulada(pagina);
+    await expect(pagina.getByRole("button", { name: /^Editar borrador/ })).toHaveCount(1);
+    await expect(pagina.locator("#clienteFactura")).toHaveValue("999");
+    await expect(pagina.locator("#fechaEmision")).toHaveValue("2026-09-15");
+    await expect(pagina.locator("#estadoFactura")).toBeDisabled();
+    await expect(pagina.locator("#observacionesFactura")).toHaveValue("Original");
+    await expect(pagina.locator(".concepto-factura")).toHaveCount(2);
+    const primera = pagina.locator(".concepto-factura").first();
+    await primera.getByLabel("Cantidad", { exact: true }).fill("3");
+    await pagina.getByRole("button", { name: "Eliminar concepto 2", exact: true }).click();
+    const nueva = await anadirLinea(pagina, "manten", "2", "5");
+    await nueva.getByLabel("Descripción", { exact: true }).fill("manten");
+    await nueva.getByRole("option", { name: /Mantenimiento web/ }).click();
+    const peticiones = [];
+    pagina.on("request", peticion => { if (["POST", "PUT"].includes(peticion.method())) peticiones.push(peticion); });
+    let liberar;
+    const espera = new Promise(resolver => { liberar = resolver; });
+    await pagina.route("**/factura/7/borrador", async ruta => {
+        await espera;
+        factura.total = 999;
+        await ruta.fulfill({ json: factura });
+    });
+    await pagina.getByRole("button", { name: "Guardar cambios", exact: true }).click();
+    await expect(pagina.locator("#botonGuardarFactura")).toBeDisabled();
+    await pagina.locator("#formularioFactura").dispatchEvent("submit");
+    await pagina.keyboard.press("Escape");
+    await expect(pagina.locator("#facturaModal")).toBeVisible();
+    await expect.poll(() => peticiones.length).toBe(1);
+    expect(peticiones[0].method()).toBe("PUT");
+    expect(peticiones[0].postDataJSON()).toEqual({ idCliente: 999, fechaEmision: "2026-09-15", estado: "BORRADOR", observaciones: "Original",
+        conceptos: [{ descripcion: "Servicio anterior", cantidad: 3, precioUnitario: 10, descuento: 0, porcentajeIva: 21 },
+            { descripcion: "Mantenimiento web", cantidad: 2, precioUnitario: 120, descuento: 5, porcentajeIva: 21 }] });
+    liberar();
+    await expect(pagina.locator("#mensaje-facturas")).toContainText("actualizada. Total confirmado: 999,00");
+    await expect(pagina.locator("#facturaModal")).toBeHidden();
+    expect(peticiones).toHaveLength(1);
+    await pagina.locator("#botonAltaFactura").click();
+    await expect(pagina.locator("#botonGuardarFactura")).toHaveText("Guardar factura");
+    await expect(pagina.locator(".concepto-factura")).toHaveCount(0);
+    await expect(pagina.locator("#estadoFactura")).toBeEnabled();
+});
+
+for (const estado of [400, 404, 409, 500, 0]) {
+    test("4: error de edición " + estado + " conserva datos y permite reintentar", async ({ page: pagina }) => {
+        const factura = await simularBorrador(pagina);
+        await abrirEdicionSimulada(pagina);
+        await pagina.locator("#observacionesFactura").fill("No perder");
+        await pagina.route("**/factura/7/borrador", ruta => estado == 0 ? ruta.abort("connectionrefused") : ruta.fulfill({ status: estado, body: "SQLException secreto" }));
+        await pagina.locator("#botonGuardarFactura").click();
+        await expect(pagina.locator("#mensaje-formulario-factura")).toBeVisible();
+        await expect(pagina.locator("#mensaje-formulario-factura")).not.toContainText("SQLException");
+        await expect(pagina.locator("#observacionesFactura")).toHaveValue("No perder");
+        await expect(pagina.locator(".concepto-factura")).toHaveCount(2);
+        await expect(pagina.locator("#botonGuardarFactura")).toBeEnabled();
+        await expect(pagina.locator("#estadoFactura")).toBeDisabled();
+        await pagina.route("**/factura/7/borrador", ruta => ruta.fulfill({ json: factura }));
+        await pagina.locator("#botonGuardarFactura").click();
+        await expect(pagina.locator("#facturaModal")).toBeHidden();
+    });
+}
+
+test("4: cancelar precarga e iniciar alta ignora la respuesta tardía", async ({ page: pagina }) => {
+    const factura = await simularBorrador(pagina);
+    let liberar;
+    const espera = new Promise(resolver => { liberar = resolver; });
+    let solicitada = false;
+    await pagina.route("**/factura/7/detalle", async ruta => {
+        solicitada = true;
+        await espera;
+        await ruta.fulfill({ json: { factura, cliente: { nombre: "Antiguo", nifCif: "A" }, conceptos: [] } });
+    });
+    await pagina.goto("/facturas.html");
+    await pagina.getByRole("button", { name: "Editar borrador F-2026-0007", exact: true }).click();
+    await expect.poll(() => solicitada).toBe(true);
+    await expect(pagina.locator("#facturaModal")).toBeFocused();
+    await expect(pagina.locator("#botonGuardarFactura")).toBeDisabled();
+    await pagina.getByRole("button", { name: "Cancelar", exact: true }).click();
+    await expect(pagina.locator("#facturaModal")).toBeHidden();
+    await pagina.locator("#botonAltaFactura").click();
+    await expect(pagina.locator("#facturaModal")).toBeFocused();
+    const respuesta = pagina.waitForResponse("**/factura/7/detalle");
+    liberar();
+    await respuesta;
+    await expect(pagina.locator("#facturaModalLabel")).toHaveText("Dar de alta una factura");
+    await expect(pagina.locator("#clienteFactura")).toHaveValue("");
+    await expect(pagina.locator("#botonGuardarFactura")).toBeEnabled();
+});
+
+test("4: enlace forzado no habilita edición de una factura emitida", async ({ page: pagina }) => {
+    await simularBorrador(pagina, "EMITIDA");
+    await pagina.goto("/facturas.html?editar=7");
+    await expect(pagina.locator("#mensaje-formulario-factura")).toContainText("ya no está en BORRADOR");
+    await expect(pagina.locator("#botonGuardarFactura")).toBeDisabled();
+    await expect(pagina.getByRole("button", { name: /^Editar borrador/ })).toHaveCount(0);
+});
+
+test("4: guardado correcto con refresco fallido avisa sin ocultar el resultado", async ({ page: pagina }) => {
+    const factura = await simularBorrador(pagina);
+    await abrirEdicionSimulada(pagina);
+    await pagina.route("**/factura/7/borrador", ruta => ruta.fulfill({ json: factura }));
+    await pagina.route("**/factura/buscar?*", ruta => ruta.fulfill({ status: 500 }));
+    await pagina.locator("#botonGuardarFactura").click();
+    await expect(pagina.locator("#mensaje-facturas")).toContainText("actualizada");
+    await expect(pagina.locator("#mensaje-facturas")).toContainText("No se pudo actualizar el listado");
+    await expect(pagina.locator("#mensaje-facturas")).toHaveClass(/alert-warning/);
+});
+
+test("4: editar desde trimestre conserva filtro y refresca sus totales", async ({ page: pagina }) => {
+    const factura = await simularBorrador(pagina);
+    let consultas = 0;
+    await pagina.route("**/factura/trimestral?*", ruta => {
+        consultas++;
+        return ruta.fulfill({ json: { anio: 2026, trimestre: 3, facturas: [factura], subtotal: factura.subtotal,
+            importeIva: factura.importeIva, total: factura.total } });
+    });
+    await pagina.goto("/facturas.html");
+    await pagina.locator("#anioTrimestre").fill("2026");
+    await pagina.locator("#trimestreFactura").selectOption("3");
+    await pagina.locator("#botonListarTrimestre").click();
+    await expect(pagina.locator("#totalTrimestre")).toHaveText("29,20 €");
+    await pagina.getByRole("button", { name: "Editar borrador F-2026-0007", exact: true }).click();
+    await expect(pagina.locator("#botonGuardarFactura")).toBeEnabled();
+    await pagina.route("**/factura/7/borrador", ruta => {
+        factura.total = 42;
+        return ruta.fulfill({ json: factura });
+    });
+    await pagina.locator("#botonGuardarFactura").click();
+    await expect(pagina.locator("#totalTrimestre")).toHaveText("42,00 €");
+    await expect(pagina.locator("#resumenTrimestral")).toBeVisible();
+    expect(consultas).toBe(2);
+});
+
+test("4 E2E: editar desde visor en móvil guarda y devuelve el detalle real", async ({ page: pagina }) => {
+    consultarBaseAislada("SELECT COUNT(*) FROM facturas;");
+    const datos = { idCliente: 1, fechaEmision: "2050-01-02", estado: "BORRADOR", observaciones: "Editar E2E",
+        conceptos: [{ descripcion: "Primera", cantidad: 1, precioUnitario: 10, descuento: 0, porcentajeIva: 21 },
+            { descripcion: "Retirar", cantidad: 1, precioUnitario: 5, descuento: 0, porcentajeIva: 0 }] };
+    const creada = await pagina.request.post("/factura", { data: datos });
+    expect(creada.status()).toBe(201);
+    const factura = await creada.json();
+    const cabeceras = consultarBaseAislada("SELECT COUNT(*) FROM facturas;");
+    await pagina.setViewportSize({ width: 390, height: 844 });
+    await pagina.goto("/factura-imprimir.html?idFactura=" + factura.idFactura);
+    await pagina.getByRole("link", { name: "Editar borrador", exact: true }).click();
+    await expect(pagina.locator("#botonGuardarFactura")).toBeEnabled();
+    await expect(pagina.locator(".concepto-factura")).toHaveCount(2);
+    await pagina.locator(".concepto-factura").first().getByLabel("Cantidad", { exact: true }).fill("3");
+    await pagina.getByRole("button", { name: "Eliminar concepto 2", exact: true }).click();
+    await anadirLinea(pagina, "Nueva", "2", "5", "0", "10");
+    await pagina.locator("#observacionesFactura").fill("Editada E2E");
+    expect(await pagina.locator("#facturaModal .modal-body").evaluate(elemento => elemento.scrollWidth <= elemento.clientWidth)).toBe(true);
+    const respuestaPendiente = pagina.waitForResponse(respuesta => respuesta.request().method() == "PUT");
+    await pagina.locator("#botonGuardarFactura").click();
+    const respuesta = await respuestaPendiente;
+    expect(respuesta.status()).toBe(200);
+    await expect(pagina).toHaveURL(new RegExp("factura-imprimir.html\\?idFactura=" + factura.idFactura + "$"));
+    // La navegación descarta el cuerpo de la PUT en Chrome; comprobamos el detalle persistido.
+    const detalle = await pagina.request.get("/factura/" + factura.idFactura + "/detalle");
+    expect(detalle.status()).toBe(200);
+    const { factura: guardada } = await detalle.json();
+    expect(guardada.numeroFactura).toBe(factura.numeroFactura);
+    expect([guardada.subtotal, guardada.importeIva, guardada.total]).toEqual([40, 7.3, 47.3]);
+    await expect(pagina.locator("#totalFactura")).toHaveText("47,30 €");
+    await expect(pagina.locator("#tablaConceptos")).toContainText("Nueva");
+    await expect(pagina.locator("#tablaConceptos")).not.toContainText("Retirar");
+    expect(consultarBaseAislada("SELECT COUNT(*) FROM facturas;")).toBe(cabeceras);
+    expect(consultarBaseAislada("SELECT descripcion,cantidad,total FROM conceptos WHERE idfactura=" + factura.idFactura + " ORDER BY idconcepto;"))
+        .toBe("Primera\t3\t36.30\nNueva\t2\t11.00");
+    await pagina.screenshot({ path: test.info().outputPath("edicion-movil-confirmada.png") });
+});
+
+test("4 E2E: estado cambiado durante edición y peticiones forzadas no alteran datos", async ({ page: pagina }) => {
+    consultarBaseAislada("SELECT COUNT(*) FROM facturas;");
+    const datos = { idCliente: 1, fechaEmision: "2051-01-02", estado: "BORRADOR", observaciones: "Protección E2E",
+        conceptos: [{ descripcion: "Intacta", cantidad: 1, precioUnitario: 10, descuento: 0, porcentajeIva: 21 }] };
+    const creada = await pagina.request.post("/factura", { data: datos });
+    expect(creada.status()).toBe(201);
+    const factura = await creada.json();
+    await pagina.goto("/facturas.html?editar=" + factura.idFactura);
+    await expect(pagina.locator("#botonGuardarFactura")).toBeEnabled();
+    await pagina.locator("#observacionesFactura").fill("No guardar");
+    consultarBaseAislada("UPDATE facturas SET estado='EMITIDA' WHERE idfactura=" + factura.idFactura + ";");
+    const consulta = "SELECT * FROM facturas WHERE idfactura=" + factura.idFactura + "; SELECT * FROM conceptos WHERE idfactura=" + factura.idFactura + ";";
+    const antes = consultarBaseAislada(consulta);
+    await pagina.locator("#botonGuardarFactura").click();
+    await expect(pagina.locator("#mensaje-formulario-factura")).toContainText("dejado de ser BORRADOR");
+    await expect(pagina.locator("#observacionesFactura")).toHaveValue("No guardar");
+    expect(consultarBaseAislada(consulta)).toBe(antes);
+    for (const estado of ["EMITIDA", "ANULADA"]) {
+        consultarBaseAislada("UPDATE facturas SET estado='" + estado + "' WHERE idfactura=" + factura.idFactura + ";");
+        const estadoAntes = consultarBaseAislada(consulta);
+        const rechazada = await pagina.request.put("/factura/" + factura.idFactura + "/borrador", { data: datos });
+        expect(rechazada.status()).toBe(409);
+        expect(consultarBaseAislada(consulta)).toBe(estadoAntes);
+        await pagina.goto("/factura-imprimir.html?idFactura=" + factura.idFactura);
+        await expect(pagina.locator("#contenidoFactura")).toBeVisible();
+        await expect(pagina.locator("#botonEditarBorrador")).toBeHidden();
+    }
+});
+
 function consultarBaseAislada(sql) {
     const socket = process.env.FACTURAS_MYSQL_SOCKET;
     const servidor = process.env.FACTURAS_MYSQL_SERVIDOR;

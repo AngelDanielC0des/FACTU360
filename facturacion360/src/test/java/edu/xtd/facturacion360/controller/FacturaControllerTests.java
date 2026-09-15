@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import org.junit.jupiter.api.AfterEach;
@@ -50,6 +51,7 @@ class FacturaControllerTests {
 		FacturaController controlador = new FacturaController();
 		controlador.facturaService = servicio;
 		clienteHttp = MockMvcBuilders.standaloneSetup(controlador)
+				.setControllerAdvice(new ManejadorExcepciones())
 				.setValidator(new SpringValidatorAdapter(validadores.getValidator())).build();
 	}
 
@@ -69,6 +71,106 @@ class FacturaControllerTests {
 					""", org.springframework.test.json.JsonCompareMode.STRICT));
 		verify(repositorio).buscarSugerenciasConceptos("manten", 8);
 		verifyNoMoreInteractions(repositorio);
+	}
+
+	void prepararBorrador(String estado, String numero, String fecha) {
+		Factura anterior = new Factura(7, 1, "Cliente", numero, java.time.LocalDate.parse(fecha), estado,
+				"Anterior", java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO, java.math.BigDecimal.ZERO);
+		when(repositorio.buscarPorIdParaActualizar(7)).thenReturn(anterior);
+		doAnswer(invocacion -> {
+			doReturn(invocacion.getArgument(0)).when(repositorio).buscarPorId(7);
+			return 1;
+		}).when(repositorio).actualizarBorrador(any());
+	}
+
+	@Test
+	void editaBorradorConNumeroIntactoYCalculosDelServidor() throws Exception {
+		prepararBorrador("BORRADOR", "F-2026-0007", "2026-01-01");
+		String peticion = PETICION.replace("EMITIDA", "BORRADOR");
+		clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON).content(peticion))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.idFactura").value(7))
+				.andExpect(jsonPath("$.numeroFactura").value("F-2026-0007"))
+				.andExpect(jsonPath("$.estado").value("BORRADOR"))
+				.andExpect(jsonPath("$.subtotal").value(20)).andExpect(jsonPath("$.importeIva").value(4.2))
+				.andExpect(jsonPath("$.total").value(24.2));
+		verify(repositorio).eliminarConceptos(7);
+		verify(repositorio).insertarConceptos(eq(7), anyList());
+		verify(repositorio, never()).obtenerUltimoNumero(anyInt());
+		verify(repositorio, never()).insertar(any());
+	}
+
+	@Test
+	void edicionRechazaLosEstadosNoEditables() throws Exception {
+		for (String estado : java.util.List.of("EMITIDA", "ANULADA")) {
+			prepararBorrador(estado, "F-2026-0007", "2026-01-01");
+			clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)
+					.content(PETICION.replace("EMITIDA", "BORRADOR")))
+					.andExpect(status().isConflict()).andExpect(content().string(org.hamcrest.Matchers.containsString("BORRADOR")));
+		}
+		verify(repositorio, never()).actualizarBorrador(any());
+		verify(repositorio, never()).eliminarConceptos(anyInt());
+	}
+
+	@Test
+	void edicionConservaElAnoDelNumeroOTomaElAnoManualAnterior() throws Exception {
+		for (String numero : java.util.List.of("F-2026-0007", "f-2026-0007", "MANUAL-7")) {
+			prepararBorrador("BORRADOR", numero, "2026-01-01");
+			clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)
+					.content(PETICION.replace("EMITIDA", "BORRADOR").replace("2026-09-14", "2027-09-14")))
+					.andExpect(status().isBadRequest()).andExpect(content().string(org.hamcrest.Matchers.containsString("2026")));
+		}
+		verify(repositorio, never()).actualizarBorrador(any());
+		prepararBorrador("BORRADOR", "F-2026-0007", "2025-01-01");
+		clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)
+				.content(PETICION.replace("EMITIDA", "BORRADOR"))).andExpect(status().isOk());
+	}
+
+	@Test
+	void edicionValidaIdEstadoYConceptosAntesDeEscribir() throws Exception {
+		String borrador = PETICION.replace("EMITIDA", "BORRADOR");
+		clienteHttp.perform(put("/factura/0/borrador").contentType(MediaType.APPLICATION_JSON).content(borrador))
+				.andExpect(status().isBadRequest());
+		clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON).content(PETICION))
+				.andExpect(status().isBadRequest());
+		for (String cantidad : java.util.List.of("0", "1.5", "2147483648")) {
+			clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)
+					.content(borrador.replace("\"cantidad\":2", "\"cantidad\":" + cantidad))).andExpect(status().isBadRequest());
+		}
+		verifyNoInteractions(repositorio);
+		clienteHttp.perform(put("/factura/99/borrador").contentType(MediaType.APPLICATION_JSON).content(borrador))
+				.andExpect(status().isNotFound());
+		verify(repositorio).buscarPorIdParaActualizar(99);
+		verifyNoMoreInteractions(repositorio);
+	}
+
+	@Test
+	void edicionNoConfiaEnNumeroNiImportesEnviados() throws Exception {
+		prepararBorrador("BORRADOR", "F-2026-0007", "2026-01-01");
+		String peticion = PETICION.replace("EMITIDA", "BORRADOR")
+				.replace("\"idCliente\":", "\"numeroFactura\":\"FALSO\",\"total\":999,\"idCliente\":")
+				.replace("\"descripcion\":", "\"baseImponible\":999,\"importeIva\":999,\"total\":999,\"descripcion\":");
+		var respuesta = clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)
+				.content(peticion)).andReturn().getResponse();
+		assertTrue(respuesta.getStatus() == 400 || respuesta.getStatus() == 200);
+		if (respuesta.getStatus() == 200) {
+			var captor = org.mockito.ArgumentCaptor.forClass(Factura.class);
+			verify(repositorio).actualizarBorrador(captor.capture());
+			assertEquals("F-2026-0007", captor.getValue().numeroFactura());
+			assertEquals(new java.math.BigDecimal("24.20"), captor.getValue().total());
+		} else {
+			verifyNoInteractions(repositorio);
+		}
+		verify(repositorio, never()).obtenerUltimoNumero(anyInt());
+	}
+
+	@Test
+	void edicionNoExponeDetallesSqlAnteFallo() throws Exception {
+		prepararBorrador("BORRADOR", "F-2026-0007", "2026-01-01");
+		doThrow(new org.springframework.dao.DataAccessResourceFailureException("SQL secreto índice interno"))
+				.when(repositorio).eliminarConceptos(7);
+		clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)
+				.content(PETICION.replace("EMITIDA", "BORRADOR")))
+				.andExpect(status().isInternalServerError()).andExpect(content().string("Error al acceder a la base de datos"));
 	}
 
 	@Test

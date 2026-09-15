@@ -32,7 +32,7 @@
 <main class="container py-5">
     <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
         <h2>Panel de Gestión de Facturas</h2>
-        <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#facturaModal">
+        <button id="botonAltaFactura" class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#facturaModal">
             <i class="bi bi-file-earmark-plus"></i> Añadir factura
         </button>
     </div>
@@ -106,7 +106,7 @@
             <div class="modal-header">
                 <div>
                     <h5 class="modal-title" id="facturaModalLabel">Dar de alta una factura</h5>
-                    <p class="form-text mb-0">Número automático al guardar por primera vez.</p>
+                    <p id="ayudaNumeroFactura" class="form-text mb-0">Número automático al guardar por primera vez.</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -129,7 +129,6 @@
                             <select id="estadoFactura" class="form-select" required>
                                 <option value="BORRADOR">Borrador</option>
                                 <option value="EMITIDA">Emitida</option>
-                                <option value="PAGADA">Pagada</option>
                                 <option value="ANULADA">Anulada</option>
                             </select>
                         </div>
