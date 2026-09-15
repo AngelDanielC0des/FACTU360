@@ -223,6 +223,83 @@ class FacturaGuardadoIntegracionTests {
 				BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
 	}
 
+	@Test
+	void sugerenciasBuscanDentroDelTextoYEscapanComodines() {
+		historico(2026, "Servicio de mantenimiento mensual", "95");
+		historico(2026, "Descuento 50% especial", "20");
+		historico(2026, "Clave_a especial", "30");
+		historico(2026, "Ruta\\a especial", "40");
+		assertEquals("Servicio de mantenimiento mensual", servicio.buscarSugerenciasConceptos("MANTEN", 8).get(0).descripcion());
+		assertTrue(servicio.buscarSugerenciasConceptos("inexistente", 8).isEmpty());
+		for (String texto : List.of("50%", "_a", "\\a")) {
+			assertEquals(1, servicio.buscarSugerenciasConceptos(texto, 8).size());
+		}
+		assertTrue(servicio.buscarSugerenciasConceptos("%' OR 1=1 --", 8).isEmpty());
+	}
+
+	@Test
+	void sugerenciasDeduplicanYEligenFechaAntesQueIdSinModificarHistorico() {
+		Factura reciente = historico(2028, "Mantenimiento web", "120");
+		historico(2027, "Mantenimiento servidor", "75");
+		Factura antigua = historico(2026, "mANTENIMIENTO WEB", "90");
+		assertTrue(antigua.idFactura() > reciente.idFactura());
+		jdbc.update("UPDATE conceptos SET descripcion='  Mantenimiento web  ', descuento=5 WHERE idfactura=?", reciente.idFactura());
+		var facturasAntes = jdbc.queryForList("SELECT * FROM facturas ORDER BY idfactura");
+		var conceptosAntes = jdbc.queryForList("SELECT * FROM conceptos ORDER BY idconcepto");
+		var sugerencias = servicio.buscarSugerenciasConceptos("manten", 8);
+		assertEquals(List.of("Mantenimiento web", "Mantenimiento servidor"), sugerencias.stream().map(s -> s.descripcion()).toList());
+		assertEquals(new BigDecimal("120.00"), sugerencias.get(0).precioUnitario());
+		assertEquals(new BigDecimal("5.00"), sugerencias.get(0).descuento());
+		assertEquals(new BigDecimal("21.00"), sugerencias.get(0).porcentajeIva());
+		assertEquals(facturasAntes, jdbc.queryForList("SELECT * FROM facturas ORDER BY idfactura"));
+		assertEquals(conceptosAntes, jdbc.queryForList("SELECT * FROM conceptos ORDER BY idconcepto"));
+	}
+
+	@Test
+	void sugerenciasDesempatanPorFacturaYConceptoDescendentes() {
+		historico(2026, "Mantenimiento", "90");
+		ConceptoRequest primera = new ConceptoRequest("Mantenimiento", 9, new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.TEN);
+		ConceptoRequest ultima = new ConceptoRequest("MANTENIMIENTO", 7, new BigDecimal("120"), new BigDecimal("5"), new BigDecimal("21"));
+		servicio.crear(peticion(2026, "EMITIDA", List.of(primera, ultima)));
+		var sugerencias = servicio.buscarSugerenciasConceptos("manten", 8);
+		assertEquals(1, sugerencias.size());
+		assertEquals("MANTENIMIENTO", sugerencias.get(0).descripcion());
+		assertEquals(new BigDecimal("120.00"), sugerencias.get(0).precioUnitario());
+		assertEquals(new BigDecimal("5.00"), sugerencias.get(0).descuento());
+		assertEquals(new BigDecimal("21.00"), sugerencias.get(0).porcentajeIva());
+	}
+
+	@Test
+	void sugerenciasAplicanLimiteDespuesDeDeduplicarYMaximoVeinte() {
+		List<ConceptoRequest> conceptos = new ArrayList<>();
+		for (int numero = 1; numero <= 25; numero++) {
+			conceptos.add(new ConceptoRequest("Servicio " + numero, 1, BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ZERO));
+		}
+		for (int numero = 0; numero < 10; numero++) conceptos.add(conceptos.getLast());
+		servicio.crear(peticion(2026, "EMITIDA", conceptos));
+		var sugerencias = servicio.buscarSugerenciasConceptos("Servicio", 8);
+		assertEquals(8, sugerencias.size());
+		assertEquals("Servicio 25", sugerencias.getFirst().descripcion());
+		assertEquals("Servicio 18", sugerencias.getLast().descripcion());
+		assertEquals(20, servicio.buscarSugerenciasConceptos("Servicio", Integer.MAX_VALUE).size());
+	}
+
+	@Test
+	void sugerenciasNoInventanImportesAusentesDelUsoMasReciente() {
+		historico(2026, "Servicio", "90");
+		Factura ultima = historico(2027, "Servicio", "120");
+		jdbc.update("UPDATE conceptos SET precio_unitario=NULL, descuento=NULL, porcentaje_iva=NULL WHERE idfactura=?", ultima.idFactura());
+		var sugerencia = servicio.buscarSugerenciasConceptos("Servicio", 8).getFirst();
+		assertNull(sugerencia.precioUnitario());
+		assertNull(sugerencia.descuento());
+		assertNull(sugerencia.porcentajeIva());
+	}
+
+	private Factura historico(int anio, String descripcion, String precio) {
+		ConceptoRequest concepto = new ConceptoRequest(descripcion, 9, new BigDecimal(precio), BigDecimal.ZERO, new BigDecimal("21"));
+		return servicio.crear(peticion(anio, "EMITIDA", List.of(concepto)));
+	}
+
 	private int contar(String tabla) {
 		assertTrue(List.of("facturas", "conceptos").contains(tabla));
 		return jdbc.queryForObject("SELECT COUNT(*) FROM " + tabla, Integer.class);

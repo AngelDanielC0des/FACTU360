@@ -22,6 +22,7 @@ import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
 import edu.xtd.facturacion360.dto.ResumenTrimestralFactura;
+import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 import edu.xtd.facturacion360.service.FacturaService;
 import jakarta.validation.Valid;
 
@@ -71,6 +72,13 @@ public class FacturaController {
 	public ResponseEntity<DetalleFactura> obtenerDetalle(@PathVariable int idFactura) {
 		DetalleFactura detalle = facturaService.obtenerDetalle(idFactura);
 		return ResponseEntity.ok(detalle);
+	}
+
+	@GetMapping("/conceptos/sugerencias")
+	public ResponseEntity<List<SugerenciaConcepto>> buscarSugerenciasConceptos(
+			@RequestParam(defaultValue = "") String texto,
+			@RequestParam(defaultValue = "8") int limite) {
+		return ResponseEntity.ok(facturaService.buscarSugerenciasConceptos(texto, limite));
 	}
 
 	@GetMapping("/trimestral")

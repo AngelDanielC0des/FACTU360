@@ -171,9 +171,13 @@
     <fieldset class="concepto-factura border rounded p-3 mb-3">
         <legend class="float-none w-auto px-1 fs-6">Concepto</legend>
         <div class="row g-2">
-            <label class="col-12 form-label">Descripción
-                <input name="descripcion" class="form-control" type="text" maxlength="50" required>
-            </label>
+            <div class="col-12">
+                <label class="form-label d-block">Descripción
+                    <input name="descripcion" class="form-control" type="text" maxlength="50" required
+                           autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
+                </label>
+                <div class="sugerencias-concepto d-none" role="listbox" aria-label="Conceptos utilizados anteriormente"></div>
+            </div>
             <label class="col-6 col-md-3 form-label">Cantidad
                 <input name="cantidad" class="form-control" type="number" min="1" max="2147483647" step="1" value="1" required>
             </label>

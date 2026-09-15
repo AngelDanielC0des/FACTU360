@@ -26,3 +26,29 @@
     border-radius: 6px;
     background-color: var(--bg-body);
 }
+
+#facturaModal .sugerencias-concepto {
+    max-height: 12rem;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+}
+
+#facturaModal .sugerencias-concepto [role="option"] {
+    padding: 0.5rem 0.75rem;
+    border-left: 4px solid transparent;
+    cursor: pointer;
+}
+
+#facturaModal .sugerencias-concepto [role="option"]:hover,
+#facturaModal .sugerencias-concepto [aria-selected="true"] {
+    background-color: var(--bg-body);
+    border-left-color: var(--primary-color);
+}
+
+#facturaModal .sugerencias-concepto [aria-selected="true"] {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    font-weight: 600;
+}

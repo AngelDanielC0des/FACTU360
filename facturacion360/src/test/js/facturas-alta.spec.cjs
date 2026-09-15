@@ -11,6 +11,8 @@ test.use({ baseURL: direccion, channel: "chrome", viewport: { width: 1280, heigh
 async function abrirAlta(pagina) {
     await pagina.goto("/facturas.html");
     await pagina.getByRole("button", { name: /Añadir factura$/ }).click();
+    // Espera a que Bootstrap termine de abrir y enfocar el modal antes de rellenarlo.
+    await expect(pagina.locator("#facturaModal")).toBeFocused();
     await pagina.locator("#clienteFactura").selectOption("1");
     await pagina.getByLabel("Fecha de emisión", { exact: true }).fill("2028-09-15");
 }
@@ -36,6 +38,268 @@ function peticionesDeAlta(pagina) {
     });
     return peticiones;
 }
+
+const sugerenciasHistoricas = [
+    { descripcion: "Mantenimiento web", precioUnitario: 120, descuento: 5, porcentajeIva: 21 },
+    { descripcion: "Mantenimiento servidor", precioUnitario: 75, descuento: 0, porcentajeIva: 10 }
+];
+
+async function simularSugerencias(pagina, sugerencias = sugerenciasHistoricas) {
+    await pagina.route("**/factura/conceptos/sugerencias?*", ruta => ruta.fulfill({ json: sugerencias }));
+}
+
+test("sugerencias: un carácter no consulta y el debounce espera 250 ms tras la última tecla", async ({ page: pagina }) => {
+    const consultas = [];
+    await pagina.route("**/factura/conceptos/sugerencias?*", ruta => {
+        consultas.push(new URL(ruta.request().url()).searchParams.get("texto"));
+        return ruta.fulfill({ json: sugerenciasHistoricas });
+    });
+    await abrirAlta(pagina);
+    await pagina.getByRole("button", { name: "Añadir concepto", exact: true }).click();
+    await pagina.clock.install();
+    const descripcion = pagina.getByRole("combobox", { name: "Descripción", exact: true });
+    await descripcion.fill("m");
+    await pagina.clock.runFor(500);
+    expect(consultas).toEqual([]);
+    await descripcion.fill("ma");
+    await pagina.clock.runFor(100);
+    await descripcion.fill("man");
+    await pagina.clock.runFor(100);
+    await descripcion.fill("manten");
+    await pagina.clock.runFor(249);
+    expect(consultas).toEqual([]);
+    await pagina.clock.runFor(1);
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(2);
+    expect(consultas).toEqual(["manten"]);
+});
+
+test("sugerencias: selección explícita con ratón conserva cantidad y permite editar todos los campos", async ({ page: pagina }) => {
+    await simularSugerencias(pagina);
+    await abrirAlta(pagina);
+    const ficha = await anadirLinea(pagina, "Manual", "7", "10", "2", "4");
+    const descripcion = ficha.getByLabel("Descripción", { exact: true });
+    await descripcion.fill("ma");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(2);
+    await expect(ficha.getByLabel("Precio unitario (€)", { exact: true })).toHaveValue("10");
+    await expect(ficha.getByLabel("Descuento (%)", { exact: true })).toHaveValue("2");
+    await expect(ficha.getByLabel("IVA (%)", { exact: true })).toHaveValue("4");
+    await pagina.screenshot({ path: test.info().outputPath("sugerencias-escritorio.png") });
+    await pagina.getByRole("listbox").getByRole("option", { name: /Mantenimiento web/ }).click();
+    await expect(descripcion).toHaveValue("Mantenimiento web");
+    await expect(ficha.getByLabel("Cantidad", { exact: true })).toHaveValue("7");
+    for (const [campo, valor] of [["precioUnitario", "120"], ["descuento", "5"], ["porcentajeIva", "21"]]) {
+        await expect(ficha.locator('[name="' + campo + '"]')).toHaveValue(valor);
+        await expect(ficha.locator('[name="' + campo + '"]')).toBeEditable();
+        await ficha.locator('[name="' + campo + '"]').fill("6");
+        await expect(ficha.locator('[name="' + campo + '"]')).toHaveValue("6");
+    }
+    await descripcion.fill("Descripción editada");
+    await expect(descripcion).toHaveValue("Descripción editada");
+    await ficha.getByLabel("Cantidad", { exact: true }).fill("8");
+    await expect(ficha.getByLabel("Cantidad", { exact: true })).toHaveValue("8");
+});
+
+test("sugerencias: flechas, Enter, Escape y click fuera con foco accesible", async ({ page: pagina }) => {
+    await simularSugerencias(pagina);
+    await abrirAlta(pagina);
+    await anadirLinea(pagina, "Manual", "1", "10");
+    const descripcion = pagina.getByRole("combobox", { name: "Descripción", exact: true });
+    await descripcion.fill("ma");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(2);
+    await descripcion.press("Enter");
+    await expect(descripcion).toHaveValue("ma");
+    await descripcion.press("ArrowDown");
+    await descripcion.press("ArrowDown");
+    await descripcion.press("ArrowUp");
+    await expect(pagina.getByRole("listbox").getByRole("option", { selected: true })).toContainText("Mantenimiento web");
+    await expect(descripcion).toHaveAttribute("aria-activedescendant", await pagina.getByRole("listbox").getByRole("option").first().getAttribute("id"));
+    await expect(descripcion).toBeFocused();
+    await descripcion.press("Enter");
+    await expect(descripcion).toHaveValue("Mantenimiento web");
+    await expect(descripcion).toHaveAttribute("aria-expanded", "false");
+    await descripcion.fill("manten");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(2);
+    await descripcion.press("Escape");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(0);
+    await expect(pagina.locator("#facturaModal")).toBeVisible();
+    await expect(descripcion).toHaveValue("manten");
+    await descripcion.fill("mant");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(2);
+    await pagina.getByLabel("Observaciones", { exact: true }).click();
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(0);
+});
+
+// Ignora AbortSignal deliberadamente para probar también la defensa por versión,
+// incluso cuando un transporte ya no puede cancelar la respuesta antigua.
+async function controlarRespuestasSugerencias(pagina) {
+    await pagina.addInitScript(() => {
+        const consultaOriginal = window.fetch;
+        window.consultasSugerencias = [];
+        window.fetch = function (ruta, opciones) {
+            if (String(ruta).startsWith("/factura/conceptos/sugerencias?")) {
+                return new Promise((resolver, rechazar) => window.consultasSugerencias.push({ resolver, rechazar }));
+            }
+            return consultaOriginal(ruta, opciones);
+        };
+    });
+}
+
+async function responderSugerencias(pagina, indice, descripcion, fallo = false) {
+    await pagina.evaluate(async ({ indice, descripcion, fallo }) => {
+        const consulta = window.consultasSugerencias[indice];
+        if (fallo) consulta.rechazar(new Error("Fallo simulado"));
+        else consulta.resolver(new Response(JSON.stringify([{ descripcion, precioUnitario: 80, descuento: 0, porcentajeIva: 21 }])));
+        await new Promise(resolver => setTimeout(resolver, 0));
+    }, { indice, descripcion, fallo });
+}
+
+test("sugerencias: ignora respuestas y errores fuera de orden y tras cerrar, eliminar o cerrar modal", async ({ page: pagina }) => {
+    const errores = [];
+    pagina.on("pageerror", error => errores.push(error.message));
+    await controlarRespuestasSugerencias(pagina);
+    await abrirAlta(pagina);
+    await pagina.getByRole("button", { name: "Añadir concepto", exact: true }).click();
+    const descripcion = pagina.getByRole("combobox", { name: "Descripción", exact: true });
+    await descripcion.fill("antigua");
+    await pagina.waitForFunction(() => window.consultasSugerencias.length == 1);
+    await descripcion.fill("intermedia");
+    await pagina.waitForFunction(() => window.consultasSugerencias.length == 2);
+    await descripcion.fill("actual");
+    await pagina.waitForFunction(() => window.consultasSugerencias.length == 3);
+    await responderSugerencias(pagina, 2, "Actual");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toContainText("Actual");
+    await responderSugerencias(pagina, 0, "Obsoleta");
+    await responderSugerencias(pagina, 1, "", true);
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(1);
+    await expect(pagina.getByRole("listbox").getByRole("option")).toContainText("Actual");
+    for (const [indice, accion] of ["escape", "fuera", "modal", "eliminar"].entries()) {
+        await descripcion.fill("pendiente " + accion);
+        await pagina.waitForFunction(numero => window.consultasSugerencias.length == numero, indice + 4);
+        if (accion == "escape") await descripcion.press("Escape");
+        if (accion == "fuera") await pagina.getByLabel("Observaciones", { exact: true }).click();
+        if (accion == "modal") await pagina.getByRole("button", { name: "Cancelar", exact: true }).click();
+        if (accion == "eliminar") await pagina.getByRole("button", { name: "Eliminar concepto 1", exact: true }).click();
+        await responderSugerencias(pagina, indice + 3, "No debe reaparecer");
+        await expect(pagina.locator('[role="option"]')).toHaveCount(0);
+        if (accion == "modal") {
+            await pagina.getByRole("button", { name: /Añadir factura$/ }).click();
+            // Bootstrap enfoca el modal al terminar la animación de apertura.
+            await expect(pagina.locator("#facturaModal")).toBeFocused();
+        }
+    }
+    expect(errores).toEqual([]);
+});
+
+test("sugerencias: dos líneas no mezclan resultados ni datos", async ({ page: pagina }) => {
+    await controlarRespuestasSugerencias(pagina);
+    await abrirAlta(pagina);
+    const primera = await anadirLinea(pagina, "Manual A", "3", "10");
+    const segunda = await anadirLinea(pagina, "Manual B", "5", "20");
+    await primera.getByLabel("Descripción", { exact: true }).fill("primera");
+    await pagina.waitForFunction(() => window.consultasSugerencias.length == 1);
+    await segunda.getByLabel("Descripción", { exact: true }).fill("segunda");
+    await pagina.waitForFunction(() => window.consultasSugerencias.length == 2);
+    await responderSugerencias(pagina, 1, "Histórico B");
+    await responderSugerencias(pagina, 0, "Histórico A obsoleto");
+    await expect(primera.getByRole("option")).toHaveCount(0);
+    await segunda.getByRole("option").click();
+    await expect(primera.getByLabel("Descripción", { exact: true })).toHaveValue("primera");
+    await expect(primera.getByLabel("Precio unitario (€)", { exact: true })).toHaveValue("10");
+    await expect(segunda.getByLabel("Descripción", { exact: true })).toHaveValue("Histórico B");
+    await expect(segunda.getByLabel("Cantidad", { exact: true })).toHaveValue("5");
+});
+
+for (const estado of [500, 0]) {
+    test("sugerencias: fallo " + estado + " no impide el alta manual", async ({ page: pagina }) => {
+        await pagina.route("**/factura/conceptos/sugerencias?*", ruta => estado ? ruta.fulfill({ status: estado }) : ruta.abort());
+        await abrirAlta(pagina);
+        const ficha = await anadirLinea(pagina, "Manual", "1", "10");
+        const consulta = pagina.waitForRequest("**/factura/conceptos/sugerencias?*");
+        await ficha.getByLabel("Descripción", { exact: true }).fill("Servicio manual");
+        await consulta;
+        await expect(ficha.getByLabel("Descripción", { exact: true })).toHaveValue("Servicio manual");
+        await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(0);
+        await expect(pagina.locator("#mensaje-formulario-factura")).toBeHidden();
+        await pagina.route("**/factura", ruta => ruta.fulfill({ status: 201, json: { numeroFactura: "F-2028-0099", total: 12.1 } }));
+        await pagina.getByRole("button", { name: "Guardar factura", exact: true }).click();
+        await expect(pagina.locator("#mensaje-facturas")).toContainText("F-2028-0099");
+    });
+}
+
+test("sugerencias: valores históricos ausentes quedan vacíos y editables", async ({ page: pagina }) => {
+    await simularSugerencias(pagina, [{ descripcion: "Servicio antiguo", precioUnitario: null, descuento: null, porcentajeIva: null }]);
+    await abrirAlta(pagina);
+    await anadirLinea(pagina, "Manual", "4", "10");
+    await pagina.getByLabel("Descripción", { exact: true }).fill("servicio");
+    await pagina.getByRole("listbox").getByRole("option").click();
+    for (const campo of ["precioUnitario", "descuento", "porcentajeIva"]) {
+        await expect(pagina.locator('[name="' + campo + '"]')).toHaveValue("");
+        await expect(pagina.locator('[name="' + campo + '"]')).toBeEditable();
+    }
+    await expect(pagina.getByLabel("Cantidad", { exact: true })).toHaveValue("4");
+});
+
+test("sugerencias: móvil sin desbordamiento, máximo ocho y descripciones tratadas como texto", async ({ page: pagina }) => {
+    await pagina.setViewportSize({ width: 390, height: 844 });
+    await simularSugerencias(pagina, Array.from({ length: 12 }, (_, indice) => ({
+        descripcion: "<img src=x onerror=alert(1)> Servicio " + indice, precioUnitario: 120, descuento: 0, porcentajeIva: 21
+    })));
+    await abrirAlta(pagina);
+    await pagina.getByRole("button", { name: "Añadir concepto", exact: true }).click();
+    const descripcion = pagina.getByLabel("Descripción", { exact: true });
+    await descripcion.fill("Servicio");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(8);
+    await descripcion.press("ArrowDown");
+    await expect(pagina.getByRole("listbox").getByRole("option", { selected: true })).toBeVisible();
+    expect(await pagina.locator(".sugerencias-concepto img").count()).toBe(0);
+    expect(await pagina.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await pagina.locator("#facturaModal .modal-body").evaluate(elemento => elemento.scrollWidth <= elemento.clientWidth)).toBe(true);
+    await pagina.screenshot({ path: test.info().outputPath("sugerencias-movil.png") });
+});
+
+test("E2E sugerencias: histórico reciente, cantidad intacta y alta real con MySQL", async ({ page: pagina }) => {
+    consultarBaseAislada("SELECT COUNT(*) FROM facturas;");
+    for (const [fecha, descripcion, precio, descuento] of [
+        ["2041-01-01", "Mantenimiento web", 120, 5],
+        ["2040-01-01", "Mantenimiento servidor", 75, 0],
+        ["2039-01-01", "mantenimiento web", 90, 0]
+    ]) {
+        const respuesta = await pagina.request.post("/factura", { data: {
+            idCliente: 1, fechaEmision: fecha, estado: "EMITIDA", observaciones: "Histórico sintético 3A.1",
+            conceptos: [{ descripcion, cantidad: 9, precioUnitario: precio, descuento, porcentajeIva: 21 }]
+        } });
+        expect(respuesta.status()).toBe(201);
+    }
+    const limiteHistorico = Number(consultarBaseAislada("SELECT MAX(idfactura) FROM facturas;"));
+    const consultaHistorico = "SELECT c.* FROM conceptos c WHERE c.idfactura<=" + limiteHistorico + " ORDER BY c.idconcepto;";
+    const historicoAntes = consultarBaseAislada(consultaHistorico);
+    await abrirAlta(pagina);
+    await pagina.getByLabel("Fecha de emisión", { exact: true }).fill("2042-01-01");
+    const ficha = await anadirLinea(pagina, "Manual", "3", "10");
+    await ficha.getByLabel("Descripción", { exact: true }).fill("manten");
+    await expect(pagina.getByRole("listbox").getByRole("option", { name: /Mantenimiento web/ })).toHaveCount(1);
+    await expect(pagina.getByRole("listbox").getByRole("option").first()).toContainText("Mantenimiento web");
+    await pagina.getByRole("listbox").getByRole("option", { name: /Mantenimiento web/ }).click();
+    await expect(ficha.getByLabel("Cantidad", { exact: true })).toHaveValue("3");
+    await expect(ficha.getByLabel("Precio unitario (€)", { exact: true })).toHaveValue("120");
+    await expect(ficha.getByLabel("Descuento (%)", { exact: true })).toHaveValue("5");
+    await expect(ficha.getByLabel("IVA (%)", { exact: true })).toHaveValue("21");
+    const peticiones = peticionesDeAlta(pagina);
+    const pendiente = pagina.waitForResponse(respuesta => new URL(respuesta.url()).pathname == "/factura" && respuesta.request().method() == "POST");
+    await pagina.getByRole("button", { name: "Guardar factura", exact: true }).click();
+    const respuesta = await pendiente;
+    expect(respuesta.status()).toBe(201);
+    const factura = await respuesta.json();
+    expect(factura.numeroFactura).toMatch(/^F-2042-\d{4}$/);
+    expect([factura.subtotal, factura.importeIva, factura.total]).toEqual([342, 71.82, 413.82]);
+    expect(peticiones).toHaveLength(1);
+    expect(peticiones[0].conceptos).toEqual([{ descripcion: "Mantenimiento web", cantidad: 3, precioUnitario: 120, descuento: 5, porcentajeIva: 21 }]);
+    expect(Number.isInteger(factura.idFactura)).toBe(true);
+    expect(consultarBaseAislada("SELECT descripcion,cantidad,precio_unitario,descuento,porcentaje_iva,base_imponible,importe_iva,total FROM conceptos WHERE idfactura=" + factura.idFactura + ";"))
+        .toBe("Mantenimiento web\t3\t120.00\t5.00\t21.00\t342.00\t71.82\t413.82");
+    expect(consultarBaseAislada(consultaHistorico)).toBe(historicoAntes);
+    await expect(pagina.locator("#mensaje-facturas")).toContainText(factura.numeroFactura);
+});
 
 test("añadir, modificar, eliminar y recalcular conceptos", async ({ page: pagina }) => {
     await abrirAlta(pagina);

@@ -3,6 +3,10 @@ package edu.xtd.facturacion360.repository;
 import java.time.LocalDate;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +18,7 @@ import org.springframework.stereotype.Repository;
 import edu.xtd.facturacion360.dto.ClienteFactura;
 import edu.xtd.facturacion360.dto.ConceptoFactura;
 import edu.xtd.facturacion360.dto.Factura;
+import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 
 /**
  * Acceso a la tabla facturas mediante JdbcTemplate.
@@ -172,6 +177,27 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 		List<Factura> facturas = jdbcTemplate.query(sql, facturaRowMapper, fechaInicio, fechaFin);
 		log.debug("buscarPorTrimestre({}, {}) devuelve {} facturas", fechaInicio, fechaFin, facturas.size());
 		return facturas;
+	}
+
+	@Override
+	public List<SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite) {
+		String sql = "SELECT c.descripcion, c.precio_unitario, c.descuento, c.porcentaje_iva "
+				+ "FROM conceptos c INNER JOIN facturas f ON f.idfactura = c.idfactura "
+				+ "WHERE c.descripcion LIKE ? ESCAPE '\\\\' "
+				+ "ORDER BY f.fecha_emision DESC, f.idfactura DESC, c.idconcepto DESC";
+		return jdbcTemplate.query(sql, resultado -> {
+			List<SugerenciaConcepto> sugerencias = new ArrayList<>();
+			Set<String> descripciones = new HashSet<>();
+			// La primera aparición es la más reciente. El límite se aplica después de deduplicar.
+			while (sugerencias.size() < limite && resultado.next()) {
+				String descripcion = resultado.getString("descripcion").trim();
+				if (descripciones.add(descripcion.toLowerCase(Locale.ROOT))) {
+					sugerencias.add(new SugerenciaConcepto(descripcion, resultado.getBigDecimal("precio_unitario"),
+							resultado.getBigDecimal("descuento"), resultado.getBigDecimal("porcentaje_iva")));
+				}
+			}
+			return sugerencias;
+		}, "%" + escaparComodines(texto) + "%");
 	}
 
 	/** Evita que los caracteres propios de LIKE cambien el significado de la búsqueda. */

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +19,7 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 
 import edu.xtd.facturacion360.dto.Factura;
+import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 import edu.xtd.facturacion360.repository.FacturaRepository;
 import edu.xtd.facturacion360.service.FacturaServiceImpl;
 import jakarta.validation.Validation;
@@ -54,6 +56,45 @@ class FacturaControllerTests {
 	@AfterEach
 	void cerrar() {
 		validadores.close();
+	}
+
+	@Test
+	void sugerenciasDevuelvenSoloLosCuatroDatosNecesarios() throws Exception {
+		when(repositorio.buscarSugerenciasConceptos("manten", 8)).thenReturn(java.util.List.of(
+				new SugerenciaConcepto("Mantenimiento", new java.math.BigDecimal("120.00"),
+						new java.math.BigDecimal("5.00"), new java.math.BigDecimal("21.00"))));
+		clienteHttp.perform(get("/factura/conceptos/sugerencias").param("texto", " manten "))
+				.andExpect(status().isOk()).andExpect(content().json("""
+					[{"descripcion":"Mantenimiento","precioUnitario":120,"descuento":5,"porcentajeIva":21}]
+					""", org.springframework.test.json.JsonCompareMode.STRICT));
+		verify(repositorio).buscarSugerenciasConceptos("manten", 8);
+		verifyNoMoreInteractions(repositorio);
+	}
+
+	@Test
+	void sugerenciasVaciasOCortasNoConsultanElRepositorio() throws Exception {
+		clienteHttp.perform(get("/factura/conceptos/sugerencias"))
+				.andExpect(status().isOk()).andExpect(content().json("[]"));
+		for (String texto : java.util.List.of("", "   ", " m ", "x".repeat(51))) {
+			clienteHttp.perform(get("/factura/conceptos/sugerencias").param("texto", texto))
+					.andExpect(status().isOk()).andExpect(content().json("[]"));
+		}
+		FacturaServiceImpl servicio = new FacturaServiceImpl();
+		assertTrue(servicio.buscarSugerenciasConceptos(null, 8).isEmpty());
+		verifyNoInteractions(repositorio);
+	}
+
+	@Test
+	void sugerenciasAcotanLimiteYRechazanLimiteNoNumerico() throws Exception {
+		for (String limite : java.util.List.of("1000000", "0", "-10")) {
+			clienteHttp.perform(get("/factura/conceptos/sugerencias").param("texto", "ma").param("limite", limite))
+					.andExpect(status().isOk());
+		}
+		verify(repositorio).buscarSugerenciasConceptos("ma", 20);
+		verify(repositorio, times(2)).buscarSugerenciasConceptos("ma", 1);
+		clienteHttp.perform(get("/factura/conceptos/sugerencias").param("texto", "ma").param("limite", "abc"))
+				.andExpect(status().isBadRequest());
+		verifyNoMoreInteractions(repositorio);
 	}
 
 	@Test

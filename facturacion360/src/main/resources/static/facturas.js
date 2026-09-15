@@ -2,6 +2,7 @@ const RUTA_FACTURAS = "/factura/buscar";
 const RUTA_CREAR_FACTURA = "/factura";
 const RUTA_FACTURAS_TRIMESTRE = "/factura/trimestral";
 const RUTA_CLIENTES = "/cliente/listar-ultimos?limite=100";
+const RUTA_SUGERENCIAS_CONCEPTOS = "/factura/conceptos/sugerencias";
 
 const tablaFacturas = document.getElementById("tablaFacturas");
 const inputBusqueda = document.getElementById("busquedaFactura");
@@ -31,6 +32,7 @@ const botonAnadirConcepto = document.getElementById("botonAnadirConcepto");
 const sinConceptos = document.getElementById("sinConceptosFactura");
 const campoEstado = document.getElementById("estadoFactura");
 let guardandoFactura = false;
+let siguienteListaSugerencias = 0;
 
 // Ambas búsquedas comparten la tabla: una respuesta anterior no debe reemplazar la última consulta.
 let ultimaConsultaFacturas = 0;
@@ -228,6 +230,9 @@ async function guardarFactura() {
 
 function cambiarEstadoGuardado(guardando) {
     guardandoFactura = guardando;
+    if (guardando) {
+        cerrarSugerenciasConceptos();
+    }
     botonGuardarFactura.disabled = guardando;
     botonGuardarFactura.textContent = guardando ? "Guardando…" : "Guardar factura";
     camposFactura.disabled = guardando;
@@ -249,7 +254,9 @@ function actualizarContadorObservaciones() {
 
 function anadirConcepto() {
     const concepto = plantillaConcepto.content.firstElementChild.cloneNode(true);
+    prepararSugerenciasConcepto(concepto);
     concepto.querySelector(".eliminar-concepto").addEventListener("click", function () {
+        concepto.dispatchEvent(new Event("cerrar-sugerencias"));
         concepto.remove();
         actualizarConceptos();
         botonAnadirConcepto.focus();
@@ -261,6 +268,127 @@ function anadirConcepto() {
     contenedorConceptos.appendChild(concepto);
     actualizarConceptos();
     concepto.querySelector("input").focus();
+}
+
+function cerrarSugerenciasConceptos() {
+    for (const concepto of contenedorConceptos.children) {
+        concepto.dispatchEvent(new Event("cerrar-sugerencias"));
+    }
+}
+
+/** Cada línea mantiene su consulta y selección, sin compartir resultados con otras. */
+function prepararSugerenciasConcepto(concepto) {
+    const descripcion = concepto.querySelector('[name="descripcion"]');
+    const lista = concepto.querySelector(".sugerencias-concepto");
+    lista.id = "sugerencias-concepto-" + ++siguienteListaSugerencias;
+    descripcion.setAttribute("aria-controls", lista.id);
+    let consultaActual = 0;
+    let espera = null;
+    let controlador = null;
+    let sugerencias = [];
+    let seleccion = -1;
+
+    function cerrar() {
+        consultaActual++;
+        clearTimeout(espera);
+        espera = null;
+        if (controlador) {
+            controlador.abort();
+            controlador = null;
+        }
+        sugerencias = [];
+        seleccion = -1;
+        lista.replaceChildren();
+        lista.classList.add("d-none");
+        descripcion.setAttribute("aria-expanded", "false");
+        descripcion.removeAttribute("aria-activedescendant");
+    }
+
+    function elegir(sugerencia) {
+        if (!guardandoFactura) {
+            descripcion.value = sugerencia.descripcion;
+            descripcion.setCustomValidity("");
+            for (const campo of ["precioUnitario", "descuento", "porcentajeIva"]) {
+                // Un valor histórico ausente queda pendiente de completar, no se inventa un cero.
+                concepto.querySelector('[name="' + campo + '"]').value = sugerencia[campo] ?? "";
+            }
+            cerrar();
+            actualizarConceptos();
+            descripcion.focus();
+        }
+    }
+
+    function mostrar() {
+        for (const [indice, sugerencia] of sugerencias.entries()) {
+            const opcion = document.createElement("div");
+            opcion.id = lista.id + "-" + indice;
+            opcion.setAttribute("role", "option");
+            opcion.setAttribute("aria-selected", "false");
+            opcion.textContent = sugerencia.descripcion;
+            const detalle = document.createElement("small");
+            detalle.className = "d-block";
+            detalle.textContent = (sugerencia.precioUnitario == null ? "Precio pendiente" : formatearImporte(sugerencia.precioUnitario))
+                + " · IVA " + (sugerencia.porcentajeIva == null ? "pendiente" : sugerencia.porcentajeIva + " %");
+            opcion.appendChild(detalle);
+            opcion.addEventListener("pointerdown", evento => evento.preventDefault());
+            opcion.addEventListener("click", () => elegir(sugerencia));
+            lista.appendChild(opcion);
+        }
+        lista.classList.toggle("d-none", sugerencias.length == 0);
+        descripcion.setAttribute("aria-expanded", String(sugerencias.length > 0));
+    }
+
+    descripcion.addEventListener("input", function () {
+        cerrar();
+        const texto = descripcion.value.trim();
+        const numeroConsulta = consultaActual;
+        if (texto.length >= 2 && !guardandoFactura) {
+            espera = setTimeout(async function () {
+                espera = null;
+                controlador = new AbortController();
+                try {
+                    const parametros = new URLSearchParams({ texto, limite: 8 });
+                    const respuesta = await fetch(RUTA_SUGERENCIAS_CONCEPTOS + "?" + parametros, { signal: controlador.signal });
+                    const resultados = respuesta.ok ? await respuesta.json() : [];
+                    if (numeroConsulta == consultaActual && concepto.isConnected
+                        && document.activeElement == descripcion && !guardandoFactura) {
+                        sugerencias = Array.isArray(resultados) ? resultados.slice(0, 8) : [];
+                        mostrar();
+                    }
+                } catch (error) {
+                    // Las sugerencias son opcionales: un fallo no impide el alta manual.
+                    if (numeroConsulta == consultaActual) {
+                        cerrar();
+                    }
+                }
+            }, 250);
+        }
+    });
+    descripcion.addEventListener("keydown", function (evento) {
+        if (evento.key == "Escape" && (sugerencias.length > 0 || espera != null || controlador != null)) {
+            evento.preventDefault();
+            evento.stopPropagation();
+            cerrar();
+        } else if (sugerencias.length > 0) {
+            if (evento.key == "ArrowDown" || evento.key == "ArrowUp") {
+                evento.preventDefault();
+                seleccion = evento.key == "ArrowDown" ? (seleccion + 1) % sugerencias.length
+                    : (seleccion <= 0 ? sugerencias.length : seleccion) - 1;
+                for (const [indice, opcion] of Array.from(lista.children).entries()) {
+                    opcion.setAttribute("aria-selected", String(indice == seleccion));
+                }
+                descripcion.setAttribute("aria-activedescendant", lista.children[seleccion].id);
+                lista.children[seleccion].scrollIntoView({ block: "nearest" });
+            } else if (evento.key == "Enter") {
+                evento.preventDefault();
+                if (seleccion >= 0) {
+                    elegir(sugerencias[seleccion]);
+                }
+            }
+        }
+    });
+    descripcion.addEventListener("blur", cerrar);
+    concepto.addEventListener("cerrar-sugerencias", cerrar);
 }
 
 function recogerConceptos() {
@@ -348,6 +476,7 @@ formularioFactura.addEventListener("submit", function (evento) {
 });
 campoObservaciones.addEventListener("input", actualizarContadorObservaciones);
 formularioFactura.addEventListener("reset", function () {
+    cerrarSugerenciasConceptos();
     contenedorConceptos.replaceChildren();
     actualizarConceptos();
     mensajeFormularioFactura.classList.add("d-none");
@@ -357,6 +486,15 @@ formularioFactura.addEventListener("reset", function () {
 modalFactura.addEventListener("hide.bs.modal", function (evento) {
     if (guardandoFactura) {
         evento.preventDefault();
+    } else {
+        cerrarSugerenciasConceptos();
+    }
+});
+document.addEventListener("pointerdown", function (evento) {
+    for (const concepto of contenedorConceptos.children) {
+        if (!concepto.contains(evento.target)) {
+            concepto.dispatchEvent(new Event("cerrar-sugerencias"));
+        }
     }
 });
 document.getElementById("botonListarTrimestre").addEventListener("click", cargarListadoTrimestral);

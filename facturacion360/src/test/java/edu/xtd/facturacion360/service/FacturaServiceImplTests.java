@@ -38,6 +38,11 @@ class FacturaServiceImplTests {
 	private static class FacturaRepositoryFalso implements FacturaRepository {
 
 		@Override
+		public List<edu.xtd.facturacion360.dto.SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite) {
+			return List.of();
+		}
+
+		@Override
 		public int obtenerUltimoNumero(int anio) {
 			return 0;
 		}

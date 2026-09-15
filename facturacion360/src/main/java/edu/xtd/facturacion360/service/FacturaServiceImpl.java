@@ -24,6 +24,7 @@ import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
 import edu.xtd.facturacion360.dto.ResumenTrimestralFactura;
+import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 import edu.xtd.facturacion360.repository.FacturaRepository;
 import edu.xtd.facturacion360.repository.FacturaRepository.NumeroFacturaDuplicadoException;
 import jakarta.validation.ConstraintViolation;
@@ -154,6 +155,16 @@ public class FacturaServiceImpl implements FacturaService {
 	@Override
 	public List<Factura> buscar(String busqueda) {
 		return facturaRepository.buscar(busqueda);
+	}
+
+	@Override
+	public List<SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite) {
+		String textoBuscado = texto == null ? "" : texto.trim();
+		if (textoBuscado.length() < 2 || textoBuscado.length() > 50) {
+			return List.of();
+		}
+		int limiteAcotado = Math.max(1, Math.min(limite, 20));
+		return facturaRepository.buscarSugerenciasConceptos(textoBuscado, limiteAcotado);
 	}
 
 	@Transactional(readOnly = true)

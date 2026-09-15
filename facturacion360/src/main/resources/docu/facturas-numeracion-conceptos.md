@@ -258,3 +258,52 @@ Al finalizar se cerraron la sesión de navegador, Spring y MySQL de pruebas; se 
 ### RESERVA y PENDIENTE
 
 El bloqueo de Guardar mitiga envíos simultáneos, pero no garantiza idempotencia frente a reintentos posteriores. La edición de facturas existentes y el bloque 3B permanecen pendientes, sin iniciarse. Los cambios previos de extracción de estilos de filtros se conservan locales, fuera del commit de 3A.
+
+## Bloque 3A.1: sugerencias de conceptos históricos
+
+Fecha: 15 de septiembre de 2026. Base de trabajo: checkpoint `4ac314c` del bloque 3A.
+
+### IMPLEMENTADO
+
+`GET /factura/conceptos/sugerencias?texto=manten&limite=8` recibe texto y límite. El servicio elimina espacios exteriores y devuelve una lista vacía para textos de menos de dos caracteres o de más de cincuenta. El límite predeterminado es ocho; se acota entre uno y veinte. Un límite no numérico recibe HTTP 400.
+
+```json
+[
+  {"descripcion":"Mantenimiento web","precioUnitario":120.00,"descuento":5.00,"porcentajeIva":21.00}
+]
+```
+
+Una única consulta sobre `conceptos` y `facturas` busca coincidencias en cualquier posición, escapando los comodines de LIKE. Ordena por `fecha_emision`, `idfactura` e `idconcepto`, todos descendentes. Después deduplica por descripción sin espacios exteriores y sin distinguir mayúsculas, conservando la primera aparición. No modifica el histórico ni añade tablas. Precio, descuento e IVA proceden juntos de esa aparición, no de medias ni de máximos independientes.
+
+Cada línea mantiene su temporizador, consulta y selección. Espera 250 ms tras la última entrada y muestra hasta ocho sugerencias. Las versiones de consulta impiden que una respuesta obsoleta reabra o sustituya resultados, incluso cuando la cancelación del transporte no es efectiva.
+
+Ratón o flechas y Enter permiten seleccionar. Escape, pérdida de foco y click fuera cierran la lista. Eliminar la línea, cerrar el modal, reiniciar el formulario o iniciar el guardado invalidan también las operaciones pendientes. Se utiliza el patrón combobox/listbox, con selección activa y foco conservado en Descripción; el desplegable queda debajo del campo, dentro del flujo del formulario.
+
+Solo seleccionar rellena descripción, precio, descuento e IVA. La cantidad se conserva y todos los campos continúan editables. Los valores históricos nulos dejan campos vacíos para completarlos, sin inventar ceros ni recuperar una tarifa antigua. Un fallo de sugerencias no bloquea el alta manual ni muestra errores técnicos intrusivos.
+
+El contrato POST del bloque 3A permanece intacto: Spring sigue calculando numeración e importes y guardando factura y conceptos conjuntamente.
+
+### VERIFICADO
+
+- 48 pruebas Java seleccionadas: cero fallos, errores u omisiones, salida 0. Incluyen las 40 anteriores y ocho focales nuevas: tres HTTP y cinco SQL con MySQL real aislado.
+- Las nuevas pruebas cubren contrato de cuatro campos, validación y límites, coincidencia parcial, ausencia de resultados, comodines literales, deduplicación, orden por fecha y ambos desempates, límite después de deduplicar, nulos históricos y comparación del histórico completo antes/después de consultar.
+- `facturas-alta.spec.cjs`: ejecución final conjunta de 22 pruebas superadas, salida 0; conserva las doce anteriores y añade diez. Son diecinueve pruebas de interfaz y tres E2E con Spring/MySQL reales.
+- Se verificaron debounce, selección explícita, teclado, Escape y click fuera, cantidad intacta, campos editables, respuestas/errores obsoletos incluso sin cancelación efectiva, cierre y eliminación con consulta pendiente, independencia entre líneas, fallo secundario sin bloquear el alta, nulos históricos y móvil sin desbordamiento. Se inspeccionaron las capturas de escritorio y móvil.
+- El E2E creó histórico sintético con precio antiguo 90 y reciente 120, insertando el uso antiguo después del nuevo. El navegador seleccionó `Mantenimiento web`, mantuvo cantidad 3 y copió precio 120, descuento 5 e IVA 21. Una sola POST guardó base `342.00`, IVA `71.82` y total `413.82`; se comprobaron los valores en MySQL y que los conceptos históricos permanecían intactos.
+- Sintaxis de JavaScript y `git diff --check`: salida 0.
+
+La validación de este bloque utiliza una instancia nueva de MySQL 8.4.11, con directorio `/tmp/facturas-mysql-FsVt3W/datos/`, socket propio y puerto 19369, y Spring en `127.0.0.1:18082`. Se verificaron UUID, directorio y esquema `facturas_pruebas` antes de escribir fixtures. Spring se inició con ubicación de configuración temporal, datasource explícito e inicialización SQL deshabilitada; sus conexiones TCP apuntaban al puerto 19369. No se accedió a `bd_facturacion` ni se ejecutó `Facturacion360ApplicationTests`.
+
+Para repetir se aplican los comandos parametrizados de las secciones anteriores con esta nueva instancia: `PUERTO_MYSQL_PRUEBAS=19369`, `DIRECTORIO_MYSQL_PRUEBAS=/tmp/facturas-mysql-FsVt3W/datos/`, su UUID verificado y una clave temporal solo para el proceso. El arranque de Spring y `FACTURAS_URL_PRUEBAS` usan el puerto 18082. El ejecutor de navegador sigue siendo Chrome con Playwright y Node 22 ya instalados, sin nuevas dependencias. Los resultados finales se destinan a `target/playwright-3a1-cierre` y no se incluyen en Git.
+
+Durante la validación hubo un timeout inicial de carga de página; la carga posterior funcionó sin cambiar configuración ni tiempos de espera. Se corrigieron los selectores de las pruebas nuevas para no contar las opciones nativas de los selectores. También se sincronizó la preparación común y la reapertura del modal con el foco final de Bootstrap: escribir antes de terminar su animación podía perder el foco y cancelar correctamente una consulta. Se conservaron las pruebas anteriores y sus aserciones.
+
+Al terminar se cerraron únicamente el navegador diagnóstico, Spring en 18082 y MySQL en 19369; los archivos temporales permanecen locales. El apagado deliberado de Spring con SIGTERM produjo salida 143 y salida 1 del comando de arranque, después del cierre ordenado; no corresponde al resultado de pruebas, que fue 0. La aplicación preexistente en 8080 no se utilizó ni se detuvo.
+
+### RESERVA
+
+La deduplicación limita los resultados devueltos, pero la consulta ordena las coincidencias históricas y el driver JDBC puede almacenarlas en memoria. No se acredita rendimiento con históricos voluminosos. No se añade optimización preventiva a este bloque.
+
+### PENDIENTE
+
+Bloque 3B y edición de facturas existentes sin iniciar. Este bloque no publica cambios ni integra trabajo en `master`. La extracción local previa de estilos de filtros en `style.css` y `facturas.css` se conserva fuera del commit 3A.1.

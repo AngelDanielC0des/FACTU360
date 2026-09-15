@@ -6,6 +6,7 @@ import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
 import edu.xtd.facturacion360.dto.ResumenTrimestralFactura;
+import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 
 /**
  * Operaciones que ofrece la aplicación para trabajar con facturas.
@@ -15,6 +16,8 @@ public interface FacturaService {
 	public Factura crear(FacturaRequest facturaRequest);
 
 	public List<Factura> buscar(String busqueda);
+
+	public List<SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite);
 
 	public DetalleFactura obtenerDetalle(int idFactura);
 
