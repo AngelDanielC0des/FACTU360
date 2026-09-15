@@ -2696,7 +2696,7 @@ CONSTRAINT `fk_factura_emisor` FOREIGN KEY (`idemisor`) REFERENCES `emisor` (`id
 SELECT (SELECT COUNT(*) FROM facturas) AS facturas_existentes,
        (SELECT COUNT(*) FROM emisor)   AS emisores_existentes;</code></pre>
 
-  <h5 style="font-family:var(--display); font-weight:600; margin:26px 0 8px;">Bloque 1 · Ampliar <code>emisor</code></h5>
+  <h5 style="font-family:var(--display); font-weight:600; margin:26px 0 8px;">Bloque 1 · Ampliar <code>emisor</code> y <code>clientes</code></h5>
 
   <p>
     Nueve columnas para identificar el software dentro de cada registro, con los nombres calcados
@@ -2732,9 +2732,43 @@ UPDATE `emisor`
 -- 1.5 · ...y solo entonces se endurecen.
 ALTER TABLE `emisor`
   MODIFY `si_productor_nombre` varchar(120) NOT NULL,
-  MODIFY `si_productor_nif`    varchar(20)  NOT NULL;</code></pre>
+  MODIFY `si_productor_nif`    varchar(20)  NOT NULL;
 
-  <h5 style="font-family:var(--display); font-weight:600; margin:26px 0 8px;">Bloque 2 · Ampliar <code>facturas</code></h5>
+-- 1.6 · El NIF del DESTINATARIO, por la misma razon que el del emisor:
+--       es el que de verdad puede no ser espanol. Ensanchar no toca los datos.
+ALTER TABLE `clientes` MODIFY `nif_cif` varchar(20) NOT NULL;</code></pre>
+
+  <div class="nota ojo">
+    <span class="cabecera">Por qué también hay que tocar <code>clientes</code></span>
+    <p>
+      El emisor de este proyecto siempre va a ser español —es el obligado a expedir—, pero el
+      destinatario no tiene por qué serlo. Cuando no lo es, su identificación no viaja en el campo
+      <code>NIF</code> sino en el bloque <code>IDOtro</code>, con país y tipo de identificación, y ahí
+      caben códigos bastante más largos que un NIF español de nueve caracteres.
+    </p>
+    <p>
+      Por eso <code>clientes.nif_cif</code> se ensancha igual que el del emisor. Es un cambio barato
+      —ampliar un <code>varchar</code> no reescribe ni valida los datos que ya hay— y evita el
+      fallo típico: descubrirlo el día que se da de alta el primer cliente extranjero, con la
+      obligación legal ya encima.
+    </p>
+    <p>
+      Y ya que se toca <code>clientes</code>, conviene saber qué <strong>no</strong> hace falta.
+      La lista de mejoras del proyecto pide separar <code>provincia</code> en una tabla propia:
+      es una buena idea, pero <strong>Verifactu no la exige</strong>. Del destinatario sólo se
+      declaran el nombre o razón social y el NIF —o el bloque <code>IDOtro</code> si es
+      extranjero—; la dirección, la población y la provincia <em>no viajan a la AEAT</em>. Sigue
+      siendo una mejora de calidad, no un requisito legal, y puede esperar.
+    </p>
+    <p>
+      Eso sí: si se decide hacerla, <strong>mejor en la misma migración que este
+      <code>MODIFY</code></strong>. Son dos cambios sobre la misma tabla y con datos ya cargados;
+      hacerlos en una sola pasada ahorra una segunda ventana de parada y una segunda copia de
+      seguridad.
+    </p>
+  </div>
+
+  <h5 style="font-family:var(--display); font-weight:600; margin:26px 0 8px;">Bloque 2 · Ampliar <code>facturas</code> y <code>conceptos</code></h5>
 
   <p>
     Aquí está el caso delicado: <code>idemisor</code> y <code>fecha_hora_expedicion</code> son
@@ -2753,6 +2787,10 @@ ALTER TABLE `emisor`
 
 <pre><code>-- 2.1 · Columnas que SI tienen valor por defecto sensato.
 ALTER TABLE `facturas`
+  -- El numero pasa a componerse como serie + ejercicio + secuencial, asi que
+  -- los 15 caracteres de hoy se quedan cortos. Ensanchar es seguro: no reescribe
+  -- los datos existentes y la clave unica sigue valiendo.
+  MODIFY `num_factura`        varchar(60) NOT NULL,
   ADD `serie`                 varchar(20) NOT NULL DEFAULT 'A',
   ADD `tipo_factura`          enum('F1','F2','F3','R1','R2','R3','R4','R5')
                                           NOT NULL DEFAULT 'F1',
@@ -2777,27 +2815,114 @@ UPDATE `facturas`
                                           TIMESTAMP(`fecha_emision`, '12:00:00'))
  WHERE `fecha_hora_expedicion` IS NULL;
 
+-- estado admite NULL hoy, y el DTO lo exige con @NotBlank. Se sanean las filas
+-- vacias antes de endurecer la columna, igual que con las dos de arriba.
+UPDATE `facturas`
+   SET `estado` = 'BORRADOR'
+ WHERE `estado` IS NULL;
+
 -- 2.4 · COMPROBAR antes de endurecer. Las dos cuentas tienen que dar 0.
 SELECT SUM(`idemisor` IS NULL)              AS sin_emisor,
-       SUM(`fecha_hora_expedicion` IS NULL) AS sin_fecha_hora
+       SUM(`fecha_hora_expedicion` IS NULL) AS sin_fecha_hora,
+       SUM(`estado` IS NULL)                AS sin_estado
   FROM `facturas`;
 
 -- 2.5 · Y ahora si: obligatorias y con sus claves ajenas.
 ALTER TABLE `facturas`
   MODIFY `idemisor`              int      NOT NULL,
   MODIFY `fecha_hora_expedicion` datetime NOT NULL,
+  -- ATENCION: la LISTA de valores esta PENDIENTE DE DECIDIR; ver el aviso de
+  -- mas abajo. Aqui se deja tal cual esta hoy, que es el punto de partida.
+  -- Lo unico que este paso resuelve es el NOT NULL, para que la base de datos
+  -- diga lo mismo que el @NotBlank del DTO.
+  MODIFY `estado` enum('BORRADOR','EMITIDA','PAGADA','ANULADA')
+                                          NOT NULL DEFAULT 'BORRADOR',
   ADD CONSTRAINT `fk_factura_emisor`
       FOREIGN KEY (`idemisor`) REFERENCES `emisor` (`idemisor`),
   ADD CONSTRAINT `fk_factura_rectificada`
-      FOREIGN KEY (`idfactura_rectificada`) REFERENCES `facturas` (`idfactura`);</code></pre>
+      FOREIGN KEY (`idfactura_rectificada`) REFERENCES `facturas` (`idfactura`);
+
+-- 2.6 · Las dos columnas fiscales que la AEAT exige POR LINEA. Sin ellas no se
+--       puede construir la clave de agrupacion del desglose. Las dos llevan el
+--       valor del caso normal por defecto, asi que las lineas existentes valen.
+ALTER TABLE `conceptos`
+  ADD `clave_regimen` varchar(2) NOT NULL DEFAULT '01',   -- 01 = regimen general
+  ADD `calificacion`  varchar(2) NOT NULL DEFAULT 'S1';   -- S1 = sujeta y no exenta</code></pre>
 
   <div class="nota ojo">
-    <span class="cabecera">Lo que ya estaba bien y conviene no tocar</span>
+    <span class="cabecera">Por qué van en <code>conceptos</code> y no sólo en el desglose</span>
+    <p>
+      La tabla <code>desglose_impositivo</code> guarda el desglose <em>ya agrupado</em>, y por eso
+      tiene también <code>clave_regimen</code> y <code>calificacion</code>. Pero ese desglose se
+      <strong>calcula</strong> a partir de las líneas: <code>ClaveDesglose.de(concepto)</code>
+      agrupa por la terna régimen + calificación + tipo impositivo, y esos dos primeros valores
+      tiene que leerlos de cada concepto. Si la columna no existe en <code>conceptos</code>, no hay
+      de dónde sacarlos y todas las líneas acabarían en el mismo grupo por imposición.
+    </p>
+    <p>
+      Dicho de otro modo: en <code>conceptos</code> es el dato de entrada, y en
+      <code>desglose_impositivo</code> es el resultado congelado de haberlo agrupado. Son la misma
+      información en dos momentos distintos, y las dos hacen falta.
+    </p>
+  </div>
+
+  <div class="nota ojo">
+    <span class="cabecera">Decisión pendiente: qué valores quedan en <code>estado</code></span>
+    <p>
+      La columna <code>estado</code> mezcla hoy <strong>dos ejes distintos</strong>: por dónde va
+      la factura como documento (<code>BORRADOR</code> → <code>EMITIDA</code>) y si está cobrada
+      (<code>PAGADA</code>). Como en una columna sólo cabe un valor, al marcar una factura como
+      pagada <strong>se pierde el dato de que estaba emitida</strong>. Y eso con Verifactu escuece
+      más que antes, porque <code>EMITIDA</code> es justo el momento en que se genera el registro
+      y su huella.
+    </p>
+    <dl>
+      <dt>Opción A · separar el cobro</dt>
+      <dd>
+        <code>estado enum('BORRADOR','EMITIDA') NOT NULL DEFAULT 'BORRADOR'</code> más una columna
+        <code>fecha_cobro date NULL</code>, de forma que <em>pagada</em> pase a ser
+        <code>fecha_cobro IS NOT NULL</code>. Cada eje en su sitio y, de propina, se sabe
+        <em>cuándo</em> se cobró y no sólo que se cobró. Cuesta tocar el <code>@Pattern</code> del
+        DTO, el <code>&lt;option&gt;</code> del formulario, la columna del listado, y una migración
+        que pase las filas <code>PAGADA</code> a <code>EMITIDA</code> con su
+        <code>fecha_cobro</code>.
+      </dd>
+      <dt>Opción B · dejarlo como está</dt>
+      <dd>
+        Es lo que este documento asume en el resto de apartados: <code>PAGADA</code> sigue siendo
+        estado de negocio, y el estado fiscal vive aparte, en
+        <code>registro_facturacion.estado_envio</code>. No cuesta nada ahora, pero mantiene los dos
+        ejes metidos en la misma columna.
+      </dd>
+    </dl>
+    <p>
+      En las dos opciones <code>ANULADA</code> <strong>se queda en la columna</strong>: lo pone la
+      aplicación al anular, y lo que desaparece es que pueda pedirlo el navegador (apartado 2.15).
+    </p>
+    <p>
+      Conviene resolverlo <strong>antes</strong> de empezar a teclear. Después habrá facturas ya
+      registradas y los disparadores de inmutabilidad del Bloque 4 encima, y cambiar la lista de
+      valores pasa de ser un <code>MODIFY</code> a ser una migración con cuidado.
+    </p>
+  </div>
+
+  <div class="nota ojo">
+    <span class="cabecera">La clave única se queda; el ancho de la columna no</span>
     <p>
       <code>facturas</code> tiene un <code>UNIQUE KEY num_factura_UNIQUE</code>. Eso es exactamente
-      lo que Verifactu necesita —el número no puede repetirse— y ya estaba. No hay que añadirlo ni
-      cambiarlo: sólo hay que dejar de permitir que el número lo elija el navegador, que es otra
-      cosa y se ve en el apartado 2.8.
+      lo que Verifactu necesita —el número no puede repetirse— y ya estaba: <strong>la clave no
+      hay que añadirla ni cambiarla</strong>. Lo único que cambia respecto a hoy es que el número
+      deja de elegirlo el navegador y pasa a componerlo el servidor, que es otra cosa y se ve en el
+      apartado 2.8.
+    </p>
+    <p>
+      Y precisamente por eso sí hay que tocar una cosa de esa columna: <strong>su ancho</strong>. Hoy
+      es <code>varchar(15)</code>, que daba de sobra mientras el número era algo como
+      <code>F-2026-0001</code>. A partir de ahora el número lleva la serie delante, y la serie
+      admite hasta 20 caracteres, así que el resultado puede pasar de 30. Con la columna a 15,
+      MySQL corta por lo sano: <code>ERROR 1406, Data too long for column 'num_factura'</code>.
+      De ahí el <code>MODIFY</code> del paso 2.1. Ensanchar un <code>varchar</code> no reescribe los
+      datos existentes ni invalida el índice.
     </p>
   </div>
 
@@ -2812,11 +2937,28 @@ CREATE TABLE `registro_facturacion` (
   `idemisor`          int          NOT NULL,
   `tipo_registro`     enum('ALTA','ANULACION') NOT NULL,
 
+  -- Los seis datos que entran en la huella, CONGELADOS aqui. No se leen de
+  -- `facturas` con un JOIN a proposito: la factura puede cambiar de estado o
+  -- corregirse, y el registro tiene que seguir diciendo lo que se declaro.
+  -- Es el mismo motivo por el que existe `desglose_impositivo`.
+  `nif_emisor`        varchar(20)   NOT NULL,
+  `num_serie`         varchar(60)   NOT NULL,
+  `fecha_expedicion`  date          NOT NULL,
+  `tipo_factura`      varchar(2)    NULL,   -- NULL en las anulaciones
+  `descripcion_operacion` varchar(500) NULL, -- NULL en las anulaciones
+  `cuota_total`       decimal(12,2) NULL,   -- NULL en las anulaciones
+  `importe_total`     decimal(12,2) NULL,   -- NULL en las anulaciones
+
   -- Se guarda la cadena entera, no solo la huella: es lo que permite auditar una
   -- discrepancia con la AEAT sin tener que adivinar como se compuso.
   `cadena_canonica`   text         NOT NULL,
   `huella`            char(64)     NOT NULL,
   `huella_anterior`   char(64)     NULL,          -- NULL solo en el primero
+  -- Identificacion de la factura a la que se encadena: va en el bloque
+  -- RegistroAnterior del XML, asi que hay que conservarla con el registro.
+  `nif_emisor_anterior`      varchar(20) NULL,
+  `num_serie_anterior`       varchar(60) NULL,
+  `fecha_expedicion_anterior` date       NULL,
   `primer_registro`   enum('S','N') NOT NULL DEFAULT 'N',
 
   `fecha_hora_gen`    datetime     NOT NULL,
@@ -2986,12 +3128,13 @@ ALTER TABLE `emisor`
       <thead><tr><th scope="col">Tabla</th><th scope="col">Qué se hace</th><th scope="col">Riesgo</th></tr></thead>
       <tbody>
         <tr><td><code>emisor</code></td><td>+9 columnas, <code>nif_cif</code> a 20 caracteres</td><td>Bajo: casi todas con <code>DEFAULT</code></td></tr>
-        <tr><td><code>facturas</code></td><td>+6 columnas, 2 claves ajenas</td><td><strong>Alto</strong>: hay que rellenar antes de endurecer</td></tr>
+        <tr><td><code>facturas</code></td><td>+6 columnas, 2 claves ajenas, <code>num_factura</code> a 60 caracteres y <code>estado</code> a <code>NOT NULL</code></td><td><strong>Alto</strong>: hay que rellenar antes de endurecer</td></tr>
         <tr><td><code>registro_facturacion</code></td><td>Nueva</td><td>Ninguno: se crea vacía</td></tr>
         <tr><td><code>desglose_impositivo</code></td><td>Nueva</td><td>Ninguno</td></tr>
         <tr><td><code>serie_facturacion</code></td><td>Nueva, con contador inicial</td><td>Bajo: el contador arranca donde acaba lo existente</td></tr>
         <tr><td><code>envio_aeat</code></td><td>Nueva</td><td>Ninguno</td></tr>
-        <tr><td><code>conceptos</code></td><td><strong>Ningún cambio</strong></td><td>Ya tiene <code>porcentaje_iva</code> por línea</td></tr>
+        <tr><td><code>clientes</code></td><td><code>nif_cif</code> a 20 caracteres</td><td>Bajo: ensanchar no toca los datos</td></tr>
+        <tr><td><code>conceptos</code></td><td>+2 columnas: <code>clave_regimen</code> y <code>calificacion</code></td><td>Bajo: las dos con <code>DEFAULT</code>. El <code>porcentaje_iva</code> por línea ya estaba</td></tr>
       </tbody>
     </table>
   </div>
@@ -3129,8 +3272,11 @@ public record Emisor(
         String tipoFactura,                                      // NUEVO
 
         @NotBlank(message = "El estado es obligatorio")
-        // ANULADA sale de aqui: anular ya no es elegir un estado en un desplegable,
-        // es una operacion propia que genera un registro. Ver el apartado 2.15.
+        // ANULADA sale de ESTA LISTA, no de la columna: el valor sigue existiendo en
+        // la base de datos y lo sigue poniendo la aplicacion al anular. Lo que deja de
+        // poder hacer el navegador es PEDIRLO, porque anular ya no es elegir una opcion
+        // en un desplegable: es una operacion propia que genera un registro de anulacion
+        // con su huella. Ver el apartado 2.15.
         @Pattern(regexp = "BORRADOR|EMITIDA|PAGADA",
                  message = "El estado de la factura no es válido")
         String estado,
@@ -3221,12 +3367,20 @@ public record RegistroFacturacion(
         LocalDate fechaExpedicion,
         String tipoFactura,         // null en las anulaciones
 
+        // Lo que se declara como operacion. La AEAT lo exige en todo registro de ALTA.
+        String descripcionOperacion,
+
         // Importes (null en las anulaciones: una anulacion no lleva importes)
         BigDecimal cuotaTotal,
         BigDecimal importeTotal,
 
         // Encadenamiento
-        String huellaAnterior,      // null si es el primero del SIF
+        // El bloque RegistroAnterior del XML no lleva solo la huella: tambien identifica
+        // la factura a la que se encadena. Se congelan aqui los cuatro datos.
+        String huellaAnterior,          // null si es el primero del SIF
+        String nifEmisorAnterior,       // null si es el primero
+        String numSerieAnterior,        // null si es el primero
+        LocalDate fechaExpedicionAnterior,  // null si es el primero
         boolean primerRegistro,
 
         OffsetDateTime fechaHoraGeneracion,
@@ -3237,21 +3391,63 @@ public record RegistroFacturacion(
 
         // Estado frente a la AEAT
         EstadoEnvio estadoEnvio,
-        String csvAeat) {
+        String csvAeat,
+
+        // Control de envio. No entran en la huella ni se declaran: son de la cola.
+        int intentos,
+        String xmlRegistro) {     // el XML tal y como se guardo; se reenvia ese mismo
 
     /** Un registro de alta recien compuesto, todavia sin huella. */
     public static RegistroFacturacion paraAlta(Factura factura, Emisor emisor,
                                                BigDecimal cuotaTotal,
-                                               String huellaAnterior) {
+                                               String descripcionOperacion,
+                                               RegistroFacturacion anterior) {
+
+        // Se recibe el registro anterior COMPLETO, no solo su huella: el bloque
+        // RegistroAnterior del XML necesita ademas su NIF, su numero y su fecha.
+        boolean primero = (anterior == null);
+
         RegistroFacturacion nuevo = new RegistroFacturacion(
                 null, factura.idFactura(), emisor.idEmisor(), TipoRegistro.ALTA,
                 emisor.cif(), factura.numeroFactura(), factura.fechaEmision(),
-                factura.tipoFactura(),
+                factura.tipoFactura(), descripcionOperacion,
                 cuotaTotal, factura.total(),
-                huellaAnterior, huellaAnterior == null,
+                primero ? null : anterior.huella(),
+                primero ? null : anterior.nifEmisor(),
+                primero ? null : anterior.numSerie(),
+                primero ? null : anterior.fechaExpedicion(),
+                primero,
                 factura.fechaHoraExpedicion(),
                 null, null,
-                EstadoEnvio.PENDIENTE, null);
+                EstadoEnvio.PENDIENTE, null,
+                0, null);          // sin intentos y sin XML: los dos llegan despues
+        return nuevo;
+    }
+
+    /**
+     * Un registro de ANULACION. No lleva tipo de factura, ni descripcion, ni importes:
+     * la AEAT solo quiere saber QUE factura se anula y a que registro se encadena.
+     */
+    public static RegistroFacturacion paraAnulacion(Factura factura, Emisor emisor,
+                                                    RegistroFacturacion anterior) {
+
+        boolean primero = (anterior == null);
+
+        RegistroFacturacion nuevo = new RegistroFacturacion(
+                null, factura.idFactura(), emisor.idEmisor(), TipoRegistro.ANULACION,
+                emisor.cif(), factura.numeroFactura(), factura.fechaEmision(),
+                null, null,          // sin tipo de factura y sin descripcion
+                null, null,          // sin cuota ni importe total
+                primero ? null : anterior.huella(),
+                primero ? null : anterior.nifEmisor(),
+                primero ? null : anterior.numSerie(),
+                primero ? null : anterior.fechaExpedicion(),
+                primero,
+                // La anulacion se genera AHORA, no cuando se expidio la factura.
+                OffsetDateTime.now(ZoneId.of("Europe/Madrid")),
+                null, null,
+                EstadoEnvio.PENDIENTE, null,
+                0, null);
         return nuevo;
     }
 
@@ -3259,8 +3455,10 @@ public record RegistroFacturacion(
     public RegistroFacturacion conIdYHuella(long id, String cadena, String huellaCalculada) {
         RegistroFacturacion copia = new RegistroFacturacion(
                 id, idFactura, idEmisor, tipo, nifEmisor, numSerie, fechaExpedicion,
-                tipoFactura, cuotaTotal, importeTotal, huellaAnterior, primerRegistro,
-                fechaHoraGeneracion, cadena, huellaCalculada, estadoEnvio, csvAeat);
+                tipoFactura, descripcionOperacion, cuotaTotal, importeTotal,
+                huellaAnterior, nifEmisorAnterior, numSerieAnterior, fechaExpedicionAnterior,
+                primerRegistro, fechaHoraGeneracion, cadena, huellaCalculada,
+                estadoEnvio, csvAeat, intentos, xmlRegistro);
         return copia;
     }
 }</code></pre>
@@ -3568,18 +3766,19 @@ class CadenaCanonicaTest {
  * el bloqueo se suelta al hacer commit, y para entonces el registro nuevo ya existe.
  */
 @Override
-public Optional&lt;String&gt; ultimaHuella(int idEmisor) {
+public Optional&lt;RegistroFacturacion&gt; ultimoRegistro(int idEmisor) {
     String sql = """
-            SELECT huella
+            SELECT *
               FROM registro_facturacion
              WHERE idemisor = ?
              ORDER BY idregistro DESC
              LIMIT 1
                FOR UPDATE
             """;
-    List&lt;String&gt; encontradas = jdbcTemplate.queryForList(sql, String.class, idEmisor);
-    Optional&lt;String&gt; ultima = encontradas.stream().findFirst();
-    return ultima;
+    List&lt;RegistroFacturacion&gt; encontrados =
+            jdbcTemplate.query(sql, filaARegistro, idEmisor);
+    Optional&lt;RegistroFacturacion&gt; ultimo = encontrados.stream().findFirst();
+    return ultimo;
 }</code></pre>
 
   <div class="nota ojo">
@@ -3631,6 +3830,7 @@ public class VerifactuServiceImpl implements VerifactuService {
     private final CadenaCanonica cadenas;
     private final CalculadorHuella calculador;
     private final ConstructorSuministro constructorXml;
+    private final FacturaRepository facturaRepository;   // para el destinatario del registro
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)   // exige estar dentro de la de emision
@@ -3640,12 +3840,13 @@ public class VerifactuServiceImpl implements VerifactuService {
         Emisor emisor = emisorRepository.porId(factura.idEmisor());
 
         // Paso 03 - la huella anterior, con bloqueo para no bifurcar la cadena.
-        String huellaAnterior = registroRepository.ultimaHuella(emisor.idEmisor())
-                                                  .orElse(null);
+        RegistroFacturacion anterior = registroRepository.ultimoRegistro(emisor.idEmisor())
+                                                         .orElse(null);
 
         // Paso 02 - componer el registro.
         RegistroFacturacion registro =
-                RegistroFacturacion.paraAlta(factura, emisor, cuotaTotal, huellaAnterior);
+                RegistroFacturacion.paraAlta(
+                        factura, emisor, cuotaTotal, descripcionOperacion(factura), anterior);
 
         // Paso 04 - la cadena y su huella.
         String cadena = cadenas.deAlta(registro);
@@ -3653,7 +3854,8 @@ public class VerifactuServiceImpl implements VerifactuService {
 
         // El XML se construye y se guarda ahora, con los datos exactos que se han usado
         // para la huella. Reconstruirlo despues abriria la puerta a que no coincidieran.
-        String xml = constructorXml.registroAlta(registro, desglose, emisor, huella);
+        ClienteFactura cliente = facturaRepository.buscarCliente(factura.idCliente());
+        String xml = constructorXml.registroAlta(registro, cliente, desglose, emisor);
 
         // Paso 06 - persistir. Queda en PENDIENTE: el envio es cosa del planificador.
         RegistroFacturacion guardado =
@@ -3661,7 +3863,56 @@ public class VerifactuServiceImpl implements VerifactuService {
 
         return guardado;
     }
+
+    /**
+     * DescripcionOperacion: la AEAT lo exige en todo registro de alta y no admite vacio.
+     *
+     * DECISION PENDIENTE, ver el aviso de debajo. De momento se toma de las observaciones
+     * de la factura, con un respaldo para cuando vengan en blanco.
+     */
+    private String descripcionOperacion(Factura factura) {
+        String observaciones = factura.observaciones();
+        String descripcion;
+        if (observaciones == null || observaciones.isBlank()) {
+            descripcion = DESCRIPCION_POR_DEFECTO;
+        } else {
+            descripcion = observaciones.trim();
+        }
+        return descripcion;
+    }
+
+    private static final String DESCRIPCION_POR_DEFECTO = "Prestacion de servicios";
 }</code></pre>
+
+  <div class="nota ojo">
+    <span class="cabecera">Decisión pendiente: de dónde sale <code>DescripcionOperacion</code></span>
+    <p>
+      La AEAT exige este campo en todos los registros de alta y no acepta que vaya vacío. El
+      proyecto no tiene hoy nada equivalente, así que hay que elegir, y conviene hacerlo
+      <strong>antes</strong> de escribir la pantalla de nueva factura:
+    </p>
+    <dl>
+      <dt>Reutilizar <code>facturas.observaciones</code></dt>
+      <dd>
+        Es lo que hace el código de arriba. No toca el formulario ni la base de datos, y funciona
+        desde el primer día. El pero: <code>observaciones</code> nació como una nota interna, de 90
+        caracteres y opcional, y aquí pasaría a ser un dato que se declara a Hacienda. Lo que
+        alguien escriba ahí como recordatorio acabaría en un registro fiscal.
+      </dd>
+      <dt>Una columna propia y un campo obligatorio</dt>
+      <dd>
+        Añadir <code>descripcion_operacion varchar(500) NOT NULL</code> a <code>facturas</code> y un
+        campo obligatorio en la pantalla. Más limpio: separa la nota interna de lo que se declara,
+        y da sitio a los 500 caracteres que admite la AEAT. Cuesta tocar el formulario, su
+        validación y la migración de las facturas que ya existen.
+      </dd>
+    </dl>
+    <p>
+      Sea cual sea la elección, el valor <strong>entra en el XML que se declara</strong> aunque no
+      forme parte de la huella, así que cambiarlo después de haber registrado facturas obliga a
+      subsanar. Por eso conviene decidirlo al principio y no sobre la marcha.
+    </p>
+  </div>
 
   <!-- 2.8 ───────────────────────────────────────────────────────────────── -->
   <h3 id="calculos">2.8 · Número e importes: los dos cálculos que se mudan al servidor</h3>
@@ -4008,23 +4259,69 @@ public class ConstructorSuministro {
     private static final String VERSION_REGISTRO = "1.0";
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd-MM-uuuu");
 
-    /** Mensaje completo: una cabecera con el obligado y hasta 1.000 registros. */
-    public RegFactuSistemaFacturacion construir(List&lt;RegistroFacturacion&gt; registros,
-                                                Emisor emisor) {
+    // Un JAXBContext es caro de crear y seguro de compartir: uno por aplicacion.
+    // Sirve para las dos direcciones: serializar al emitir y volver a leer al enviar.
+    private final JAXBContext contexto;
+
+    public ConstructorSuministro() throws JAXBException {
+        this.contexto = JAXBContext.newInstance(RegistroFacturaType.class,
+                                                RegFactuSistemaFacturacion.class);
+    }
+
+    /**
+     * Sobre de envio: una cabecera con el obligado y hasta 1.000 registros.
+     *
+     * OJO con lo que NO hace: no vuelve a construir cada registro. Cada uno se compuso una
+     * sola vez, cuando se emitio la factura, y su XML quedo guardado en
+     * registro_facturacion.xml_registro. Aqui solo se vuelve a leer. Reconstruirlo ahora
+     * seria rehacer con los datos de hoy algo cuya huella se calculo con los de entonces:
+     * basta con que alguien corrija un concepto para que dejaran de coincidir, y la AEAT
+     * rechazaria el registro por una huella que no cuadra.
+     */
+    public RegFactuSistemaFacturacion sobre(List&lt;RegistroFacturacion&gt; pendientes,
+                                            Emisor emisor) throws JAXBException {
 
         RegFactuSistemaFacturacion mensaje = new RegFactuSistemaFacturacion();
         mensaje.setCabecera(cabecera(emisor));
 
-        for (RegistroFacturacion registro : registros) {
-            RegistroFacturaType linea = new RegistroFacturaType();
-            if (registro.tipo() == TipoRegistro.ALTA) {
-                linea.setRegistroAlta(alta(registro, emisor));
-            } else {
-                linea.setRegistroAnulacion(anulacion(registro, emisor));
-            }
+        Unmarshaller lector = contexto.createUnmarshaller();
+        for (RegistroFacturacion registro : pendientes) {
+            StreamSource fuente = new StreamSource(new StringReader(registro.xmlRegistro()));
+            RegistroFacturaType linea =
+                    lector.unmarshal(fuente, RegistroFacturaType.class).getValue();
             mensaje.getRegistroFactura().add(linea);
         }
         return mensaje;
+    }
+
+    /**
+     * Compone el registro de ALTA y lo devuelve ya serializado, para guardarlo.
+     *
+     * Se llama UNA vez, dentro de la transaccion de emision, con los mismos datos con los
+     * que se acaba de calcular la huella.
+     */
+    public String registroAlta(RegistroFacturacion registro, ClienteFactura cliente,
+                               List&lt;DesgloseImpositivo&gt; desglose,
+                               Emisor emisor) throws JAXBException {
+
+        RegistroFacturaType linea = new RegistroFacturaType();
+        linea.setRegistroAlta(alta(registro, cliente, desglose, emisor));
+        return serializar(linea);
+    }
+
+    /** Lo mismo para la ANULACION, que no lleva destinatario, desglose ni importes. */
+    public String registroAnulacion(RegistroFacturacion registro, Emisor emisor)
+            throws JAXBException {
+
+        RegistroFacturaType linea = new RegistroFacturaType();
+        linea.setRegistroAnulacion(anulacion(registro, emisor));
+        return serializar(linea);
+    }
+
+    private String serializar(RegistroFacturaType linea) throws JAXBException {
+        StringWriter salida = new StringWriter();
+        contexto.createMarshaller().marshal(linea, salida);
+        return salida.toString();
     }
 
     private CabeceraType cabecera(Emisor emisor) {
@@ -4037,7 +4334,10 @@ public class ConstructorSuministro {
         return cabecera;
     }
 
-    private RegistroFacturacionAltaType alta(RegistroFacturacion registro, Emisor emisor) {
+    private RegistroFacturacionAltaType alta(RegistroFacturacion registro,
+                                             ClienteFactura cliente,
+                                             List&lt;DesgloseImpositivo&gt; lineas,
+                                             Emisor emisor) {
 
         RegistroFacturacionAltaType alta = new RegistroFacturacionAltaType();
         alta.setIDVersion(VERSION_REGISTRO);
@@ -4045,8 +4345,8 @@ public class ConstructorSuministro {
         alta.setNombreRazonEmisor(emisor.nombre());
         alta.setTipoFactura(registro.tipoFactura());
         alta.setDescripcionOperacion(registro.descripcionOperacion());
-        alta.setDestinatarios(destinatarios(registro));
-        alta.setDesglose(desglose(registro.desglose()));
+        alta.setDestinatarios(destinatarios(cliente));
+        alta.setDesglose(desglose(lineas));
 
         // Mismo formateo que en CadenaCanonica: dos decimales, HALF_UP.
         alta.setCuotaTotal(importe(registro.cuotaTotal()));
@@ -4058,6 +4358,29 @@ public class ConstructorSuministro {
         alta.setTipoHuella(CalculadorHuella.TIPO_HUELLA_SHA_256);   // "01" = SHA-256
         alta.setHuella(registro.huella());
         return alta;
+    }
+
+    /** IDFactura: los tres datos que identifican la factura ante la AEAT. */
+    private IDFacturaExpedidaType idFactura(RegistroFacturacion registro) {
+        IDFacturaExpedidaType id = new IDFacturaExpedidaType();
+        id.setIDEmisorFactura(registro.nifEmisor());
+        id.setNumSerieFactura(registro.numSerie());
+        id.setFechaExpedicionFactura(FECHA.format(registro.fechaExpedicion()));
+        return id;
+    }
+
+    /**
+     * Destinatario. Si el NIF es espanol va en NIF; si no, en el bloque IDOtro con el pais
+     * y el tipo de identificacion. Por eso clientes.nif_cif se ensancho a 20 en el 2.4.
+     */
+    private DestinatariosType destinatarios(ClienteFactura cliente) {
+        PersonaFisicaJuridicaType destinatario = new PersonaFisicaJuridicaType();
+        destinatario.setNombreRazon(cliente.nombre());
+        destinatario.setNIF(cliente.nifCif());
+
+        DestinatariosType destinatarios = new DestinatariosType();
+        destinatarios.getIDDestinatario().add(destinatario);
+        return destinatarios;
     }
 
     /**
@@ -4366,7 +4689,7 @@ public class ClienteAeatSoap implements ClienteAeat {
         }
 
         SistemaFacturacionPortType puerto = crearPuerto();
-        RegFactuSistemaFacturacion peticion = constructor.construir(registros, emisor);
+        RegFactuSistemaFacturacion peticion = constructor.sobre(registros, emisor);
 
         // Se guarda la peticion ANTES de enviarla: si la llamada revienta, al menos
         // queda constancia de que se intento y de con que datos.
@@ -4809,14 +5132,15 @@ public RegistroFacturacion registrarAnulacion(Factura factura, String motivo) {
     }
 
     Emisor emisor = emisorRepository.porId(factura.idEmisor());
-    String huellaAnterior = registroRepository.ultimaHuella(emisor.idEmisor()).orElse(null);
+    RegistroFacturacion anterior = registroRepository.ultimoRegistro(emisor.idEmisor())
+                                                     .orElse(null);
 
     RegistroFacturacion registro =
-            RegistroFacturacion.paraAnulacion(factura, emisor, huellaAnterior);
+            RegistroFacturacion.paraAnulacion(factura, emisor, anterior);
 
     String cadena = cadenas.deAnulacion(registro);
     String huella = calculador.calcular(cadena);
-    String xml = constructorXml.registroAnulacion(registro, emisor, huella);
+    String xml = constructorXml.registroAnulacion(registro, emisor);
 
     RegistroFacturacion guardado = registroRepository.insertar(registro, cadena, huella, xml);
 
@@ -4840,8 +5164,16 @@ public RegistroFacturacion registrarAnulacion(Factura factura, String motivo) {
   <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/repository/RegistroRepository.java</span></span>
 <pre><code>public interface RegistroRepository {
 
-    /** Huella del ultimo registro del emisor, con bloqueo. Ver el apartado 2.7. */
-    Optional&lt;String&gt; ultimaHuella(int idEmisor);
+    /**
+     * Ultimo registro del emisor, con bloqueo. Ver el apartado 2.7.
+     *
+     * Devuelve el registro ENTERO y no solo su huella porque el bloque RegistroAnterior
+     * del XML lleva ademas su NIF, su numero de serie y su fecha de expedicion.
+     */
+    Optional&lt;RegistroFacturacion&gt; ultimoRegistro(int idEmisor);
+
+    /** Fija cuando podra volver a intentarse el proximo envio del emisor. */
+    void fijarProximoEnvio(Instant momento);
 
     /** Guarda un registro recien calculado. Devuelve el registro con su id asignado. */
     RegistroFacturacion insertar(RegistroFacturacion registro, String cadena,
@@ -4878,10 +5210,15 @@ public class RegistroRepositoryJdbcImpl implements RegistroRepository {
                                         String huella, String xml) {
         String sql = """
                 INSERT INTO registro_facturacion
-                       (idfactura, idemisor, tipo_registro, cadena_canonica, huella,
-                        huella_anterior, primer_registro, fecha_hora_gen, huso_horario,
-                        xml_registro, estado_envio)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE')
+                       (idfactura, idemisor, tipo_registro,
+                        nif_emisor, num_serie, fecha_expedicion, tipo_factura,
+                        descripcion_operacion, cuota_total, importe_total,
+                        cadena_canonica, huella,
+                        huella_anterior, nif_emisor_anterior, num_serie_anterior,
+                        fecha_expedicion_anterior, primer_registro,
+                        fecha_hora_gen, huso_horario, xml_registro, estado_envio)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        'PENDIENTE')
                 """;
 
         KeyHolder claveGenerada = new GeneratedKeyHolder();
@@ -4891,14 +5228,33 @@ public class RegistroRepositoryJdbcImpl implements RegistroRepository {
             sentencia.setInt(1, registro.idFactura());
             sentencia.setInt(2, registro.idEmisor());
             sentencia.setString(3, registro.tipo().name());
-            sentencia.setString(4, cadena);
-            sentencia.setString(5, huella);
-            sentencia.setString(6, registro.huellaAnterior());
-            sentencia.setString(7, registro.primerRegistro() ? "S" : "N");
-            sentencia.setTimestamp(8,
+
+            // Lo que se congela de la factura. En una anulacion, los cuatro
+            // ultimos van a NULL: una anulacion no lleva tipo, descripcion ni importes.
+            sentencia.setString(4, registro.nifEmisor());
+            sentencia.setString(5, registro.numSerie());
+            sentencia.setDate(6, java.sql.Date.valueOf(registro.fechaExpedicion()));
+            sentencia.setString(7, registro.tipoFactura());
+            sentencia.setString(8, registro.descripcionOperacion());
+            sentencia.setBigDecimal(9, registro.cuotaTotal());
+            sentencia.setBigDecimal(10, registro.importeTotal());
+
+            sentencia.setString(11, cadena);
+            sentencia.setString(12, huella);
+
+            // Encadenamiento: los cuatro van juntos y los cuatro son NULL en el primero.
+            sentencia.setString(13, registro.huellaAnterior());
+            sentencia.setString(14, registro.nifEmisorAnterior());
+            sentencia.setString(15, registro.numSerieAnterior());
+            sentencia.setDate(16, registro.fechaExpedicionAnterior() == null
+                    ? null
+                    : java.sql.Date.valueOf(registro.fechaExpedicionAnterior()));
+
+            sentencia.setString(17, registro.primerRegistro() ? "S" : "N");
+            sentencia.setTimestamp(18,
                     Timestamp.from(registro.fechaHoraGeneracion().toInstant()));
-            sentencia.setString(9, registro.fechaHoraGeneracion().getOffset().getId());
-            sentencia.setString(10, xml);
+            sentencia.setString(19, registro.fechaHoraGeneracion().getOffset().getId());
+            sentencia.setString(20, xml);
             return sentencia;
         }, claveGenerada);
 
@@ -4958,6 +5314,23 @@ public class RegistroRepositoryJdbcImpl implements RegistroRepository {
         }
     }
 
+    /**
+     * Respeta el TiempoEsperaEnvio que ha pedido la AEAT.
+     *
+     * No es un reintento por fallo: la AEAT contesta a cada envio con cuanto hay que esperar
+     * antes del siguiente, y saltarselo es motivo de rechazo. Por eso se aplica a TODOS los
+     * pendientes, no solo a los del lote que se acaba de mandar.
+     */
+    @Override
+    public void fijarProximoEnvio(Instant momento) {
+        String sql = """
+                UPDATE registro_facturacion
+                   SET proximo_intento = ?
+                 WHERE estado_envio = 'PENDIENTE'
+                """;
+        jdbcTemplate.update(sql, Timestamp.from(momento));
+    }
+
     /** Retrasa el reintento y cuenta el intento fallido. */
     @Override
     public void aplazar(List&lt;RegistroFacturacion&gt; registros, Duration espera) {
@@ -5012,21 +5385,41 @@ public class RegistroRowMapper implements RowMapper&lt;RegistroFacturacion&gt; {
                                       .toInstant()
                                       .atOffset(huso);
 
+        // Es NULL en el primer registro de la cadena, asi que no se puede encadenar
+        // el .toLocalDate() sin comprobar.
+        java.sql.Date fechaAnterior = fila.getDate("fecha_expedicion_anterior");
+        LocalDate expedicionAnterior =
+                (fechaAnterior == null) ? null : fechaAnterior.toLocalDate();
+
+        // El orden es EXACTAMENTE el de los componentes del record: un record no
+        // tiene setters, asi que el constructor es posicional y no perdona un cambio.
         RegistroFacturacion registro = new RegistroFacturacion(
                 fila.getLong("idregistro"),
                 fila.getInt("idfactura"),
                 fila.getInt("idemisor"),
                 TipoRegistro.valueOf(fila.getString("tipo_registro")),
-                fila.getString("cadena_canonica"),
-                fila.getString("huella"),
+
+                fila.getString("nif_emisor"),
+                fila.getString("num_serie"),
+                fila.getDate("fecha_expedicion").toLocalDate(),
+                fila.getString("tipo_factura"),
+                fila.getString("descripcion_operacion"),
+                fila.getBigDecimal("cuota_total"),
+                fila.getBigDecimal("importe_total"),
+
                 fila.getString("huella_anterior"),
+                fila.getString("nif_emisor_anterior"),
+                fila.getString("num_serie_anterior"),
+                expedicionAnterior,
                 "S".equals(fila.getString("primer_registro")),
                 generado,
+                fila.getString("cadena_canonica"),
+                fila.getString("huella"),
+
                 EstadoEnvio.valueOf(fila.getString("estado_envio")),
                 fila.getString("csv_aeat"),
-                fila.getString("codigo_error"),
-                fila.getString("descripcion_error"),
-                fila.getInt("intentos"));
+                fila.getInt("intentos"),
+                fila.getString("xml_registro"));
         return registro;
     }
 }</code></pre>
@@ -5219,6 +5612,11 @@ public class Facturacion360Application {
       <p>
         Dónde está la factura en el circuito comercial. Es lo que ya se mostraba y le importa a
         quien lleva la contabilidad.
+      </p>
+      <p>
+        <strong>Pagada está pendiente de decidir</strong>, ver el apartado 2.4. Si sale adelante
+        sacarla del <code>estado</code>, este eje se pinta igual pero leyendo
+        <code>fecha_cobro</code> en vez de la columna.
       </p>
     </div>
     <div class="ficha-caja destacada">
@@ -5513,12 +5911,13 @@ async function confirmarAnulacion(factura) {
 
   <div class="tabla-envoltura">
     <table>
-      <caption>Ficheros a modificar · 13</caption>
+      <caption>Ficheros a modificar · 14</caption>
       <thead><tr><th scope="col">Fichero</th><th scope="col">Qué cambia</th><th scope="col">Apdo.</th></tr></thead>
       <tbody>
         <tr><td><code>service/FacturaServiceImpl.java</code></td><td>Enganche; número e importes en servidor</td><td>2.3 · 2.8</td></tr>
         <tr><td><code>repository/FacturaRepositoryJdbcImpl.java</code></td><td>Columnas nuevas; prohibir el borrado</td><td>2.4</td></tr>
         <tr><td><code>dto/Factura.java</code></td><td>Emisor, tipo, serie, fecha y hora</td><td>2.4</td></tr>
+        <tr><td><code>dto/ConceptoFactura.java</code> · <code>ConceptoFacturaRowMapper.java</code> · <code>FacturaRowMapper.java</code></td><td>Régimen y calificación por línea; leer las columnas nuevas</td><td>2.4 · 2.5</td></tr>
         <tr><td><code>dto/FacturaRequest.java</code></td><td><strong>Fuera</strong> número, subtotal e IVA</td><td>2.2</td></tr>
         <tr><td><code>dto/Emisor.java</code> · <code>EmisorRepositoryImpl.java</code></td><td>Los nueve campos del sistema</td><td>2.4</td></tr>
         <tr><td><code>controller/ManejadorExcepciones.java</code></td><td>Tratar <code>VerifactuException</code></td><td>2.17</td></tr>
