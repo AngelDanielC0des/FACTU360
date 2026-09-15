@@ -1,8 +1,9 @@
 package edu.xtd.facturacion360.service;
 
+import org.springframework.stereotype.Service;
+
 import edu.xtd.facturacion360.dto.Emisor;
 import edu.xtd.facturacion360.repository.EmisorRepository;
-import org.springframework.stereotype.Service;
 
 @Service
 public class EmisorServiceImpl implements EmisorService {
@@ -13,17 +14,34 @@ public class EmisorServiceImpl implements EmisorService {
         this.emisorRepository = emisorRepository;
     }
 
-  
+    @Override
+    public Emisor save(Emisor emisor) {
 
-	@Override
-	public Emisor update(Emisor emisor) {
-		Emisor  emisorModificado = null;
-		boolean modificado = emisorRepository.update(emisor);
-		if (modificado)
-		{
-			emisorModificado = emisor;
-		}
-		return emisorModificado;
-	
-	}
+        // Comprobamos si ya existe el emisor principal.
+        boolean existe = emisorRepository.find().isPresent();
+
+        boolean guardado;
+
+        if (existe) {
+
+            // Ya existe → actualizar.
+            guardado = emisorRepository.update(emisor);
+
+        } else {
+
+            // No existe → crear.
+            guardado = emisorRepository.insert(emisor);
+        }
+
+        if (guardado) {
+            return emisor;
+        }
+
+        return null;
+    }
+
+    @Override
+    public Emisor find() {
+        return emisorRepository.find().orElse(null);
+    }
 }

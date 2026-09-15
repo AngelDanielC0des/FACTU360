@@ -1,15 +1,27 @@
 package edu.xtd.facturacion360.repository;
 
-import org.springframework.stereotype.Repository;
+import java.util.Optional;
 
 import edu.xtd.facturacion360.dto.Emisor;
 
-import java.util.Optional;
-
-
 public interface EmisorRepository {
 
-    // Método personalizado opcional por si necesitas buscar por NIF/CIF
-   // Optional<Emisor> findByNifCif(String nifCif);
+    /**
+     * Actualiza el emisor existente.
+     *
+     * @return true si se ha actualizado una fila.
+     */
     boolean update(Emisor emisor);
+
+    /**
+     * Crea un nuevo emisor.
+     *
+     * @return true si se ha insertado una fila.
+     */
+    boolean insert(Emisor emisor);
+
+    /**
+     * Busca el emisor principal.
+     */
+    Optional<Emisor> find();
 }
