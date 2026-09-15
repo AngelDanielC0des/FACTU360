@@ -1,8 +1,8 @@
 package edu.xtd.facturacion360.service;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.dao.DataAccessException;
-
 import edu.xtd.facturacion360.dto.Cliente;
 import edu.xtd.facturacion360.dto.CriteriosCliente;
 import edu.xtd.facturacion360.dto.PaginaClienteResponse;
@@ -51,19 +51,55 @@ public interface ClienteService {
 	 * @return lista de poblaciones.
 	 * @throws DataAccessException si ocurre un error al acceder a la base de datos.
 	 */
-	List<String> listarPoblaciones(String provincia);
+	public List<String> listarPoblaciones(String provincia);
 
 	/**
-	 * Obtiene un cliente por su identificador.
+	 * El detalle completo de un cliente. Lo usa la tabla del frontend al desplegar una fila,
+	 * para mostrar los campos que no caben en el listado, y la edición, para partir de lo que
+	 * hay ahora mismo en la base de datos y no de una copia vieja de la pantalla.
 	 *
-	 * @param id identificador del cliente.
-	 * @return cliente encontrado.
-	 * @throws DataAccessException si ocurre un error al acceder a la base de datos.
+	 * <p>Devuelve un {@link Optional} y no {@code null} porque "ese cliente no existe" es un
+	 * resultado normal (acaba en un 404), no un error: así el controller lo resuelve con un
+	 * {@code if} y no hay forma de olvidarse de comprobarlo.</p>
+	 *
+	 * @param id identificador del cliente que se busca
+	 * @return el cliente (dominio), o un {@code Optional} vacío si no existe
+	 * @throws DataAccessException si falla el acceso a la base de datos
+	 * @autor AngelDanielC0des
+	 * @see ClienteRepository#findById(int)
 	 */
-	Cliente obtenerPorId(int id);
+	public Optional<Cliente> obtenerPorId(int id);
+
+
+
 
 	/**
-	 * Crea un nuevo cliente.
+	 * Modifica los datos de un cliente que ya existe.
+	 *
+	 * <p>La fecha de alta no forma parte de lo editable: se conserva la que hay en la base de
+	 * datos, porque es un dato histórico y el {@code ClienteRequest} ni siquiera la trae.</p>
+	 *
+	 * <p>La comprobación de existencia y la escritura van en la misma transacción, para que
+	 * entre las dos no pueda colarse un borrado de otro usuario.</p>
+	 *
+	 * <p>Devuelve un {@link Optional} por el mismo motivo que
+	 * {@link #obtenerPorId(int)}: "ese cliente no existe" es un resultado normal que acaba
+	 * en un 404, no un error, y así el controller no puede olvidarse de comprobarlo.</p>
+	 *
+	 * @param id      identificador del cliente que se modifica
+	 * @param cliente los datos nuevos; su id y su fecha de alta se ignoran
+	 * @return el cliente ya actualizado (con su fecha de alta original), o un {@code Optional}
+	 *         vacío si no existe ningún cliente con ese id
+	 * @throws DataAccessException si falla el acceso a la base de datos, incluida la violación
+	 *                             del índice único de {@code nif_cif}
+	 *                             ({@code DuplicateKeyException})
+	 * @autor AngelDanielC0des
+	 * @see #obtenerPorId(int)
+	 * @see ClienteRepository#update(Cliente)
+	 */
+	public Optional<Cliente> actualizar(int id, Cliente cliente);
+	
+	/** Crea un nuevo cliente.
 	 *
 	 * @param cliente cliente a crear.
 	 * @return cliente creado.
@@ -71,15 +107,7 @@ public interface ClienteService {
 	 */
 	Cliente crear(Cliente cliente);
 
-	/**
-	 * Actualiza un cliente existente.
-	 *
-	 * @param id identificador del cliente.
-	 * @param cliente datos actualizados.
-	 * @return cliente actualizado.
-	 * @throws DataAccessException si ocurre un error al acceder a la base de datos.
-	 */
-	Cliente actualizar(int id, Cliente cliente);
+
 
 	/**
 	 * Elimina un cliente por su identificador.

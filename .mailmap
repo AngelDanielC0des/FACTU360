@@ -1,0 +1,14 @@
+# .mailmap — nombres canonicos de los autores
+#
+# Git guarda el nombre del autor DENTRO de cada commit, asi que si alguien cambia su
+# user.name a mitad de proyecto acaba apareciendo como varias personas distintas en
+# `git shortlog -sne`, en `git log --author=...` y en los resumenes de `git blame`.
+# Este fichero le dice a git que varias firmas son la misma persona, y lo hace SIN
+# reescribir un solo commit: es solo una tabla de traduccion que git aplica al mostrar.
+#
+# Formato:  Nombre canonico <correo canonico> <correo que se agrupa>
+#
+# Angel habia firmado con tres nombres distintos (angel, Angel y una firma con emojis),
+# todos con el mismo correo. Esta linea agrupa por correo, asi que cubre las tres y
+# cualquier otra que pudiera aparecer con esa direccion.
+Angel Daniel C. <adanieldc03@gmail.com> <adanieldc03@gmail.com>

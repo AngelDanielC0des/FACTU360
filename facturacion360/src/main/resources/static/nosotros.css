@@ -1,0 +1,212 @@
+/* ==========================================
+   VARIABLES Y ESTILOS BASE
+   ========================================== */
+:root {
+    --brand-blue: #3366cc;       /* Azul exacto de tu barra superior */
+    --brand-blue-hover: #254eb0;
+    --dark-footer: #1f2328;      /* Gris oscuro exacto de tu pie de página */
+    --body-bg: #f8f9fa;          /* Fondo gris neutro claro */
+    --text-muted: #6c757d;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--body-bg);
+    color: #333;
+}
+
+/* ==========================================
+   NAVBAR (Mantiene el tono azul original)
+   ========================================== */
+.main-navbar {
+    background-color: var(--brand-blue);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.main-navbar .logo {
+    height: 32px;
+    width: auto;
+}
+
+.main-navbar .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+}
+
+.main-navbar .nav-link:hover,
+.main-navbar .nav-link.active {
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+/* ==========================================
+   HERO SECTION (Banner Oscuro estilo plantilla)
+   ========================================== */
+.hero-section {
+    position: relative;
+    height: 280px;
+    background: url('https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.7); /* Capa oscura */
+}
+
+/* ==========================================
+   ETIQUETAS Y SUBTÍTULOS
+   ========================================== */
+.subtitle-tag {
+    color: var(--brand-blue);
+    font-size: 0.85rem;
+    letter-spacing: 1.5px;
+}
+
+.section-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.section-description {
+    max-width: 600px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+/* ==========================================
+   TARJETAS Y SECCIONES
+   ========================================== */
+.content-box {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 2.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    border: 1px solid #eaeaea;
+}
+
+.intro-img {
+    max-height: 240px;
+    object-fit: contain;
+}
+
+.stats-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background-color: #f0f4ff;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--brand-blue);
+}
+
+.stat-num {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--brand-blue);
+}
+
+.stat-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
+    text-transform: uppercase;
+}
+
+.info-card {
+    background: #ffffff;
+    border: 1px solid #eaeaea;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.info-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+
+.card-icon {
+    font-size: 1.6rem;
+    color: var(--brand-blue);
+    margin-bottom: 1rem;
+}
+
+/* ==========================================
+   SECCIÓN EQUIPO
+   ========================================== */
+.team-card {
+    background: #ffffff;
+    border: 1px solid #eaeaea;
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.team-card:hover {
+    transform: translateY(-4px);
+}
+
+.team-img {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 1rem;
+    border: 3px solid #f0f4ff;
+}
+
+.team-role {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--brand-blue);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.team-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0;
+}
+/* Botón de GitHub en las tarjetas del equipo */
+.team-github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-main);
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    padding: 0.4rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.team-github-link i {
+    font-size: 1.1rem;
+}
+
+.team-github-link:hover {
+    background-color: #1f2937;
+    color: #ffffff;
+    border-color: #1f2937;
+    transform: translateY(-2px);
+}
+
+/* ==========================================
+   FOOTER (Coincide con tu diseño actual)
+   ========================================== */
+.footer {
+    background-color: var(--dark-footer);
+    font-size: 0.875rem;
+}
