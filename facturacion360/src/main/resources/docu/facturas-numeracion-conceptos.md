@@ -2,17 +2,17 @@
 
 ## Estado del desarrollo
 
-Última revisión: 14 de septiembre de 2026.
+Última revisión: 15 de septiembre de 2026.
 
 | Estado | Alcance |
 |---|---|
 | EXISTENTE | Modelo, tablas y consulta de detalle con conceptos. |
 | APROBADO | Numeración automática, cálculo de conceptos, guardado conjunto y edición de borradores según este documento. |
-| IMPLEMENTADO | Bloques 1 y 2: contrato final, validación, cálculo, numeración y guardado transaccional de cabecera y líneas. |
-| VERIFICADO | Compilación y 40 pruebas focales, incluidas nueve con MySQL real aislado. |
-| PENDIENTE | Adaptación del formulario y edición de borradores. |
+| IMPLEMENTADO | Bloques 1 y 2 de backend y bloque 3A de formulario de alta con conceptos. |
+| VERIFICADO | Compilación, 40 pruebas Java (nueve con MySQL aislado) y 12 pruebas de navegador (dos E2E reales). |
+| PENDIENTE | Bloque 3B y edición de borradores; no iniciados en 3A. |
 
-El backend aplica el nuevo contrato. El formulario anterior no es compatible hasta que se adapte: ya no basta enviar número e importes manuales sin conceptos. No se ha modificado el frontend en el bloque 2.
+El backend y, desde el bloque 3A, el formulario utilizan el nuevo contrato. El bloque 2 no modificó la interfaz; su adaptación y verificación se describen al final de este documento.
 
 ## Base existente
 
@@ -165,8 +165,96 @@ El método original de prueba de factura inexistente se conserva; solo se adapt�
 
 ## Límites y siguientes bloques
 
-No se han modificado esquema, configuración, dependencias, datos históricos ni interfaz en este bloque. Antes del uso real deberá verificarse `num_factura_UNIQUE`, la FK de conceptos y el motor InnoDB con autorización.
+Los bloques 1 y 2 no modificaron esquema, configuración, dependencias, datos históricos ni interfaz. Antes del uso real deberá verificarse `num_factura_UNIQUE`, la FK de conceptos y el motor InnoDB con autorización.
 
 El índice único evita números duplicados, pero no dos facturas distintas por reenvío de la misma petición. La estrategia del máximo requiere conservar las facturas también frente a eliminaciones externas.
 
-El siguiente bloque es adaptar el formulario al contrato ya operativo; después, edición de borradores y regresión conjunta. Requieren nueva autorización. No se ha probado el frontend con el nuevo contrato ni la edición, y no se ha verificado la base real.
+La adaptación del alta se completó en 3A, según la evidencia siguiente. La edición y el bloque 3B requieren nueva autorización. No se ha verificado la base real.
+
+## Bloque 3A: formulario de alta
+
+Fecha: 15 de septiembre de 2026.
+
+### IMPLEMENTADO
+
+El formulario permite añadir, modificar y eliminar conceptos antes de guardar, mediante fichas sencillas dentro del modal existente. El modal tiene desplazamiento interno y conserva las acciones de guardar y cancelar visibles. No permite editar facturas ya guardadas.
+
+Se envía una sola `POST /factura`, con esta estructura:
+
+```json
+{
+  "idCliente": 1,
+  "fechaEmision": "2028-09-15",
+  "estado": "EMITIDA",
+  "observaciones": "Ejemplo",
+  "conceptos": [
+    {"descripcion": "Servicio", "cantidad": 3, "precioUnitario": 19.99, "descuento": 10, "porcentajeIva": 21}
+  ]
+}
+```
+
+No se envían número ni importes derivados. La previsualización usa céntimos y centésimas de porcentaje para evitar errores de resta decimal; sigue siendo orientativa y Spring conserva la autoridad sobre los importes definitivos. El mensaje de éxito muestra el número y total recibidos del servidor.
+
+Durante el guardado se bloquean controles, cierre y segundo envío. Ante errores se conserva lo escrito y se restauran los controles. La interfaz diferencia validación (400), conflicto (409), otros errores de servidor y conexión; no muestra cuerpos de error que puedan contener SQL o trazas. Se mantienen el contador de observaciones y los ajustes del formulario ya existentes.
+
+La validación nativa comprueba campos obligatorios, cantidad entera y rangos/decimales. Se rechaza una descripción formada solo por espacios. BORRADOR puede enviar `conceptos: []`; EMITIDA sin conceptos muestra un error sin enviar la petición.
+
+### VERIFICADO
+
+- Checkpoint local de bloques 1+2: `337fb48`, 13 archivos de backend, pruebas y documentación; excluyó los cuatro archivos de interfaz preexistentes.
+- Revalidación del checkpoint: 31 pruebas Java seleccionadas, cero fallos, errores u omisiones, salida 0.
+- Regresión posterior: las 40 pruebas Java, incluidas las nueve MySQL, nuevamente superadas con salida 0. No se ejecutó la suite completa.
+- `facturas-alta.spec.cjs`: 12 pruebas en Chrome, cero fallos y salida 0; diez de interfaz y dos E2E con POST real, sin simular controller, service ni persistencia.
+- Sintaxis JavaScript y `git diff --check`: salida 0.
+
+Las pruebas de interfaz verifican edición de líneas, redondeo, JSON exacto, una sola POST, bloqueo de otro submit pendiente, conservación de datos ante errores 400/409/500/conexión, borrador vacío, rechazo de emisión sin líneas, rangos, móvil a 390 px y foco por teclado. Se revisaron capturas de escritorio y móvil.
+
+El E2E real creó una sola cabecera `F-2028-0001` con dos líneas:
+
+| Concepto de prueba | Cantidad | Precio | Descuento | IVA | Base guardada | IVA guardado | Total guardado |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Servicio E2E | 3 | 19,99 | 10 % | 21 % | 53,97 | 11,33 | 65,30 |
+| Material E2E | 2 | 5,00 | 0 % | 10 % | 10,00 | 1,00 | 11,00 |
+
+Se comprobaron directamente en MySQL descripción, cantidad, precio, porcentajes e importes de ambas líneas, además de la cabecera: base `63.97`, IVA `12.33`, total `76.30`. La interfaz mostró el número y los importes confirmados. La prueba calcula el número esperado a partir del máximo previo, por lo que no exige que las siguientes ejecuciones reutilicen `0001`.
+
+El E2E de error envió cantidad 2 y precio `99999999.99`: Spring rechazó el desbordamiento con HTTP 400, no aumentó el número de cabeceras y el formulario conservó los datos y habilitó Guardar.
+
+Se corrigieron dos casos de previsualización: `2.30` con 5 % de descuento da `2.19`, y `2.32` con 6,25 % da `2.18`. Sus regresiones pasan. Durante el desarrollo de las pruebas se corrigieron el selector del botón con icono y la comprobación de bloqueo: se verifica sobre controles reales, no sobre el elemento `fieldset`. No se aumentaron tiempos de espera ni se omitieron casos.
+
+### Entorno aislado y repetición
+
+Se utilizó MySQL 8.4.11 en una instancia nueva, con directorio `/tmp/facturas-mysql-7GvI6j/datos/`, socket propio y puerto 19368. El servidor se identificó antes de preparar el esquema `facturas_pruebas`; las pruebas SQL anteriores preparan las tablas y el cliente sintético 1. No se cargó el dump completo ni datos históricos.
+
+Spring se arrancó por separado en `127.0.0.1:18081`. Se sustituyó la ubicación habitual de configuración por una ubicación temporal vacía, se indicó el datasource aislado explícitamente y se deshabilitó la inicialización SQL. Los argumentos del proceso y sus conexiones TCP confirmaron que apuntaba al puerto MySQL 19368. El GET de clientes devolvió únicamente el cliente sintético. La identidad del MySQL consultado se comprueba también en las pruebas E2E; esta comprobación complementa, no sustituye, la del arranque de Spring.
+
+Arranque usado, parametrizado; requiere preparar y verificar previamente la instancia aislada. La clave se proporciona solo al proceso, no se guarda en configuración:
+
+```bash
+SPRING_DATASOURCE_PASSWORD="$CLAVE_MYSQL_PRUEBAS" bash mvnw -B spring-boot:run \
+  '-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=false' \
+  "-Dspring-boot.run.arguments=--spring.config.location=optional:file:$DIRECTORIO_TEMPORAL/sin-config.properties --spring.datasource.url=jdbc:mysql://127.0.0.1:$PUERTO_MYSQL_PRUEBAS/facturas_pruebas?sslMode=DISABLED&allowPublicKeyRetrieval=true --spring.datasource.username=pruebas_facturas --spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver --spring.sql.init.mode=never --server.port=18081 --server.address=127.0.0.1"
+```
+
+Para las pruebas se reutilizaron Chrome, Playwright y Node 22 instalados. Node 18 no era compatible con el ejecutor; no se instalaron dependencias ni se cambió el runtime de la aplicación Spring.
+
+Desde `facturacion360/`, con `NODE_PRUEBAS` apuntando al ejecutable Node 22 y `MODULOS_PRUEBAS` al directorio de módulos de Playwright ya instalado:
+
+```bash
+FACTURAS_URL_PRUEBAS=http://127.0.0.1:18081 \
+FACTURAS_MYSQL_SOCKET="$DIRECTORIO_TEMPORAL/mysql.sock" \
+FACTURAS_MYSQL_SERVIDOR="$UUID_MYSQL_PRUEBAS" \
+FACTURAS_MYSQL_DIRECTORIO="$DIRECTORIO_TEMPORAL/datos/" \
+NODE_PATH="$MODULOS_PRUEBAS" \
+"$NODE_PRUEBAS" "$MODULOS_PRUEBAS/playwright/cli.js" test \
+  -c src/test/js facturas-alta.spec.cjs --workers=1 --reporter=line \
+  --max-failures=1 --output=target/playwright-3a-tercera
+```
+
+Los informes y capturas quedan locales en `target/`, excluidos de Git. Los informes Surefire pueden contener la clave temporal: no publicarlos. No se ejecutó nada contra `bd_facturacion`.
+
+Al finalizar se cerraron la sesión de navegador, Spring y MySQL de pruebas; se conservaron los archivos temporales. El cierre deliberado de Spring con SIGTERM produjo salida 143 del proceso y salida 1 del comando `spring-boot:run`, después de completar el apagado ordenado. No es el resultado de las pruebas, que terminaron con salida 0.
+
+### RESERVA y PENDIENTE
+
+El bloqueo de Guardar mitiga envíos simultáneos, pero no garantiza idempotencia frente a reintentos posteriores. La edición de facturas existentes y el bloque 3B permanecen pendientes, sin iniciarse. Los cambios previos de extracción de estilos de filtros se conservan locales, fuera del commit de 3A.
