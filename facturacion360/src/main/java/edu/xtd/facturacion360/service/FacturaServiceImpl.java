@@ -1,6 +1,7 @@
 package edu.xtd.facturacion360.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import edu.xtd.facturacion360.dto.ConceptoFactura;
 import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
+import edu.xtd.facturacion360.dto.ResumenTrimestralFactura;
 import edu.xtd.facturacion360.repository.FacturaRepository;
 
 /**
@@ -74,4 +76,32 @@ public class FacturaServiceImpl implements FacturaService {
 		List<ConceptoFactura> conceptos = facturaRepository.buscarConceptos(idFactura);
 		return new DetalleFactura(factura, cliente, conceptos);
 	}
+
+
+	@Override
+	public ResumenTrimestralFactura listarTrimestre(int anio, int trimestre) {
+		if (anio < 2000 || anio > 2100) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El año debe estar entre 2000 y 2100");
+		}
+		if (trimestre < 1 || trimestre > 4) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El trimestre debe estar entre 1 y 4");
+		}
+
+		int primerMes = (trimestre - 1) * 3 + 1;
+		LocalDate fechaInicio = LocalDate.of(anio, primerMes, 1);
+		LocalDate fechaFin = fechaInicio.plusMonths(3);
+		List<Factura> facturas = facturaRepository.buscarPorTrimestre(fechaInicio, fechaFin);
+
+		BigDecimal subtotal = BigDecimal.ZERO;
+		BigDecimal importeIva = BigDecimal.ZERO;
+		BigDecimal total = BigDecimal.ZERO;
+		for (Factura factura : facturas) {
+			subtotal = subtotal.add(factura.subtotal());
+			importeIva = importeIva.add(factura.importeIva());
+			total = total.add(factura.total());
+		}
+
+		return new ResumenTrimestralFactura(anio, trimestre, facturas, subtotal, importeIva, total);
+	}
+
 }

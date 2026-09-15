@@ -5,6 +5,7 @@ import java.util.List;
 import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
+import edu.xtd.facturacion360.dto.ResumenTrimestralFactura;
 
 /**
  * Operaciones que ofrece la aplicación para trabajar con facturas.
@@ -16,4 +17,8 @@ public interface FacturaService {
 	public List<Factura> buscar(String busqueda);
 
 	public DetalleFactura obtenerDetalle(int idFactura);
+
+	public ResumenTrimestralFactura listarTrimestre(int anio, int trimestre);
+
+
 }

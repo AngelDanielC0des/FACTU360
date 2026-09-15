@@ -55,22 +55,45 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 			""";
 
-	// Columnas que se seleccionan en las consultas de clientes (para no repetirlas).
+	/**
+	 * Columnas que seleccionan TODAS las consultas de clientes de esta clase. Está en una
+	 * constante para que el detalle y el listado no puedan acabar devolviendo campos
+	 * distintos: si mañana se añade una columna, se añade una sola vez y la traen las tres.
+	 */
 	private static final String COLUMNAS_CLIENTE = "idcliente, nombre, nif_cif, direccion, codigopostal, "
 			+ "poblacion, provincia, telefono, email, fecha_alta";
 
-	// LISTA BLANCA de ordenaciones permitidas. La CLAVE es lo que puede mandar el cliente
-	// por la URL; el VALOR es el nombre real de la columna, escrito por nosotros. Como el
-	// ORDER BY no admite '?', esta traducción es lo que impide que el texto del usuario
-	// llegue nunca al SQL: si la clave no está en el mapa, se usa la de por defecto.
-	// Para permitir ordenar por una columna más, basta con añadir aquí una línea: funciona
-	// automáticamente en ambos sentidos (ver sqlOrden).
+	/**
+	 * <strong>Lista blanca</strong> de ordenaciones permitidas. La CLAVE es lo que puede
+	 * mandar el cliente por la URL; el VALOR es el nombre real de la columna, escrito por
+	 * nosotros.
+	 *
+	 * <p>Como el {@code ORDER BY} no admite '?', esta traducción es lo que impide que el
+	 * texto del usuario llegue nunca al SQL: si la clave no está en el mapa, se usa
+	 * {@link #COLUMNA_ORDEN_DEFECTO}. Es la defensa contra la inyección SQL en el único
+	 * punto de la consulta donde no puede haber un parámetro.</p>
+	 *
+	 * <p>Para permitir ordenar por una columna más basta con añadir aquí una línea:
+	 * funciona automáticamente en ambos sentidos (ver {@link #sqlOrden(String, String)}).</p>
+	 */
 	private static final Map<String, String> COLUMNAS_ORDEN = Map.of(
 			"nombre", "nombre",
 			"fecha_alta", "fecha_alta");
 
-	// Columna por la que se ordena si no piden otra cosa (o piden algo que no existe).
+	/**
+	 * Columna por la que se ordena si no piden otra cosa, o si piden una que no está en
+	 * {@link #COLUMNAS_ORDEN}. Lo más reciente primero es lo que espera ver quien abre la
+	 * pantalla.
+	 */
 	private static final String COLUMNA_ORDEN_DEFECTO = "fecha_alta";
+
+	/**
+	 * Carácter con el que se neutralizan los comodines de LIKE.
+	 *
+	 * <p>No es la barra invertida <strong>a propósito</strong>, y ese "a propósito" arregla
+	 * un fallo real: {@link #escaparComodines(String)} lo explica entero.</p>
+	 */
+	private static final String ESCAPE_LIKE = "!";
 
 	@Autowired
 	ClienteRowMapper clienteRowMapper;
@@ -139,7 +162,10 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 		anadirFiltros(sql, args, criterios);
 
 		Long total = jdbcTemplate.queryForObject(sql.toString(), Long.class, args.toArray());
-		return total != null ? total : 0L;
+		long totalSeguro = total != null ? total : 0L;
+
+		log.debug("contarTotal({}) -> {} clientes", criterios, totalSeguro);
+		return totalSeguro;
 	}
 
 	/**
@@ -187,14 +213,16 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 	 * cada uno montara su propio WHERE, el total y las filas mostradas podrían dejar de
 	 * cuadrar en cuanto alguien tocara uno y se olvidara del otro.
 	 *
-	 * Cada valor se añade como '?' a {@code args}, en orden, para que viaje aparte del
+	 * <p>Cada valor se añade como '?' a {@code args}, en orden, para que viaje aparte del
 	 * texto SQL (PreparedStatement): así el dato NUNCA se interpreta como instrucción y
-	 * no hay inyección SQL.
+	 * no hay inyección SQL.</p>
 	 *
 	 * @param sql       consulta en construcción; se le concatenan las condiciones
 	 * @param args      valores de los '?', en el mismo orden en que aparecen
 	 * @param criterios de aquí se usan la búsqueda, la provincia y la población; la
 	 *                  paginación y la ordenación no forman parte del WHERE
+	 * @autor AngelDanielC0des
+	 * @see #escaparComodines(String)
 	 */
 	private void anadirFiltros(StringBuilder sql, List<Object> args, CriteriosCliente criterios) {
 		// Vamos juntando condiciones y al final las unimos con AND. Así no hace falta ir
@@ -212,7 +240,7 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 			// Sin LOWER(): la tabla es utf8mb4_0900_ai_ci, que YA compara ignorando
 			// mayúsculas y acentos ('garcia' encuentra 'García'). Envolver la columna en
 			// LOWER() no cambiaría el resultado y además impediría usar índices.
-			condiciones.add("(nombre LIKE ? ESCAPE '\\\\' OR nif_cif LIKE ? ESCAPE '\\\\')");
+			condiciones.add("(nombre LIKE ? ESCAPE '!' OR nif_cif LIKE ? ESCAPE '!')");
 			String patron = "%" + escaparComodines(busqueda) + "%";
 			args.add(patron);
 			args.add(patron);
@@ -234,22 +262,49 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 	/**
 	 * Neutraliza los comodines de LIKE dentro del texto que escribe el usuario.
 	 *
-	 * En LIKE, '%' significa "cualquier cosa" y '_' "un carácter cualquiera". Si el
+	 * <p>En LIKE, '%' significa "cualquier cosa" y '_' "un carácter cualquiera". Si el
 	 * término llega sin tratar, buscar "%" genera el patrón '%%%', que casa con TODAS
 	 * las filas: el buscador dejaría de filtrar y devolvería la tabla entera. No es
 	 * inyección SQL (el valor sigue viajando como '?'), pero sí un modo de saltarse
-	 * el filtro, así que los escapamos para que se busquen como caracteres normales.
+	 * el filtro, así que los escapamos para que se busquen como caracteres normales.</p>
 	 *
-	 * El orden importa: la barra invertida va PRIMERO. Si se escapara la última,
-	 * volvería a escapar las barras que acabamos de introducir para '%' y '_'.
+	 * <p><strong>Por qué el carácter de escape es '!' y no la barra invertida</strong>, que es
+	 * lo que se ve en la mayoría de los ejemplos. Por dos motivos, y el segundo es un fallo
+	 * real:</p>
+	 *
+	 * <ol>
+	 * <li>La barra invertida tiene significado <em>dentro de las cadenas</em> de MySQL, así que
+	 * escribir {@code ESCAPE '\'} no compila: hay que poner dos barras, y como además hay que
+	 * escaparlas para el {@code String} de Java, en el código se leían cuatro. Era el sitio de
+	 * este repositorio donde más fácil resultaba equivocarse al tocar la consulta.</li>
+	 * <li>Con el {@code sql_mode} <b>NO_BACKSLASH_ESCAPES</b> activado, MySQL deja de
+	 * interpretar {@code '\\'} como una barra y rechaza la sentencia entera con
+	 * <em>"Incorrect arguments to ESCAPE"</em>: el listado, que es la pantalla principal,
+	 * respondía 500 según cómo estuviera configurado el servidor. Ese modo no es el de por
+	 * defecto, pero lo activa {@code mysqldump} y hay instalaciones que lo dejan puesto.</li>
+	 * </ol>
+	 *
+	 * <p>El '!' no significa nada en ninguno de los dos modos, así que la consulta se lee igual
+	 * en el código y en la base de datos. No hace falta que el carácter sea "raro": solo que
+	 * los pocos términos que lo contengan se escapen, y de eso se encarga la primera
+	 * sustitución.</p>
+	 *
+	 * <p>El orden importa: el propio carácter de escape va PRIMERO. Si se sustituyera el
+	 * último, volvería a escapar los que acabamos de introducir para '%' y '_'.</p>
 	 *
 	 * @param termino texto tal cual lo escribió el usuario
-	 * @return el mismo texto con '\', '%' y '_' escapados; se usa junto a ESCAPE '\'
+	 * @return el mismo texto con '!', '%' y '_' escapados; se usa junto a ESCAPE '!'
+	 * @autor AngelDanielC0des
+	 * @see #anadirFiltros(StringBuilder, List, CriteriosCliente)
 	 */
 	private String escaparComodines(String termino) {
-		return termino.replace("\\", "\\\\")
-				.replace("%", "\\%")
-				.replace("_", "\\_");
+		// Variable y un solo return, como el resto del proyecto: aquí no hay log, pero es el
+		// punto donde uno quiere poner un breakpoint si el buscador deja de filtrar.
+		String terminoEscapado = termino.replace(ESCAPE_LIKE, ESCAPE_LIKE + ESCAPE_LIKE)
+				.replace("%", ESCAPE_LIKE + "%")
+				.replace("_", ESCAPE_LIKE + "_");
+
+		return terminoEscapado;
 	}
 
 	/**
@@ -258,14 +313,16 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 	 * '?': sin esta traducción habría que concatenar el texto del cliente en el SQL y
 	 * eso sí abriría la puerta a la INYECCIÓN SQL.
 	 *
-	 * Fíjate en que el texto del usuario nunca se concatena: solo se usa como CLAVE
+	 * <p>Fíjate en que el texto del usuario nunca se concatena: solo se usa como CLAVE
 	 * para buscar en el mapa. Si pide una columna que no está en la lista, se ignora y
 	 * cae en el valor por defecto. La dirección se resuelve con una comparación, así
-	 * que solo puede acabar valiendo "ASC" o "DESC".
+	 * que solo puede acabar valiendo "ASC" o "DESC".</p>
 	 *
 	 * @param ordenarPor columna pedida; ver {@link #COLUMNAS_ORDEN}
 	 * @param direccion  "asc" o "desc"; cualquier otra cosa se trata como "desc"
 	 * @return el fragmento " ORDER BY ..." correspondiente, nunca {@code null}
+	 * @autor AngelDanielC0des
+	 * @see #findPagina(CriteriosCliente)
 	 */
 	private String sqlOrden(String ordenarPor, String direccion) {
 		// El null se filtra ANTES de consultar el mapa: Map.of() crea un mapa inmutable
@@ -284,34 +341,38 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 		// 'idcliente' es el desempate: sin él, dos clientes con la misma fecha (o el mismo
 		// nombre) podrían intercambiarse entre consultas y, al paginar, verse repetidos en
 		// una página y desaparecer de la siguiente.
-		return " ORDER BY " + columna + " IS NULL, " + columna + " " + sentido + ", idcliente " + sentido;
+		//
+		// El fragmento se guarda en una variable antes de devolverlo, como el resto del
+		// proyecto. Aquí importa más que en ningún otro sitio: este método ES la defensa
+		// contra la inyección SQL, así que es justo donde uno quiere poder mirar en el
+		// depurador qué se ha montado de verdad con lo que llegó por la URL.
+		String fragmentoOrden = " ORDER BY " + columna + " IS NULL, " + columna + " " + sentido
+				+ ", idcliente " + sentido;
+
+		return fragmentoOrden;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @autor AngelDanielC0des
+	 */
 	@Override
 	public Optional<Cliente> findById(int id) {
+		// Mismas columnas que el resto de consultas (COLUMNAS_CLIENTE) para que el detalle
+		// y el listado no puedan acabar devolviendo campos distintos.
+		String sql = "SELECT " + COLUMNAS_CLIENTE + " FROM clientes WHERE idcliente = ?";
 
-	    final String sql = """
-	        SELECT *
-	        FROM clientes
-	        WHERE idcliente = ?
-	        """;
+		// query(...).findFirst() en vez de queryForObject(): este último lanza
+		// EmptyResultDataAccessException cuando no hay fila, y "ese cliente no existe" es una
+		// respuesta prevista (un 404), no un fallo de acceso a datos. Devolviendo un Optional,
+		// quien llama lo resuelve con un if en vez de con un try/catch.
+		Optional<Cliente> cliente = jdbcTemplate.query(sql, clienteRowMapper, id).stream().findFirst();
 
-	    try {
-
-	        Cliente cliente = jdbcTemplate.queryForObject(
-	                sql,
-	                clienteRowMapper,
-	                id
-	        );
-
-	        return Optional.ofNullable(cliente);
-
-	    } catch (EmptyResultDataAccessException e) {
-
-	        return Optional.empty();
-
-	    }
+		log.debug("findById({}) -> {}", id, cliente.isPresent() ? "encontrado" : "no existe");
+		return cliente;
 	}
+
 	
 	/**
 	 * Inserta un cliente en base de datos.
