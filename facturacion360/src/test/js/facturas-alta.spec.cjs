@@ -133,6 +133,7 @@ async function simularSugerencias(pagina, sugerencias = sugerenciasHistoricas) {
 }
 
 test("sugerencias: un carácter no consulta y el debounce espera 250 ms tras la última tecla", async ({ page: pagina }) => {
+    await pagina.clock.install({ time: new Date("2028-09-15T10:00:00Z") });
     const consultas = [];
     await pagina.route("**/factura/conceptos/sugerencias?*", ruta => {
         consultas.push(new URL(ruta.request().url()).searchParams.get("texto"));
@@ -140,7 +141,8 @@ test("sugerencias: un carácter no consulta y el debounce espera 250 ms tras la 
     });
     await abrirAlta(pagina);
     await pagina.getByRole("button", { name: "Añadir concepto", exact: true }).click();
-    await pagina.clock.install();
+    // Detiene también el avance automático entre acciones, no solo fija la fecha.
+    await pagina.clock.pauseAt(new Date("2028-09-15T11:00:00Z"));
     const descripcion = pagina.getByRole("combobox", { name: "Descripción", exact: true });
     await descripcion.fill("m");
     await pagina.clock.runFor(500);

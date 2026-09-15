@@ -9,7 +9,7 @@
 | EXISTENTE | Modelo, tablas y consulta de detalle con conceptos. |
 | APROBADO | Numeración automática, cálculo de conceptos, guardado conjunto y edición de borradores según este documento. |
 | IMPLEMENTADO | Alta con conceptos, numeración, cálculo y persistencia transaccional, autocompletado, UX y edición de borradores. |
-| VERIFICADO | Las secciones de cada bloque recogen su evidencia; la regresión integral se registra al cierre. |
+| VERIFICADO | 61 pruebas Java, 38 de navegador (cinco E2E reales), compilación y empaquetado. Véase «Cierre integral». |
 | RESERVAS | Última edición completa prevalece; móvil en Chrome, sin dispositivo físico ni lector de pantalla. |
 
 El backend y, desde el bloque 3A, el formulario utilizan el nuevo contrato. El bloque 2 no modificó la interfaz; su adaptación y verificación se describen al final de este documento.
@@ -370,3 +370,50 @@ La implementación sigue el contrato descrito en «Edición de borradores». Se 
 El entorno final utiliza MySQL 8.4.11 en `/tmp/facturas-mysql-VjTP30/datos/`, puerto 19372, esquema `facturas_pruebas`, y Spring en `127.0.0.1:18084`. Se verificaron UUID, directorio, puerto y ENUM de tres estados. Las conexiones de Spring apuntan únicamente a ese MySQL. El primer arranque de Playwright no pudo crear su directorio de resultados dentro del aislamiento de herramientas; la ejecución autorizada fuera de ese límite sí pudo hacerlo, sin cambiar permisos del proyecto.
 
 La extracción preexistente de filtros entre `style.css` y `facturas.css` no es necesaria para la edición: se conserva intacta y excluida del commit. No se añaden dependencias, tablas ni migraciones.
+
+## Cierre integral
+
+El bloque 4 quedó registrado en el commit local `07d752e` (`feat(facturas): permitir editar borradores`).
+
+La suite completa Maven, incluido `Facturacion360ApplicationTests`, superó **61 pruebas**, cero fallos, errores u omisiones, salida 0 y `BUILD SUCCESS`. Incluye 20 pruebas de MySQL real aislado. `verify` completó la compilación y el empaquetado del JAR.
+
+Comando reproducible desde `facturacion360/`, tras preparar la instancia aislada e identificar su UUID y directorio como se describe anteriormente. La configuración temporal sustituye a la habitual también para la prueba de contexto; no ejecutar `verify` sin ese aislamiento:
+
+```bash
+SPRING_CONFIG_LOCATION="optional:file:$DIRECTORIO_TEMPORAL/sin-config.properties" \
+SPRING_DATASOURCE_URL="jdbc:mysql://127.0.0.1:$PUERTO_MYSQL_PRUEBAS/facturas_pruebas?sslMode=DISABLED&allowPublicKeyRetrieval=true" \
+SPRING_DATASOURCE_USERNAME=pruebas_facturas \
+SPRING_DATASOURCE_PASSWORD="$CLAVE_MYSQL_PRUEBAS" \
+SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver \
+SPRING_SQL_INIT_MODE=never \
+bash mvnw -B \
+  -Dfacturas.mysql.puerto="$PUERTO_MYSQL_PRUEBAS" \
+  -Dfacturas.mysql.servidor="$UUID_MYSQL_PRUEBAS" \
+  -Dfacturas.mysql.directorio="$DIRECTORIO_TEMPORAL/datos/" \
+  -Dfacturas.mysql.clave="$CLAVE_MYSQL_PRUEBAS" verify
+```
+
+La regresión detectó que la prueba del debounce instalaba el reloj después de abrir el formulario y lo dejaba avanzar automáticamente entre pulsaciones. Se instala ahora antes de navegar y se pausa antes de escribir, siguiendo el [control manual de tiempo de Playwright](https://playwright.dev/docs/clock#tick-through-time-manually-firing-all-the-timers-consistently). Se conservan las aserciones de 249/250 ms; no se cambian el código de autocompletado ni los tiempos de espera de las pruebas.
+
+La primera ejecución conjunta terminó con 37 casos superados y ese fallo del reloj. La prueba corregida pasó por separado y, después, la repetición completa terminó con **38 pruebas Chrome superadas**, cero fallos, salida 0. Incluye cinco E2E reales: alta con conceptos, rechazo de desbordamiento, autocompletado y alta, edición desde el visor, y protección frente a estados no editables. La persistencia y los importes se contrastan directamente en el MySQL aislado.
+
+Comando final de navegador, usando los ejecutables ya instalados y la misma instancia temporal:
+
+```bash
+FACTURAS_URL_PRUEBAS=http://127.0.0.1:18084 \
+FACTURAS_MYSQL_SOCKET="$DIRECTORIO_TEMPORAL/mysql.sock" \
+FACTURAS_MYSQL_SERVIDOR="$UUID_MYSQL_PRUEBAS" \
+FACTURAS_MYSQL_DIRECTORIO="$DIRECTORIO_TEMPORAL/datos/" \
+NODE_PATH="$MODULOS_PRUEBAS" \
+"$NODE_PRUEBAS" "$MODULOS_PRUEBAS/playwright/cli.js" test \
+  -c src/test/js facturas-alta.spec.cjs --workers=1 --reporter=line \
+  --output=target/playwright-cierre-verificado
+```
+
+Sintaxis de todos los JavaScript de `static/` y de la prueba (`node --check`), y comprobaciones de whitespace (`git diff --check`): salida 0. Se inspeccionaron capturas de móvil, incluidas las de edición. No se modificaron fuentes Java tras la suite completa.
+
+Se conservan las reservas operativas: última edición completa prevalece, móvil comprobado en Chrome sin dispositivo físico ni lector de pantalla, ausencia de idempotencia del alta y rendimiento no medido con históricos voluminosos. No quedan defectos críticos conocidos en el alcance validado.
+
+Se cerraron únicamente Spring, MySQL y navegadores temporales de esta ejecución; sus archivos e informes se conservaron fuera de Git. El SIGTERM deliberado de Spring produjo salida 143 del proceso y salida 1 del comando de arranque después del apagado ordenado; no es un fallo de la suite. No se accedió a `bd_facturacion`, no se publicaron cambios ni se integró trabajo en `master`.
+
+Los únicos cambios locales ajenos que se conservan fuera de los commits son el traslado previo de reglas de filtros entre `style.css` y `facturas.css`; no son necesarios para las funcionalidades terminadas. Estado del alcance: **IMPLEMENTADO Y VERIFICADO CON LAS RESERVAS ANTERIORES**.
