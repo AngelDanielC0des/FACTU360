@@ -156,10 +156,10 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 
 	@Override
 	public int actualizarBorrador(Factura factura) {
-		String sql = "UPDATE facturas SET idcliente=?, fecha_emision=?, observaciones=?, "
+		String sql = "UPDATE facturas SET idcliente=?, fecha_emision=?, estado=?, observaciones=?, "
 				+ "subtotal=?, importe_iva=?, total=?, fecha_actualizacion=NOW() "
 				+ "WHERE idfactura=? AND estado='BORRADOR'";
-		return jdbcTemplate.update(sql, factura.idCliente(), factura.fechaEmision(), factura.observaciones(),
+		return jdbcTemplate.update(sql, factura.idCliente(), factura.fechaEmision(), factura.estado(), factura.observaciones(),
 				factura.subtotal(), factura.importeIva(), factura.total(), factura.idFactura());
 	}
 

@@ -26,11 +26,7 @@ DROP TABLE IF EXISTS `clientes`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `clientes` (
   `idcliente` int NOT NULL AUTO_INCREMENT,
-  `nedu.xtd.facturacion360
-edu.xtd.facturacion360.controller
-edu.xtd.facturacion360.dto
-edu.xtd.facturacion360.repository
-edu.xtd.facturacion360.serviceombre` varchar(60) NOT NULL,
+  `nombre` varchar(60) NOT NULL,
   `nif_cif` varchar(10) NOT NULL,
   `direccion` varchar(90) NOT NULL,
   `codigopostal` varchar(6) DEFAULT NULL,
@@ -98,7 +94,7 @@ CREATE TABLE `facturas` (
   `idcliente` int NOT NULL,
   `num_factura` varchar(15) NOT NULL,
   `fecha_emision` date NOT NULL,
-  `estado` enum('BORRADOR','EMITIDA','PAGADA','ANULADA') DEFAULT NULL,
+  `estado` enum('BORRADOR','EMITIDA','ANULADA') DEFAULT NULL,
   `observaciones` varchar(90) DEFAULT NULL,
   `subtotal` decimal(10,2) NOT NULL,
   `importe_iva` decimal(10,2) NOT NULL,

@@ -283,7 +283,7 @@ async function abrirBorrador(idFactura, desdeDetalle = false) {
                             fecha.max = anio + "-12-31";
                             fecha.value = factura.fechaEmision;
                             campoEstado.value = "BORRADOR";
-                            campoEstado.disabled = true;
+                            campoEstado.disabled = false;
                             campoObservaciones.value = factura.observaciones ?? "";
                             for (const concepto of detalle.conceptos) {
                                 anadirConcepto(concepto);
@@ -319,7 +319,7 @@ async function guardarFactura() {
         const datosFactura = {
             idCliente: Number(selectCliente.value),
             fechaEmision: document.getElementById("fechaEmision").value,
-            estado: editando ? "BORRADOR" : campoEstado.value,
+            estado: campoEstado.value,
             observaciones: campoObservaciones.value.trim(),
             conceptos: recogerConceptos()
         };
@@ -342,7 +342,7 @@ async function guardarFactura() {
                 // No mostramos cuerpos de error que puedan contener SQL o trazas del servidor.
                 if (respuesta.status == 400) {
                     mostrarErrorFormularioFactura(editando
-                        ? "Revisa los conceptos y la fecha: debe conservar el año del número y el estado BORRADOR."
+                        ? "Revisa los conceptos y la fecha: debe conservar el año del número y el estado debe ser BORRADOR o EMITIDA."
                         : "El servidor ha rechazado los datos. Revisa los campos y los importes de los conceptos.");
                 } else if (respuesta.status == 404 && editando) {
                     mostrarErrorFormularioFactura("No se encontró la factura. Conservamos los datos del formulario.");
