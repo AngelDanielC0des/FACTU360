@@ -1,11 +1,13 @@
 package edu.xtd.facturacion360.repository;
 
 import java.time.LocalDate;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -43,7 +45,9 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 				+ "(idcliente, num_factura, fecha_emision, estado, observaciones, subtotal, importe_iva, total, "
 				+ "fecha_creacion, fecha_actualizacion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
 
-		int filasInsertadas = jdbcTemplate.update(sqlInsertar,
+		int filasInsertadas;
+		try {
+			filasInsertadas = jdbcTemplate.update(sqlInsertar,
 				factura.idCliente(),
 				factura.numeroFactura(),
 				factura.fechaEmision(),
@@ -52,6 +56,12 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 				factura.subtotal(),
 				factura.importeIva(),
 				factura.total());
+		} catch (DuplicateKeyException error) {
+			if (esColisionDeNumero(error)) {
+				throw new NumeroFacturaDuplicadoException(error);
+			}
+			throw error;
+		}
 
 		Factura facturaInsertada = null;
 		if (filasInsertadas == 1) {
@@ -61,6 +71,41 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 		}
 
 		return facturaInsertada;
+	}
+
+	@Override
+	public int obtenerUltimoNumero(int anio) {
+		String sql = "SELECT COALESCE(MAX(CAST(SUBSTRING(num_factura, 8) AS UNSIGNED)), 0) "
+				+ "FROM facturas WHERE CHAR_LENGTH(num_factura) = 11 "
+				+ "AND REGEXP_LIKE(num_factura, ?, 'i') AND SUBSTRING(num_factura, 8) <> '0000'";
+		return jdbcTemplate.queryForObject(sql, Integer.class, "^F-" + anio + "-[0-9]{4}$");
+	}
+
+	@Override
+	public void insertarConceptos(int idFactura, List<ConceptoFactura> conceptos) {
+		String sql = "INSERT INTO conceptos (descripcion, cantidad, precio_unitario, descuento, "
+				+ "porcentaje_iva, importe_iva, base_imponible, total, idfactura) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+		for (ConceptoFactura concepto : conceptos) {
+			jdbcTemplate.update(sql, concepto.descripcion(), concepto.cantidad(), concepto.precioUnitario(),
+					concepto.descuento(), concepto.porcentajeIva(), concepto.importeIva(), concepto.baseImponible(),
+					concepto.total(), idFactura);
+		}
+	}
+
+	private boolean esColisionDeNumero(DuplicateKeyException error) {
+		Throwable causa = error.getCause();
+		while (causa != null) {
+			if (causa instanceof SQLException errorSql) {
+				String mensaje = errorSql.getMessage();
+				if (errorSql.getErrorCode() == 1062 && "23000".equals(errorSql.getSQLState()) && mensaje != null
+						&& (mensaje.endsWith("for key 'num_factura_UNIQUE'")
+								|| mensaje.endsWith("for key 'facturas.num_factura_UNIQUE'"))) {
+					return true;
+				}
+			}
+			causa = causa.getCause();
+		}
+		return false;
 	}
 
 	@Override

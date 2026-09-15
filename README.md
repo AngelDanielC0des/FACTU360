@@ -164,6 +164,8 @@ Próximamente:
 
 # 📡 API REST
 
+- [Facturas: numeración, conceptos y guardado](facturacion360/src/main/resources/docu/facturas-numeracion-conceptos.md)
+
 Todos los endpoints de clientes cuelgan de `/cliente`
 
 | Método | Endpoint | Descripción |

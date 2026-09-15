@@ -38,6 +38,16 @@ class FacturaServiceImplTests {
 	private static class FacturaRepositoryFalso implements FacturaRepository {
 
 		@Override
+		public int obtenerUltimoNumero(int anio) {
+			return 0;
+		}
+
+		@Override
+		public void insertarConceptos(int idFactura, List<ConceptoFactura> conceptos) {
+			throw new UnsupportedOperationException("Esta prueba solo consulta facturas");
+		}
+
+		@Override
 		public Factura insertar(Factura factura) {
 			return factura;
 		}

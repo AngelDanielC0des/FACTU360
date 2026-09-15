@@ -9,12 +9,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
@@ -42,13 +44,19 @@ public class FacturaController {
 
 		if (bindingResult.hasErrors()) {
 			log.error("Factura recibida con errores de validación");
-			respuesta = ResponseEntity.badRequest().build();
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					bindingResult.getAllErrors().get(0).getDefaultMessage());
 		} else {
 			Factura facturaNueva = facturaService.crear(facturaRequest);
 			respuesta = ResponseEntity.status(HttpStatus.CREATED).body(facturaNueva);
 		}
 
 		return respuesta;
+	}
+
+	@ExceptionHandler(ResponseStatusException.class)
+	public ResponseEntity<String> mostrarErrorDeFactura(ResponseStatusException error) {
+		return ResponseEntity.status(error.getStatusCode()).body(error.getReason());
 	}
 
 	@GetMapping("/buscar")

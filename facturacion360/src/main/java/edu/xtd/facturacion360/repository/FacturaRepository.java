@@ -14,6 +14,17 @@ public interface FacturaRepository {
 
 	public Factura insertar(Factura factura);
 
+	public int obtenerUltimoNumero(int anio);
+
+	public void insertarConceptos(int idFactura, List<ConceptoFactura> conceptos);
+
+	/** Solo representa la colisión del índice único del número al insertar la cabecera. */
+	class NumeroFacturaDuplicadoException extends RuntimeException {
+		public NumeroFacturaDuplicadoException(Throwable causa) {
+			super("El número de factura ya está ocupado", causa);
+		}
+	}
+
 	public List<Factura> buscar(String busqueda);
 
 	public Factura buscarPorId(int idFactura);
