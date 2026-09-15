@@ -16,6 +16,8 @@ public interface FacturaService {
 
 	public List<Factura> buscar(String busqueda);
 
+	public DetalleFactura obtenerDetalle(int idFactura);
+
 	public ResumenTrimestralFactura listarTrimestre(int anio, int trimestre);
 
 
