@@ -104,28 +104,27 @@
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="facturaModalLabel">Dar de alta una factura</h5>
+                <div>
+                    <h5 class="modal-title" id="facturaModalLabel">Dar de alta una factura</h5>
+                    <p class="form-text mb-0">Número automático al guardar por primera vez.</p>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <div id="mensaje-formulario-factura" class="alert alert-danger d-none" role="alert" tabindex="-1"></div>
                 <form id="formularioFactura">
-                    <fieldset id="camposFactura" class="row">
-                        <div class="col-md-6 mb-3">
+                    <fieldset id="camposFactura" class="row g-3">
+                        <div class="col-12 col-md-6">
                             <label for="clienteFactura" class="form-label">Cliente</label>
                             <select id="clienteFactura" class="form-select" required>
                                 <option value="">Selecciona un cliente</option>
                             </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <span class="form-label d-block">Número de factura</span>
-                            <p class="form-text">Se asignará automáticamente al guardar por primera vez.</p>
-                        </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-6 col-md-3">
                             <label for="fechaEmision" class="form-label">Fecha de emisión</label>
                             <input type="date" id="fechaEmision" class="form-control" min="1000-01-01" max="9999-12-31" required>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-6 col-md-3">
                             <label for="estadoFactura" class="form-label">Estado</label>
                             <select id="estadoFactura" class="form-select" required>
                                 <option value="BORRADOR">Borrador</option>
@@ -134,24 +133,14 @@
                                 <option value="ANULADA">Anulada</option>
                             </select>
                         </div>
-                        <section class="col-12 mb-3" aria-labelledby="tituloConceptosFactura">
-                            <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-2">
-                                <h6 id="tituloConceptosFactura" class="mb-0">Conceptos</h6>
-                                <button type="button" id="botonAnadirConcepto" class="btn btn-outline-primary btn-sm">Añadir concepto</button>
-                            </div>
-                            <p class="form-text">Un borrador puede guardarse sin conceptos. Para emitir, añade al menos uno.</p>
+                        <section class="col-12" aria-labelledby="tituloConceptosFactura">
+                            <h6 id="tituloConceptosFactura" class="mb-1">Conceptos</h6>
+                            <p class="form-text mt-0 mb-2">Opcionales en borradores; para emitir, añade al menos uno.</p>
                             <div id="conceptosFactura"></div>
-                            <p id="sinConceptosFactura" class="text-muted">Todavía no hay conceptos.</p>
+                            <p id="sinConceptosFactura" class="text-muted mb-2">Todavía no hay conceptos.</p>
+                            <button type="button" id="botonAnadirConcepto" class="btn btn-outline-primary btn-sm">Añadir concepto</button>
                         </section>
-                        <div class="col-12 mb-3">
-                            <div class="resumen-alta-factura d-flex flex-wrap gap-3" aria-live="polite" aria-atomic="true">
-                                <span>Base provisional: <strong id="subtotalFactura">0,00 €</strong></span>
-                                <span>IVA provisional: <strong id="ivaFactura">0,00 €</strong></span>
-                                <span>Total provisional: <strong id="totalFactura">0,00 €</strong></span>
-                            </div>
-                            <p class="form-text">Previsualización orientativa. Los importes definitivos los calcula el servidor al guardar.</p>
-                        </div>
-                        <div class="col-12 mb-3">
+                        <div class="col-12">
                             <label for="observacionesFactura" class="form-label">Observaciones</label>
                             <textarea id="observacionesFactura" class="form-control" maxlength="90" rows="2" aria-describedby="contadorObservacionesFactura"></textarea>
                             <div id="contadorObservacionesFactura" class="form-text text-end"></div>
@@ -160,34 +149,42 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" form="formularioFactura" id="botonGuardarFactura" class="btn btn-primary">Guardar factura</button>
+                <div class="resumen-alta-factura" aria-live="polite" aria-atomic="true" aria-label="Importes provisionales">
+                    <small class="nota-resumen">Importes provisionales; se confirmarán al guardar.</small>
+                    <span>Base <strong id="subtotalFactura">0,00 €</strong></span>
+                    <span>IVA <strong id="ivaFactura">0,00 €</strong></span>
+                    <span class="total-alta-factura">Total <strong id="totalFactura">0,00 €</strong></span>
+                </div>
+                <div class="acciones-alta-factura d-flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="formularioFactura" id="botonGuardarFactura" class="btn btn-primary">Guardar factura</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <template id="plantillaConceptoFactura">
-    <fieldset class="concepto-factura border rounded p-3 mb-3">
+    <fieldset class="concepto-factura border rounded p-2 mb-2">
         <legend class="float-none w-auto px-1 fs-6">Concepto</legend>
         <div class="row g-2">
-            <div class="col-12">
-                <label class="form-label d-block">Descripción
+            <div class="col-12 descripcion-concepto">
+                <label class="form-label d-block mb-1">Descripción
                     <input name="descripcion" class="form-control" type="text" maxlength="50" required
                            autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
                 </label>
                 <div class="sugerencias-concepto d-none" role="listbox" aria-label="Conceptos utilizados anteriormente"></div>
             </div>
-            <label class="col-6 col-md-3 form-label">Cantidad
+            <label class="col-6 col-md-3 form-label mb-0">Cantidad
                 <input name="cantidad" class="form-control" type="number" min="1" max="2147483647" step="1" value="1" required>
             </label>
-            <label class="col-6 col-md-3 form-label">Precio unitario (€)
+            <label class="col-6 col-md-3 form-label mb-0">Precio unitario (€)
                 <input name="precioUnitario" class="form-control" type="number" min="0" max="99999999.99" step="0.01" required>
             </label>
-            <label class="col-6 col-md-3 form-label">Descuento (%)
+            <label class="col-6 col-md-3 form-label mb-0">Descuento (%)
                 <input name="descuento" class="form-control" type="number" min="0" max="100" step="0.01" value="0" required>
             </label>
-            <label class="col-6 col-md-3 form-label">IVA (%)
+            <label class="col-6 col-md-3 form-label mb-0">IVA (%)
                 <input name="porcentajeIva" class="form-control" type="number" min="0" max="99.99" step="0.01" value="21" required>
             </label>
         </div>

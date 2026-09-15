@@ -44,6 +44,90 @@ const sugerenciasHistoricas = [
     { descripcion: "Mantenimiento servidor", precioUnitario: 75, descuento: 0, porcentajeIva: 10 }
 ];
 
+test("3B: escritorio compacto con resumen y acciones siempre visibles", async ({ page: pagina }) => {
+    await simularSugerencias(pagina);
+    await abrirAlta(pagina);
+    const ficha = await anadirLinea(pagina, "Servicio", "3", "19.99", "10");
+    const cliente = await pagina.locator("#clienteFactura").boundingBox();
+    const fecha = await pagina.locator("#fechaEmision").boundingBox();
+    const estado = await pagina.locator("#estadoFactura").boundingBox();
+    expect(Math.abs(cliente.y - fecha.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(cliente.y - estado.y)).toBeLessThanOrEqual(1);
+    expect(await pagina.locator("#facturaModal .modal-body").evaluate(elemento => elemento.scrollHeight <= elemento.clientHeight + 1)).toBe(true);
+    await expect(pagina.locator("#subtotalFactura")).toHaveText("53,97 €");
+    await expect(pagina.locator("#ivaFactura")).toHaveText("11,33 €");
+    await expect(pagina.locator("#totalFactura")).toHaveText("65,30 €");
+    await ficha.getByLabel("Descripción", { exact: true }).fill("manten");
+    await expect(pagina.getByRole("listbox").getByRole("option")).toHaveCount(2);
+    const opcion = await pagina.getByRole("listbox").getByRole("option").first().boundingBox();
+    expect(opcion.height).toBeLessThanOrEqual(44);
+    const observaciones = await pagina.locator("#observacionesFactura").boundingBox();
+    const pie = await pagina.locator("#facturaModal .modal-footer").boundingBox();
+    expect(observaciones.y + observaciones.height).toBeLessThanOrEqual(pie.y);
+    expect(pie.y + pie.height).toBeLessThanOrEqual(900);
+    await pagina.screenshot({ path: test.info().outputPath("formulario-3b-escritorio.png") });
+});
+
+test("3B: orden de teclado, foco al eliminar y resumen único a cero", async ({ page: pagina }) => {
+    await abrirAlta(pagina);
+    const ficha = await anadirLinea(pagina, "Servicio", "3", "19.99", "10");
+    await ficha.getByLabel("Descripción", { exact: true }).focus();
+    for (const nombre of ["cantidad", "precioUnitario", "descuento", "porcentajeIva"]) {
+        await pagina.keyboard.press("Tab");
+        await expect(ficha.locator('[name="' + nombre + '"]')).toBeFocused();
+    }
+    await pagina.keyboard.press("Tab");
+    await expect(ficha.getByRole("button", { name: "Eliminar concepto 1", exact: true })).toBeFocused();
+    await pagina.keyboard.press("Tab");
+    await expect(pagina.locator("#botonAnadirConcepto")).toBeFocused();
+    await pagina.keyboard.press("Tab");
+    await expect(pagina.locator("#observacionesFactura")).toBeFocused();
+    await pagina.keyboard.press("Shift+Tab");
+    await expect(pagina.locator("#botonAnadirConcepto")).toBeFocused();
+    await ficha.getByRole("button", { name: "Eliminar concepto 1", exact: true }).focus();
+    await pagina.keyboard.press("Enter");
+    await expect(pagina.locator("#botonAnadirConcepto")).toBeFocused();
+    for (const identificador of ["subtotalFactura", "ivaFactura", "totalFactura"]) {
+        await expect(pagina.locator("#" + identificador)).toHaveCount(1);
+        await expect(pagina.locator("#" + identificador)).toHaveText("0,00 €");
+    }
+    await expect(pagina.locator(".resumen-alta-factura")).toHaveAttribute("aria-live", "polite");
+    await expect(pagina.locator(".resumen-alta-factura")).toContainText("provisionales");
+});
+
+for (const anchura of [320, 390]) {
+    test("3B: móvil " + anchura + " con varias líneas, sugerencias y acciones táctiles", async ({ page: pagina }) => {
+        await pagina.setViewportSize({ width: anchura, height: 844 });
+        await simularSugerencias(pagina);
+        await abrirAlta(pagina);
+        for (let numero = 1; numero <= 3; numero++) {
+            await anadirLinea(pagina, "Servicio " + numero, "1", "10");
+        }
+        const ultima = pagina.locator(".concepto-factura").last();
+        const anadir = await pagina.locator("#botonAnadirConcepto").boundingBox();
+        const ultimaPosicion = await ultima.boundingBox();
+        expect(anadir.y).toBeGreaterThanOrEqual(ultimaPosicion.y + ultimaPosicion.height);
+        await ultima.getByLabel("Descripción", { exact: true }).fill("manten");
+        await expect(ultima.getByRole("option")).toHaveCount(2);
+        await ultima.getByLabel("Descripción", { exact: true }).press("ArrowDown");
+        const activa = await ultima.getByRole("option", { selected: true }).boundingBox();
+        const cabecera = await pagina.locator("#facturaModal .modal-header").boundingBox();
+        const pie = await pagina.locator("#facturaModal .modal-footer").boundingBox();
+        expect(activa.y).toBeGreaterThanOrEqual(cabecera.y + cabecera.height);
+        expect(activa.y + activa.height).toBeLessThanOrEqual(pie.y);
+        expect(pie.y + pie.height).toBeLessThanOrEqual(844);
+        expect(await pagina.locator("#facturaModal .modal-body").evaluate(elemento => elemento.scrollWidth <= elemento.clientWidth)).toBe(true);
+        expect(await pagina.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        for (const selector of ["#botonAnadirConcepto", ".eliminar-concepto", "#botonGuardarFactura", '[data-bs-dismiss="modal"]']) {
+            for (const boton of await pagina.locator("#facturaModal").locator(selector).all()) {
+                expect((await boton.boundingBox()).height).toBeGreaterThanOrEqual(44);
+            }
+        }
+        await expect(ultima.locator(".eliminar-concepto")).toHaveCSS("color", "rgb(185, 28, 28)");
+        await pagina.screenshot({ path: test.info().outputPath("formulario-3b-movil-" + anchura + ".png") });
+    });
+}
+
 async function simularSugerencias(pagina, sugerencias = sugerenciasHistoricas) {
     await pagina.route("**/factura/conceptos/sugerencias?*", ruta => ruta.fulfill({ json: sugerencias }));
 }

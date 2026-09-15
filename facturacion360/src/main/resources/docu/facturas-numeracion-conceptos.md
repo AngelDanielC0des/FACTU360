@@ -307,3 +307,45 @@ La deduplicación limita los resultados devueltos, pero la consulta ordena las c
 ### PENDIENTE
 
 Bloque 3B y edición de facturas existentes sin iniciar. Este bloque no publica cambios ni integra trabajo en `master`. La extracción local previa de estilos de filtros en `style.css` y `facturas.css` se conserva fuera del commit 3A.1.
+
+## Bloque 3B: experiencia del formulario de alta
+
+Fecha: 15 de septiembre de 2026. Base: `a8f45e1`, cierre local del bloque 3A.1.
+
+### IMPLEMENTADO
+
+- Cliente, fecha y estado comparten fila en escritorio; la numeración automática se explica en la cabecera, sin reservar un campo vacío.
+- Los conceptos tienen menos espacio accesorio y «Añadir concepto» queda después de las líneas, también en el recorrido de teclado. Se conserva el tamaño de los campos usado en Clientes.
+- Base, IVA y total permanecen junto a Cancelar y Guardar, fuera del cuerpo desplazable. Se indica que son provisionales; Spring sigue confirmando los importes definitivos.
+- En escritorio, las sugerencias se superponen bajo Descripción, sin desplazar el resto del formulario; en móvil siguen dentro del flujo. No cambia la lógica de selección ni los datos que se copian.
+- Los botones del modal tienen una altura mínima de 44 px en móvil, incluido Cerrar. El texto de Eliminar utiliza un rojo más oscuro, limitado a este formulario.
+
+Solo cambian `facturas.html`, los estilos del formulario en `facturas.css`, su prueba `facturas-alta.spec.cjs` y esta documentación. No se modifica JavaScript de aplicación, backend, contrato HTTP, cálculos, numeración, esquema ni configuración.
+
+### VERIFICADO
+
+Se añadieron cuatro casos: distribución compacta en escritorio, orden de teclado y reinicio del resumen, y uso con varias líneas a 320 y 390 px. La ejecución focal final seleccionó estos cuatro y siete regresiones existentes: **11 pruebas superadas, salida 0**. Se verificaron autocompletado con teclado, sugerencias en móvil, edición y eliminación de líneas, una sola POST y bloqueo durante el guardado, conservación del formulario ante HTTP 500 y alta real con Spring/MySQL. El E2E confirmó base `342.00`, IVA `71.82`, total `413.82` e histórico sintético intacto.
+
+La primera ejecución detectó que las sugerencias en flujo desplazaban Observaciones fuera del área visible en escritorio. El posicionamiento local del desplegable corrigió el problema y la misma aserción pasó, sin eliminar comprobaciones. Se inspeccionaron las capturas de 1280 × 900, 320 × 844 y 390 × 844; el resumen y las acciones permanecieron visibles. La revisión independiente final del delta no encontró regresiones materiales.
+
+Comando focal desde `facturacion360/`, con los ejecutables y variables temporales descritos anteriormente:
+
+```bash
+FACTURAS_URL_PRUEBAS=http://127.0.0.1:18083 \
+FACTURAS_MYSQL_SOCKET="$DIRECTORIO_TEMPORAL/mysql.sock" \
+FACTURAS_MYSQL_SERVIDOR="$UUID_MYSQL_PRUEBAS" \
+FACTURAS_MYSQL_DIRECTORIO="$DIRECTORIO_TEMPORAL/datos/" \
+NODE_PATH="$MODULOS_PRUEBAS" \
+"$NODE_PRUEBAS" "$MODULOS_PRUEBAS/playwright/cli.js" test \
+  -c src/test/js facturas-alta.spec.cjs \
+  --grep '3B:|sugerencias: flechas|sugerencias: móvil|añadir, modificar|JSON exacto|conserva formulario.*500|modal utilizable|E2E sugerencias' \
+  --workers=1 --reporter=line --max-failures=1 --output=target/playwright-3b-cierre
+```
+
+`node --check src/test/js/facturas-alta.spec.cjs` y `git diff --check`: salida 0. No se repitieron las pruebas Java ni la suite completa.
+
+Se utilizó una instancia nueva de MySQL 8.4.11 en `/tmp/facturas-mysql-hRBb95/datos/`, puerto 19370, con el esquema `facturas_pruebas`. Se comprobaron UUID, directorio y puerto antes de preparar las tablas y el cliente sintético. Spring escuchó únicamente en `127.0.0.1:18083`, con configuración temporal y datasource explícito; sus conexiones TCP apuntaron al MySQL aislado. Tras el ajuste CSS se reinició solo ese Spring con `--spring.web.resources.static-locations` apuntando a los recursos de trabajo, sin recompilar ni cambiar archivos de configuración. No se accedió a `bd_facturacion`. Los informes y capturas permanecen en `target/`, fuera de Git.
+
+### LÍMITES Y SIGUIENTE BLOQUE
+
+La comprobación móvil utiliza Chrome con viewport reducido, no un dispositivo físico ni su teclado virtual. No se acredita una auditoría completa con lector de pantalla. La suite general queda para el bloque 5; el siguiente bloque permitido es el 4, sin iniciarse aquí. La extracción preexistente de estilos de filtros se mantiene local y fuera del commit de 3B. Sin push, PR ni integración en `master`.
