@@ -1,0 +1,165 @@
+/* Filtros del listado de facturas. */
+.barra-filtros-facturas .form-control {
+    border-color: #cbd5e1;
+    color: var(--text-main);
+}
+
+.barra-filtros-facturas .buscador-clientes {
+    /* Reserva el ancho real del campo cerrado: rellenos de clientes y bordes. */
+    width: calc(3.2rem + 1rem + 2px);
+    flex-shrink: 0;
+}
+
+.barra-filtros-facturas .buscador-icono {
+    line-height: 1;
+}
+
+/* Formulario de alta de facturas. */
+#facturaModal .form-control,
+#facturaModal .form-select {
+    padding: 0.65rem 0.85rem;
+    border-radius: 6px;
+    border-color: #ced4da;
+}
+
+#facturaModal .form-select {
+    padding-right: 2.25rem;
+}
+
+#facturaModal .form-control:focus,
+#facturaModal .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+}
+
+#facturaModal .modal-footer .btn {
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+#facturaModal .resumen-alta-factura {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem 0.75rem;
+    min-width: 0;
+    padding: 0.75rem;
+    border-radius: 6px;
+    background-color: var(--bg-body);
+}
+
+#facturaModal .modal-footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+}
+
+#facturaModal .modal-footer > * {
+    margin: 0;
+}
+
+#facturaModal .nota-resumen {
+    grid-column: 1 / -1;
+}
+
+#facturaModal .resumen-alta-factura strong {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+#facturaModal .total-alta-factura {
+    font-weight: 700;
+}
+
+#facturaModal .eliminar-concepto {
+    color: #b91c1c;
+    border-color: #b91c1c;
+}
+
+#facturaModal .eliminar-concepto:hover,
+#facturaModal .eliminar-concepto:focus-visible {
+    color: #fff;
+    background-color: #b91c1c;
+}
+
+#facturaModal input[type="date"] {
+    min-width: 0;
+}
+
+@media (min-width: 768px) {
+    #facturaModal .descripcion-concepto {
+        position: relative;
+    }
+
+    #facturaModal .sugerencias-concepto {
+        position: absolute;
+        left: 0.25rem;
+        right: 0.25rem;
+        z-index: 1;
+        background-color: #fff;
+    }
+
+    #facturaModal .sugerencias-concepto [role="option"] {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.25rem 0.75rem;
+    }
+
+    #facturaModal .sugerencias-concepto small {
+        flex-shrink: 0;
+    }
+}
+
+@media (max-width: 767.98px) {
+    #facturaModal .modal-footer {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.5rem;
+        padding: 0.75rem;
+    }
+
+    #facturaModal .resumen-alta-factura {
+        padding: 0.5rem;
+    }
+
+    #facturaModal .acciones-alta-factura {
+        justify-content: flex-end;
+    }
+
+    #facturaModal .btn {
+        min-height: 44px;
+    }
+
+    #facturaModal .btn-close {
+        width: 44px;
+        height: 44px;
+        box-sizing: border-box;
+        flex-shrink: 0;
+    }
+}
+
+#facturaModal .sugerencias-concepto {
+    max-height: 12rem;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+}
+
+#facturaModal .sugerencias-concepto [role="option"] {
+    padding: 0.5rem 0.75rem;
+    border-left: 4px solid transparent;
+    cursor: pointer;
+}
+
+#facturaModal .sugerencias-concepto [role="option"]:hover,
+#facturaModal .sugerencias-concepto [aria-selected="true"] {
+    background-color: var(--bg-body);
+    border-left-color: var(--primary-color);
+}
+
+#facturaModal .sugerencias-concepto [aria-selected="true"] {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    font-weight: 600;
+}
