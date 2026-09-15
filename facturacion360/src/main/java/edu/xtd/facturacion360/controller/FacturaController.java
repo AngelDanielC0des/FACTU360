@@ -59,11 +59,6 @@ public class FacturaController {
 		return respuesta;
 	}
 
-	@GetMapping("/{idFactura}/detalle")
-	public ResponseEntity<DetalleFactura> obtenerDetalle(@PathVariable int idFactura) {
-		DetalleFactura detalle = facturaService.obtenerDetalle(idFactura);
-		return ResponseEntity.ok(detalle);
-	}
 
 	@GetMapping("/trimestral")
 	public ResponseEntity<ResumenTrimestralFactura> listarTrimestre(
@@ -72,5 +67,6 @@ public class FacturaController {
 		ResumenTrimestralFactura resumen = facturaService.listarTrimestre(anio, trimestre);
 		return ResponseEntity.ok(resumen);
 	}
+
 
 }

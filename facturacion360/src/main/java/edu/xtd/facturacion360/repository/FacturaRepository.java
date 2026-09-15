@@ -15,7 +15,7 @@ public interface FacturaRepository {
 	public Factura insertar(Factura factura);
 
 	public List<Factura> buscar(String busqueda);
-
+	
 	public Factura buscarPorId(int idFactura);
 
 	public ClienteFactura buscarCliente(int idCliente);

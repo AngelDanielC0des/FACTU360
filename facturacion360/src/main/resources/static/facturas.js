@@ -19,8 +19,10 @@ const subtotalTrimestre = document.getElementById("subtotalTrimestre");
 const ivaTrimestre = document.getElementById("ivaTrimestre");
 const totalTrimestre = document.getElementById("totalTrimestre");
 
+
 // Ambas búsquedas comparten la tabla: una respuesta anterior no debe reemplazar la última consulta.
 let ultimaConsultaFacturas = 0;
+
 
 /** Carga las facturas que coinciden con el texto buscado. */
 async function cargarFacturas() {
@@ -77,23 +79,34 @@ function mostrarFacturas(facturas) {
     }
 }
 
-/** Añade a la fila el botón que abre la factura preparada para imprimir. */
-function agregarAccionVisor(fila, idFactura) {
-    const celda = document.createElement("td");
-    celda.className = "text-end";
+/** Consulta las facturas del año y trimestre elegidos y muestra sus totales. */
+async function cargarListadoTrimestral() {
+    if (inputAnio.reportValidity()) {
+        const parametros = new URLSearchParams({
+            anio: inputAnio.value,
+            trimestre: selectTrimestre.value
+        });
 
-    const boton = document.createElement("button");
-    boton.type = "button";
-    boton.className = "btn btn-sm btn-outline-primary";
-    boton.title = "Ver e imprimir factura";
-    boton.setAttribute("aria-label", "Ver e imprimir factura");
-    boton.textContent = "Ver / PDF";
-    boton.addEventListener("click", function () {
-        window.open("factura-imprimir.html?idFactura=" + idFactura, "_blank");
-    });
+        try {
+            const respuesta = await fetch(RUTA_FACTURAS_TRIMESTRE + "?" + parametros);
+            if (respuesta.ok) {
+                const resumen = await respuesta.json();
+                mostrarFacturas(resumen.facturas);
+                subtotalTrimestre.textContent = formatearImporte(resumen.subtotal);
+                ivaTrimestre.textContent = formatearImporte(resumen.importeIva);
+                totalTrimestre.textContent = formatearImporte(resumen.total);
+                resumenTrimestral.classList.remove("d-none");
+                mostrarMensaje("Mostrando el " + resumen.trimestre + "º trimestre de " + resumen.anio + ".", "info");
+            } else {
+                const mensajeError = await respuesta.text();
+                mostrarMensaje(mensajeError || "No se pudo cargar el listado trimestral.", "danger");
+            }
+        } catch (error) {
+            console.error("Error al cargar el listado trimestral", error);
+            mostrarMensaje("No se pudo conectar con el servidor.", "danger");
+        }
+    }
 
-    celda.appendChild(boton);
-    fila.appendChild(celda);
 }
 
 /** Consulta las facturas del año y trimestre elegidos y muestra sus totales. */

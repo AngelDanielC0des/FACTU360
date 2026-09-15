@@ -20,4 +20,5 @@ public interface FacturaService {
 
 	public ResumenTrimestralFactura listarTrimestre(int anio, int trimestre);
 
+
 }

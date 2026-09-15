@@ -179,8 +179,6 @@ Todos los endpoints de clientes cuelgan de `/cliente`
 
 Buscar, filtrar y ordenar comparten endpoint con el listado en lugar de tener uno propio: buscar es «listar con un filtro de texto más», así que de este modo hereda la paginación, los metadatos y el manejo de errores, y el frontend usa un único camino de código haya término escrito o no.
 
-Aparte del CRUD, `GET /jsonp/cliente` es una demostración de JSONP y no forma parte de la API de clientes.
-
 ---
 
 # 🛠 Buenas prácticas y convenios de código

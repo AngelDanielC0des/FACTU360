@@ -74,6 +74,53 @@
         <span>Total facturado: <strong id="totalTrimestre"></strong></span>
     </div>
 
+    <section class="card mb-4" aria-labelledby="tituloListadoTrimestral">
+        <div class="card-body">
+            <h3 id="tituloListadoTrimestral" class="h5">Listado trimestral</h3>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="anioTrimestre" class="form-label">Año</label>
+                    <input type="number" id="anioTrimestre" class="form-control" min="2000" max="2100" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="trimestreFactura" class="form-label">Trimestre</label>
+                    <select id="trimestreFactura" class="form-select">
+                        <option value="1">Primer trimestre</option>
+                        <option value="2">Segundo trimestre</option>
+                        <option value="3">Tercer trimestre</option>
+                        <option value="4">Cuarto trimestre</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button id="botonListarTrimestre" type="button" class="btn btn-primary w-100">
+                        <i class="bi bi-calendar3"></i> Mostrar trimestre
+                    </button>
+                </div>
+            </div>
+
+            <div id="resumenTrimestral" class="row g-3 mt-2 d-none" aria-live="polite">
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <span class="text-muted d-block">Subtotal</span>
+                        <strong id="subtotalTrimestre"></strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <span class="text-muted d-block">IVA</span>
+                        <strong id="ivaTrimestre"></strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100">
+                        <span class="text-muted d-block">Total facturado</span>
+                        <strong id="totalTrimestre"></strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <div class="table-responsive">
         <table class="table table-striped table-hover align-middle">
             <thead class="table-primary-custom">

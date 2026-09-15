@@ -77,6 +77,7 @@ public class FacturaServiceImpl implements FacturaService {
 		return new DetalleFactura(factura, cliente, conceptos);
 	}
 
+
 	@Override
 	public ResumenTrimestralFactura listarTrimestre(int anio, int trimestre) {
 		if (anio < 2000 || anio > 2100) {
