@@ -1,0 +1,208 @@
+================================================================================
+FACTURACION360 — DOS ENDPOINTS QUE EL FRONTEND LLAMA Y YA NO EXISTEN
+Verificado el 15/09/2026 sobre origin/master (f669ea5, "cambios carpeta"),
+después de las integraciones de hoy.
+================================================================================
+
+RESUMEN
+-------
+Hay dos pantallas que no funcionan porque llaman a dos endpoints que ya no están
+en el backend. En los dos casos la lógica de debajo (service y repositorio) SIGUE
+ESTANDO ENTERA: lo único que falta es el método del controller que la expone.
+
+Son 4 líneas en un fichero + ~20 en otro. No hay que crear ninguna clase, ni
+tocar la base de datos, ni añadir un solo import.
+
+Lo he comprobado ejecutando el inventario completo de rutas sobre origin/master.
+Esto es todo lo que expone la aplicación hoy:
+
+   POST   /cliente                 GET  /cliente/listar-pagina
+   GET    /cliente/provincias      GET  /cliente/poblaciones
+   GET|PUT|DELETE /cliente/{id}
+   GET    /emisor                  PUT  /emisor
+   POST   /factura                 GET  /factura/buscar
+   GET    /factura/trimestral
+
+Ni /cliente/listar-ultimos ni /factura/{id}/detalle aparecen por ningún lado:
+ni mapping, ni test, ni WebMvcConfigurer, ni fichero estático.
+
+
+--------------------------------------------------------------------------------
+FALLO 1 — NO SE PUEDEN CREAR FACTURAS
+--------------------------------------------------------------------------------
+Qué pasa:
+  En "Nueva factura" el desplegable de clientes sale vacío. Sin cliente no se
+  puede emitir la factura, así que la pantalla queda inservible.
+
+Endpoint que falta:
+  GET /cliente/listar-ultimos
+
+Quién lo llama:
+  facturacion360/src/main/resources/static/facturas.js
+    línea   4 : const RUTA_CLIENTES = "/cliente/listar-ultimos?limite=100";
+    línea 162 : const respuesta = await fetch(RUTA_CLIENTES);
+
+OJO CON EL CÓDIGO DE ERROR: devuelve 400, no 404.
+  La ruta encaja en @GetMapping("/{id}") de ClienteController, que declara
+  @PathVariable int id (línea 316). Spring captura la petición, intenta convertir
+  "listar-ultimos" a int, falla con MethodArgumentTypeMismatchException, y como
+  ManejadorExcepciones no tiene handler para esa excepción sale el 400 por
+  defecto.
+
+  Por eso ha pasado desapercibido: un 404 dice "esta ruta no existe" y te manda
+  al backend; un 400 parece "has mandado mal los parámetros" y te manda a mirar
+  el JavaScript, donde no hay nada que arreglar.
+
+Dónde se perdió:
+  El método desaparece en 8d1116e (14/09 12:42) y entra en master con el merge
+  fc59340 (14/09 12:43, PR #12). Comprobación de los dos padres del merge:
+    padre 1 (master)  c5e3259 -> SÍ tenía el método
+    padre 2 (rama)    8d1116e -> NO lo tenía
+    resultado del merge      -> NO lo tiene
+  El conflicto se resolvió con la versión de la rama.
+
+Nota, porque es la lección del caso:
+  El endpoint estaba marcado @Deprecated, y probablemente por eso se dio por
+  prescindible. Pero el javadoc decía explícitamente lo contrario (línea 99 del
+  fichero antes del borrado):
+
+    "Este endpoint sigue funcionando y con sus pruebas: obsoleto no es lo mismo
+     que roto. Se mantiene porque es con el que se montó el listado."
+
+  @Deprecated significa "no lo uses en código nuevo", no "esto sobra". Y aquí
+  había código nuevo usándolo: la llamada de facturas.js la escribió Fran el
+  01/09 en el commit 15e22e08.
+
+Lo que SÍ sigue existiendo (verificado en origin/master, no hay que tocarlo):
+  ClienteService.listarUltimos(int)       declarado      ClienteService.java:27
+  ClienteServiceImpl.listarUltimos(int)   implementado   ClienteServiceImpl.java:51
+  LIMITE_MIN = 1                          ClienteController.java:74
+  LIMITE_MAX = 100                        ClienteController.java:81
+  clienteService / clienteMapper          ClienteController.java:84 y 87
+  log                                     declarado
+  imports DataAccessException, Cliente, ClienteResponse, List, GetMapping,
+          RequestParam, ResponseEntity   -> los siete ya están
+
+CÓMO ARREGLARLO
+  Fichero: .../controller/ClienteController.java
+  Añadir el método. No hace falta ningún import nuevo:
+
+    @Deprecated
+    @GetMapping("/listar-ultimos")
+    public ResponseEntity<List<ClienteResponse>> listarUltimos(
+            @RequestParam(defaultValue = "10") int limite) {
+
+        ResponseEntity<List<ClienteResponse>> respuestaHttp = null;
+
+        int limiteSeguro = Math.max(LIMITE_MIN, Math.min(LIMITE_MAX, limite));
+        log.info("GET /cliente/listar-ultimos?limite={} (acotado a {})",
+                limite, limiteSeguro);
+
+        try {
+            List<Cliente> ultimos = clienteService.listarUltimos(limiteSeguro);
+            List<ClienteResponse> respuesta = ultimos.stream()
+                    .map(clienteMapper::toResponse).toList();
+            log.info("GET /cliente/listar-ultimos -> 200 ({} clientes)",
+                    respuesta.size());
+            respuestaHttp = ResponseEntity.ok(respuesta);
+        } catch (DataAccessException e) {
+            log.error("Error al listar los ultimos clientes", e);
+            respuestaHttp = ResponseEntity.internalServerError().build();
+        }
+
+        return respuestaHttp;
+    }
+
+  Alternativa a medio plazo: apuntar facturas.js a /cliente/listar-pagina, que ya
+  existe y hace lo mismo con paginación. Pero eso cambia el formato de la
+  respuesta y obliga a tocar el JS, así que para dejarlo funcionando ya, lo de
+  arriba.
+
+
+--------------------------------------------------------------------------------
+FALLO 2 — NO SE PUEDEN VER NI IMPRIMIR LAS FACTURAS
+--------------------------------------------------------------------------------
+Qué pasa:
+  Al pulsar ver/imprimir una factura, factura-imprimir.html no carga nada. No hay
+  forma de consultar ni de imprimir una factura ya emitida.
+
+Endpoint que falta:
+  GET /factura/{idFactura}/detalle       -> este sí devuelve 404 limpio,
+                                            no hay ninguna ruta que lo capture.
+
+Quién lo llama:
+  facturacion360/src/main/resources/static/factura-imprimir.js
+    línea 13 : const respuesta = await fetch("/factura/" + idFactura + "/detalle");
+
+Quién lo escribió:
+  46ea59c, Fran, 01/09/2026, "Implementa visor e impresión de factura".
+  Llegó a master el 04/09 con el merge 07e38fc (PR #17, feature/visorPdf).
+
+Dónde se perdió:
+  En el merge ee838d8 (14/09 13:34, PR #16, feature/listadoTrimestralFactura):
+    padre 1 (master)  9bdf6b5 -> SÍ tenía el endpoint
+    padre 2 (rama)    dc9ca83 -> NO lo tenía
+    resultado del merge      -> NO lo tiene
+
+  Importante, para no culpar al commit equivocado: dc9ca83 no borró nada. Esa
+  rama se sacó antes del 04/09, o sea antes de que el visor entrara en master, y
+  por eso nunca tuvo el código (comprobado: dc9ca83^ ya tenía 0 apariciones). Fue
+  la resolución del merge la que se quedó con la rama antigua.
+
+BUENA NOTICIA — la integración de hoy ya ha recuperado casi todo:
+  Verificado en origin/master, YA EXISTEN otra vez:
+    FacturaService.obtenerDetalle(int)                FacturaService.java:19
+    FacturaServiceImpl.obtenerDetalle(int)            FacturaServiceImpl.java:61
+    FacturaRepository: buscarPorId / buscarCliente / buscarConceptos   líneas 19,21,23
+    FacturaRepositoryJdbcImpl: los tres métodos       líneas 87, 100, 132
+    DTOs DetalleFactura, ClienteFactura, ConceptoFactura
+    ClienteFacturaRowMapper y ConceptoFacturaRowMapper, ya inyectados
+    FacturaController ya importa DetalleFactura y PathVariable
+
+  O sea: la cadena entera está montada y no la usa nadie, porque falta la puerta
+  de entrada. Solo queda UNA cosa.
+
+CÓMO ARREGLARLO — 4 líneas, un fichero, ningún import nuevo
+  Fichero: .../controller/FacturaController.java
+  Añadir al final de la clase:
+
+    @GetMapping("/{idFactura}/detalle")
+    public ResponseEntity<DetalleFactura> obtenerDetalle(@PathVariable int idFactura) {
+        DetalleFactura detalle = facturaService.obtenerDetalle(idFactura);
+        return ResponseEntity.ok(detalle);
+    }
+
+Queda un fleco:
+  El test FacturaServiceImplTests.java (64 líneas, de Fran) se perdió en el mismo
+  merge y sigue sin estar. Se recupera con:
+
+    git checkout 46ea59c -- facturacion360/src/test/java/edu/xtd/facturacion360/service/FacturaServiceImplTests.java
+
+
+--------------------------------------------------------------------------------
+CÓMO COMPROBAR QUE ESTÁ ARREGLADO
+--------------------------------------------------------------------------------
+  GET http://localhost:8080/cliente/listar-ultimos?limite=100
+      antes: 400    después: 200 + lista JSON de clientes
+  GET http://localhost:8080/factura/1/detalle
+      antes: 404    después: 200 + factura, cliente y conceptos
+
+  Y en pantalla: "Nueva factura" con el desplegable de clientes lleno, y
+  ver/imprimir una factura existente.
+
+
+--------------------------------------------------------------------------------
+POR QUÉ NO LO VIO NADIE, Y CÓMO EVITARLO
+--------------------------------------------------------------------------------
+  Ninguna de las dos roturas aparece como una línea borrada en un commit normal.
+  La segunda solo se ve comparando los dos padres del merge; en el diff de la PR
+  no sale nada raro, el proyecto compila y los tests que quedan pasan. Git no
+  avisa: cuando dos ramas tocan el mismo fichero y el conflicto se resuelve
+  tomando un lado entero, lo que tenía el otro lado desaparece en silencio.
+
+  Dos cosas que lo habrían cazado:
+   1) Actualizar la rama con master ANTES de integrarla, para que el conflicto
+      salga en la rama (donde se ve) y no en el merge.
+   2) Un par de tests de integración sobre las rutas (MockMvc), que en ese
+      escenario fallan inmediatamente. Hoy no hay ninguno.
+================================================================================
