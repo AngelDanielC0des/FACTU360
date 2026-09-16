@@ -31,6 +31,11 @@ async function cargarDetalleFactura() {
 function mostrarDetalle(detalle) {
     const factura = detalle.factura;
     const cliente = detalle.cliente;
+    const editar = document.getElementById("botonEditarBorrador");
+    editar.classList.toggle("d-none", factura.estado != "BORRADOR");
+    if (factura.estado == "BORRADOR") {
+        editar.href = "facturas.html?editar=" + factura.idFactura;
+    }
 
     document.getElementById("numeroFactura").textContent = factura.numeroFactura;
     document.getElementById("fechaFactura").textContent = "Fecha: " + formatearFecha(factura.fechaEmision);

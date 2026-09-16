@@ -12,10 +12,11 @@
     <script src="factura-imprimir.js" defer></script>
 </head>
 <body>
-    <div class="acciones-visor container py-3 d-flex justify-content-between">
+    <div class="acciones-visor container py-3 d-flex flex-wrap gap-2 justify-content-between">
         <a href="facturas.html" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Volver
         </a>
+        <a id="botonEditarBorrador" class="btn btn-outline-primary d-none">Editar borrador</a>
         <button id="botonImprimir" type="button" class="btn btn-primary" disabled>
             <i class="bi bi-printer"></i> Imprimir / Guardar PDF
         </button>

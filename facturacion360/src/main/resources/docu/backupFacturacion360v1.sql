@@ -98,7 +98,7 @@ CREATE TABLE `facturas` (
   `idcliente` int NOT NULL,
   `num_factura` varchar(15) NOT NULL,
   `fecha_emision` date NOT NULL,
-  `estado` enum('BORRADOR','EMITIDA','PAGADA','ANULADA') DEFAULT NULL,
+  `estado` enum('BORRADOR','EMITIDA','ANULADA') DEFAULT NULL,
   `observaciones` varchar(90) DEFAULT NULL,
   `subtotal` decimal(10,2) NOT NULL,
   `importe_iva` decimal(10,2) NOT NULL,
