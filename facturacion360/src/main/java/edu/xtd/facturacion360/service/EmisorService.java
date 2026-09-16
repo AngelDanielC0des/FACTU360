@@ -20,4 +20,14 @@ public interface EmisorService {
      * @return el emisor o null si no existe.
      */
     Emisor find();
+    
+    
+    /**
+     * Devuelve el logo del emisor.
+     *
+     * @return el logo del emisor
+     */
+    byte[] findLogo();
+    
+    
 }
