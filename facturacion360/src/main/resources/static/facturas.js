@@ -39,8 +39,10 @@ let formularioDisponible = true;
 let volverAlDetalle = false;
 let listadoTrimestralActivo = false;
 
+
 // Ambas búsquedas comparten la tabla: una respuesta anterior no debe reemplazar la última consulta.
 let ultimaConsultaFacturas = 0;
+
 
 /** Carga las facturas que coinciden con el texto buscado. */
 async function cargarFacturas() {
@@ -101,6 +103,7 @@ function mostrarFacturas(facturas) {
     }
 }
 
+
 /** Añade a la fila el botón que abre la factura preparada para imprimir. */
 function agregarAccionVisor(fila, factura) {
     const celda = document.createElement("td");
@@ -127,6 +130,7 @@ function agregarAccionVisor(fila, factura) {
         celda.appendChild(editar);
     }
     fila.appendChild(celda);
+
 }
 
 /** Consulta las facturas del año y trimestre elegidos y muestra sus totales. */

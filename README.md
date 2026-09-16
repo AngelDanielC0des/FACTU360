@@ -70,6 +70,7 @@ FACTURACION360
            │    │    └── dto
            │    └── resources
            │         ├── static          <- HTML, CSS, JS e imágenes
+           │         │    └── js           <- los módulos ES de la pantalla de clientes
            │         ├── docu            <- backup SQL, diagramas y protocolo de Git
            │         ├── application.properties
            │         └── logback-spring.xml
@@ -93,7 +94,7 @@ git clone https://github.com/Valexx55/FACTURACION360.git
 En el repositorio está el volcado completo, que crea la base de datos `bd_facturacion` con las tablas `clientes`, `conceptos` y `facturas`:
 
 ```bash
-mysql -u root -p < facturacion360/src/main/resources/docu/backupFacturacion360.sql
+mysql -u root -p < facturacion360/src/main/resources/docu/backupFacturacion360v1.sql
 ```
 
 También puede importarse desde MySQL Workbench con *Server → Data Import*.
@@ -150,16 +151,17 @@ Actualmente el sistema incluye:
 - Búsqueda por nombre y por NIF/CIF
 - Filtros por provincia y por población, en cascada
 - Ordenación por nombre y por fecha de alta, en ambos sentidos
+- Alta de clientes desde la propia tabla
+- Detalle y edición de clientes en la propia fila
+- Facturas: alta, búsqueda, listado trimestral e impresión
 - API REST documentada con OpenAPI / Swagger UI
 - Persistencia con Spring JDBC sobre MySQL
 - Interfaz web con Bootstrap
 
 Próximamente:
 
-- Alta de clientes desde la interfaz 
-- Detalle y edición de clientes desde la interfaz
 - Eliminación de clientes
-- Facturas
+- Verificación de facturas con el sistema VERI*FACTU de la AEAT
 ---
 
 # 📡 API REST
@@ -181,7 +183,13 @@ Todos los endpoints de clientes cuelgan de `/cliente`
 
 Buscar, filtrar y ordenar comparten endpoint con el listado en lugar de tener uno propio: buscar es «listar con un filtro de texto más», así que de este modo hereda la paginación, los metadatos y el manejo de errores, y el frontend usa un único camino de código haya término escrito o no.
 
-Aparte del CRUD, `GET /jsonp/cliente` es una demostración de JSONP y no forma parte de la API de clientes.
+Los de facturas cuelgan de `/factura`
+
+| Método | Endpoint | Descripción |
+|---------|----------|-------------|
+| POST | `/factura` | Crear factura |
+| GET | `/factura/buscar` | Facturas que coinciden con el texto. Admite `?busqueda=` sobre el número y el nombre del cliente |
+| GET | `/factura/trimestral` | Facturas de un trimestre con sus totales. Requiere `?anio=` y `?trimestre=` (1–4) |
 
 ---
 
@@ -192,6 +200,11 @@ Aparte del CRUD, `GET /jsonp/cliente` es una demostración de JSONP y no forma p
 - Arquitectura en capas con separación estricta de responsabilidades.
 - DTO de entrada y de salida separados del modelo de dominio.
 - Cada capa se programa contra una interfaz (`ClienteService`, `ClienteRepository`).
+- El JavaScript de la pantalla de clientes está repartido en **módulos ES por capas**, bajo
+  `static/js/`, con una regla que los mantiene ordenados: *un módulo solo importa de capas
+  estrictamente inferiores*, de modo que no puede haber dependencias circulares. El mapa de qué
+  función vive en qué módulo está en la cabecera de `js/main.js`, que es el único fichero que
+  carga el HTML.
 
 **Seguridad**
 

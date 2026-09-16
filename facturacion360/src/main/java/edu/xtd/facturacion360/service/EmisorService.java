@@ -2,17 +2,22 @@ package edu.xtd.facturacion360.service;
 
 import edu.xtd.facturacion360.dto.Emisor;
 
-public interface
+public interface EmisorService {
 
-
-EmisorService {
-
-	/**
-     * Actualiza un emisor existente por su ID.
+    /**
+     * Guarda el emisor.
      *
-     * @param id          Identificador único del emisor (idemisor).
-     * @param emisorDatos Objeto con los campos actualizados.
-     * @return El emisor guardado en la base de datos.
+     * Si ya existe, lo actualiza.
+     * Si no existe, lo crea.
+     *
+     * @return el emisor guardado o null si no se pudo guardar.
      */
-    Emisor update(Emisor emisor);
+    Emisor save(Emisor emisor);
+
+    /**
+     * Devuelve el emisor actual.
+     *
+     * @return el emisor o null si no existe.
+     */
+    Emisor find();
 }

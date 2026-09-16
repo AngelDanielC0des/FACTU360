@@ -27,7 +27,7 @@ public interface FacturaRepository {
 	}
 
 	public List<Factura> buscar(String busqueda);
-
+	
 	public Factura buscarPorId(int idFactura);
 
 	public Factura buscarPorIdParaActualizar(int idFactura);

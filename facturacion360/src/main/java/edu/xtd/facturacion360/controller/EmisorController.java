@@ -1,7 +1,8 @@
 package edu.xtd.facturacion360.controller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,15 +15,45 @@ import edu.xtd.facturacion360.service.EmisorService;
 @RequestMapping("/emisor")
 public class EmisorController {
 
-	EmisorService emisorService;
+    private final EmisorService emisorService;
 
     public EmisorController(EmisorService emisorService) {
         this.emisorService = emisorService;
     }
 
-    @PutMapping("")
-    public ResponseEntity<Emisor> update(@RequestBody Emisor emisor) {
-    	Emisor emisorActualizado = emisorService.update(emisor);
-        return ResponseEntity.ok(emisorActualizado);
+    /**
+     * Obtiene los datos actuales del emisor.
+     */
+    @GetMapping
+    public ResponseEntity<Emisor> find() {
+
+        Emisor emisor = emisorService.find();
+
+        if (emisor == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(emisor);
+    }
+
+    /**
+     * Crea o actualiza el emisor.
+     */
+    @PutMapping
+    public ResponseEntity<Emisor> save(@RequestBody Emisor emisor) {
+
+        if (emisor == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Emisor emisorGuardado = emisorService.save(emisor);
+
+        if (emisorGuardado == null) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .build();
+        }
+
+        return ResponseEntity.ok(emisorGuardado);
     }
 }

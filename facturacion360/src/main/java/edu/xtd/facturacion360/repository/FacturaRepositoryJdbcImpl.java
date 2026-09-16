@@ -180,15 +180,7 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 		}
 		return cliente;
 	}
-
-	@Override
-	public List<ConceptoFactura> buscarConceptos(int idFactura) {
-		String sql = "SELECT idconcepto, descripcion, cantidad, precio_unitario, descuento, "
-				+ "porcentaje_iva, importe_iva, base_imponible, total FROM conceptos "
-				+ "WHERE idfactura = ? ORDER BY idconcepto";
-		return jdbcTemplate.query(sql, conceptoFacturaRowMapper, idFactura);
-	}
-
+	
 	@Override
 	public List<Factura> buscarPorTrimestre(LocalDate fechaInicio, LocalDate fechaFin) {
 		String sql = "SELECT " + COLUMNAS_FACTURA + " FROM facturas f "
@@ -227,5 +219,13 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 		return texto.replace("\\", "\\\\")
 				.replace("%", "\\%")
 				.replace("_", "\\_");
+	}
+	
+	@Override
+	public List<ConceptoFactura> buscarConceptos(int idFactura) {
+		String sql = "SELECT idconcepto, descripcion, cantidad, precio_unitario, descuento, "
+				+ "porcentaje_iva, importe_iva, base_imponible, total FROM conceptos "
+				+ "WHERE idfactura = ? ORDER BY idconcepto";
+		return jdbcTemplate.query(sql, conceptoFacturaRowMapper, idFactura);
 	}
 }
