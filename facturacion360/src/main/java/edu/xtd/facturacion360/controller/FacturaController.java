@@ -71,6 +71,11 @@ public class FacturaController {
 		return ResponseEntity.status(error.getStatusCode()).body(error.getReason());
 	}
 
+	@GetMapping("/{idFactura}/detalle")
+	public ResponseEntity<DetalleFactura> obtenerDetalle(@PathVariable int idFactura) {
+		return ResponseEntity.ok(facturaService.obtenerDetalle(idFactura));
+	}
+
 	@GetMapping("/buscar")
 	public ResponseEntity<List<Factura>> buscar(
 			@RequestParam(required = false, defaultValue = "") String busqueda) {
