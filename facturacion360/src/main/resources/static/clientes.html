@@ -101,7 +101,7 @@
 
 		<div class="input-group control-filtro">
 			<span class="input-group-text" aria-hidden="true"><i
-				class="fa-solid fa-city"></i></span>
+				class="fa-solid fa-city"></i></span>l
 			<!-- Se puebla en cascada con las poblaciones de la provincia elegida -->
 			<select id="filtro-poblacion" class="form-select"
 				aria-label="Filtrar por población">
@@ -419,120 +419,259 @@
                      porque es decorativo: que el campo sea editable ya lo dice el <input>.
                      Los asteriscos, igual: se leerían como "asterisco", que no aporta nada, y
                      lo que anuncia "obligatorio" es el atributo required. -->
-				<fieldset class="grupo-edicion">
-					<legend class="visually-hidden">Datos fiscales del cliente</legend>
+					 <fieldset class="grupo-edicion">
 
-					<div class="campo-edicion">
-						<label for="campo-nombre-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">Nombre</span> <span
-							class="marca-obligatorio" aria-hidden="true">*</span>
-						</label> <input type="text" name="nombre" id="campo-nombre-PLANTILLA"
-							class="form-control form-control-sm" maxlength="60" required>
-						<div class="invalid-feedback">El nombre es obligatorio.</div>
-					</div>
+					 	<legend class="visually-hidden">Datos fiscales del cliente</legend>
 
-					<div class="campo-edicion">
-						<label for="campo-nifCif-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">NIF/CIF</span> <span
-							class="marca-obligatorio" aria-hidden="true">*</span>
-						</label> <input type="text" name="nifCif" id="campo-nifCif-PLANTILLA"
-							class="form-control form-control-sm" maxlength="10" required>
-						<div class="invalid-feedback">El NIF/CIF es obligatorio.</div>
-					</div>
+					 	<div class="campo-edicion">
 
-					<div class="campo-edicion">
-						<label for="campo-email-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">Email</span>
-						</label> <input type="email" name="email" id="campo-email-PLANTILLA"
-							class="form-control form-control-sm" maxlength="30">
-						<div class="invalid-feedback">El email no tiene un formato
-							válido.</div>
-					</div>
+					 		<label for="campo-nombre-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
 
-					<div class="campo-edicion">
-						<label for="campo-telefono-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">Teléfono</span>
-						</label> <input type="tel" name="telefono" id="campo-telefono-PLANTILLA"
-							class="form-control form-control-sm" maxlength="15"
-							inputmode="tel">
-						<div class="invalid-feedback">El teléfono no puede superar
-							15 caracteres.</div>
-					</div>
-				</fieldset>
+					 			<span class="texto-etiqueta">Nombre y Dos Apellidos</span>
 
-				<fieldset class="grupo-edicion">
-					<legend class="visually-hidden">Dirección del cliente</legend>
+					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
+					 		</label>
 
-					<div class="campo-edicion">
-						<label for="campo-direccion-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">Dirección</span> <span
-							class="marca-obligatorio" aria-hidden="true">*</span>
-						</label> <input type="text" name="direccion"
-							id="campo-direccion-PLANTILLA"
-							class="form-control form-control-sm" maxlength="90" required>
-						<div class="invalid-feedback">La dirección es obligatoria.</div>
-					</div>
+					 		<input
+					 			type="text"
+					 			name="nombre"
+					 			id="campo-nombre-PLANTILLA"
+					 			class="form-control form-control-sm"
+					 			minlength="12"
+								placeholder="Jaime Galvez Martinez"
+					 			maxlength="60"
+					 			required>
 
-					<div class="campo-edicion">
-						<label for="campo-codigoPostal-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">Código postal</span>
-						</label>
-						<!-- inputmode="numeric" saca el teclado numérico en móvil; no es
-                             type="number" porque un CP es una cadena, no una cantidad
-                             (admite ceros a la izquierda y no debe tener flechitas). -->
-						<input type="text" name="codigoPostal"
-							id="campo-codigoPostal-PLANTILLA"
-							class="form-control form-control-sm" maxlength="6"
-							inputmode="numeric">
-						<div class="invalid-feedback">El código postal no puede
-							superar 6 caracteres.</div>
-					</div>
+					 		<div class="invalid-feedback">
+					 			El nombre y dos apellidos es obligatorio y debe tener entre 12 y 60 caracteres.
+					 		</div>
 
-					<div class="campo-edicion">
-						<label for="campo-poblacion-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">Población</span> <span
-							class="marca-obligatorio" aria-hidden="true">*</span>
-						</label> <input type="text" name="poblacion"
-							id="campo-poblacion-PLANTILLA"
-							class="form-control form-control-sm" maxlength="30" required>
-						<div class="invalid-feedback">La población es obligatoria.</div>
-					</div>
+					 	</div>
 
-					<div class="campo-edicion">
-						<label for="campo-provincia-PLANTILLA"> <i
-							class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
-							<span class="texto-etiqueta">Provincia</span> <span
-							class="marca-obligatorio" aria-hidden="true">*</span>
-						</label> <input type="text" name="provincia"
-							id="campo-provincia-PLANTILLA"
-							class="form-control form-control-sm" maxlength="15" required>
-						<div class="invalid-feedback">La provincia es obligatoria.</div>
-					</div>
-				</fieldset>
 
-				<div class="pie-edicion">
-					<!-- role="alert" hace que un lector de pantalla lea el error del servidor en
-                         cuanto aparece, sin tener que ir a buscarlo. Sin hidden y sin quitarlo
-                         luego: una región que se destapa con el texto ya escrito no se anuncia,
-                         porque lo que se vigila es el cambio de contenido. Vacía no ocupa
-                         (:empty en la hoja de estilos). -->
-					<p class="alerta-edicion" role="alert"></p>
-					<div class="acciones-edicion">
-						<button type="button"
-							class="btn btn-sm btn-outline-secondary btn-cancelar">Cancelar</button>
-						<button type="submit" class="btn btn-sm btn-primary btn-guardar">
-							<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-							Guardar
-						</button>
-					</div>
-				</div>
+					 	<div class="campo-edicion">
+
+					 		<label for="campo-nifCif-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
+
+					 			<span class="texto-etiqueta">NIF/CIF</span>
+
+					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
+					 		</label>
+
+					 		<input
+					 			type="text"
+					 			name="nifCif"
+					 			id="campo-nifCif-PLANTILLA"
+					 			class="form-control form-control-sm"
+					 			minlength="9"
+					 			maxlength="9"
+					 			pattern="[0-9]{8}[A-Z]"
+								placeholder="12345678Z"
+					 			title="El DNI debe tener 8 números y una letra mayúscula. Ejemplo: 12345678Z"
+					 			required>
+
+					 		<div class="invalid-feedback">
+					 			El DNI debe tener 8 números y una letra mayúscula.
+					 			Ejemplo: 12345678Z
+					 		</div>
+
+					 	</div>
+
+
+					 	<div class="campo-edicion">
+
+					 		<label for="campo-email-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
+
+					 			<span class="texto-etiqueta">Email</span>
+					 		</label>
+
+					 		<input
+					 			type="email"
+					 			name="email"
+					 			id="campo-email-PLANTILLA"
+					 			class="form-control form-control-sm"
+								placeholder="email@dominio.es"
+					 			minlength="5"
+					 			maxlength="30">
+
+					 		<div class="invalid-feedback">
+					 			El email no tiene un formato válido.
+					 		</div>
+
+					 	</div>
+
+
+					 	<div class="campo-edicion">
+
+					 		<label for="campo-telefono-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
+
+					 			<span class="texto-etiqueta">Teléfono</span>
+					 		</label>
+
+					 		<input
+					 			type="tel"
+					 			name="telefono"
+					 			id="campo-telefono-PLANTILLA"
+					 			class="form-control form-control-sm"
+					 			maxlength="15"
+					 			pattern="(\+34\s?)?[6789][0-9]{8}"
+								placeholder="612345678"
+					 			title="Introduce un teléfono español válido. Ejemplo: 612345678 o +34612345678"
+					 			inputmode="tel">
+
+					 		<div class="invalid-feedback">
+					 			El teléfono debe tener 9 números y empezar por 6, 7, 8 o 9.
+					 			Ejemplo: 612345678
+					 		</div>
+
+					 	</div>
+
+					 </fieldset>
+
+
+					 <fieldset class="grupo-edicion">
+
+					 	<legend class="visually-hidden">Dirección del cliente</legend>
+
+					 	<div class="campo-edicion">
+
+					 		<label for="campo-direccion-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
+
+					 			<span class="texto-etiqueta">Dirección</span>
+
+					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
+					 		</label>
+
+					 		<input
+					 			type="text"
+					 			name="direccion"
+					 			id="campo-direccion-PLANTILLA"
+					 			class="form-control form-control-sm"
+								placeholder="Calle Mayor 15"
+								minlength="4"
+					 			maxlength="60"
+					 			required>
+
+					 		<div class="invalid-feedback">
+					 			La dirección es obligatoria y no puede superar 60 caracteres.
+					 		</div>
+
+					 	</div>
+
+
+					 	<div class="campo-edicion">
+
+					 		<label for="campo-codigoPostal-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
+
+					 			<span class="texto-etiqueta">Código postal</span>
+					 		</label>
+
+					 		<input
+					 			type="text"
+					 			name="codigoPostal"
+					 			id="campo-codigoPostal-PLANTILLA"
+					 			class="form-control form-control-sm"
+					 			minlength="5"
+					 			maxlength="5"
+								placeholder="26123"
+					 			pattern="[0-9]{5}"
+					 			title="El código postal debe tener 5 números"
+					 			inputmode="numeric">
+
+					 		<div class="invalid-feedback">
+					 			El código postal debe tener exactamente 5 números.
+					 		</div>
+
+					 	</div>
+
+
+					 	<div class="campo-edicion">
+
+					 		<label for="campo-poblacion-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
+
+					 			<span class="texto-etiqueta">Población</span>
+
+					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
+					 		</label>
+
+					 		<input
+					 			type="text"
+					 			name="poblacion"
+					 			id="campo-poblacion-PLANTILLA"
+					 			class="form-control form-control-sm"
+					 			maxlength="30"
+								minlength="2"
+								placeholder="Parla"
+					 			required>
+
+					 		<div class="invalid-feedback">
+					 			La población es obligatoria y no puede superar 30 caracteres.
+					 		</div>
+
+					 	</div>
+
+
+					 	<div class="campo-edicion">
+
+					 		<label for="campo-provincia-PLANTILLA">
+					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
+
+					 			<span class="texto-etiqueta">Provincia</span>
+
+					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
+					 		</label>
+
+					 		<input
+					 			type="text"
+					 			name="provincia"
+								placeholder="Madrid"
+					 			id="campo-provincia-PLANTILLA"
+					 			class="form-control form-control-sm"
+					 			maxlength="15"
+								minlength="4"
+					 			required>
+
+					 		<div class="invalid-feedback">
+					 			La provincia es obligatoria y no puede superar 15 caracteres.
+					 		</div>
+
+					 	</div>
+
+					 </fieldset>
+
+
+					 <div class="pie-edicion">
+
+					 	<p class="alerta-edicion" role="alert"></p>
+
+					 	<div class="acciones-edicion">
+
+					 		<button
+					 			type="button"
+					 			class="btn btn-sm btn-outline-secondary btn-cancelar">
+					 			Cancelar
+					 		</button>
+
+					 		<button
+					 			type="submit"
+					 			class="btn btn-sm btn-primary btn-guardar">
+
+					 			<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+
+					 			Guardar
+
+					 		</button>
+
+					 	</div>
+
+					 </div>
 			</form>
 		</template>
 	</main>
