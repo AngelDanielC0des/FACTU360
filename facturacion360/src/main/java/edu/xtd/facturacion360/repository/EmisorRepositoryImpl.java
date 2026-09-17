@@ -27,8 +27,9 @@ public class EmisorRepositoryImpl implements EmisorRepository {
                     `nif_cif` = ?,
                     `direccion` = ?,
                     `email` = ?,
-                    `telefono` = ?
-                WHERE `idemisor` = ?
+                    `telefono` = ?, 
+                    `logo` = ?
+                WHERE `idemisor` = ?;
                 """;
 
         int filas = jdbcTemplate.update(
@@ -38,6 +39,7 @@ public class EmisorRepositoryImpl implements EmisorRepository {
                 emisor.direccion(),
                 emisor.email(),
                 emisor.telefono(),
+                emisor.logo(),
                 ID_EMISOR_PRINCIPAL
         );
 
@@ -55,9 +57,10 @@ public class EmisorRepositoryImpl implements EmisorRepository {
                     `nif_cif`,
                     `direccion`,
                     `email`,
-                    `telefono`
+                    `telefono`, 
+                    `logo`
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
 
         int filas = jdbcTemplate.update(
@@ -67,7 +70,8 @@ public class EmisorRepositoryImpl implements EmisorRepository {
                 emisor.cif(),
                 emisor.direccion(),
                 emisor.email(),
-                emisor.telefono()
+                emisor.telefono(), 
+                emisor.logo()
         );
 
         return filas == 1;
@@ -96,7 +100,8 @@ public class EmisorRepositoryImpl implements EmisorRepository {
                             rs.getString("nif_cif"),
                             rs.getString("direccion"),
                             rs.getString("email"),
-                            rs.getString("telefono")
+                            rs.getString("telefono"),
+                            null
                     ),
                     ID_EMISOR_PRINCIPAL
             );
@@ -106,6 +111,30 @@ public class EmisorRepositoryImpl implements EmisorRepository {
         } catch (EmptyResultDataAccessException e) {
 
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public byte[] findLogo() {
+
+        String sql = """
+                SELECT logo
+                FROM `bd_facturacion`.`emisor`
+                WHERE idemisor = ?
+                """;
+
+        try {
+
+            return jdbcTemplate.queryForObject(
+                    sql,
+                    (rs, rowNum) -> rs.getBytes("logo"),
+                    ID_EMISOR_PRINCIPAL
+            );
+
+        } catch (EmptyResultDataAccessException e) {
+
+        	    throw e;
+            //return null;
         }
     }
 }
