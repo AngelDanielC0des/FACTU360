@@ -44,4 +44,10 @@ public class EmisorServiceImpl implements EmisorService {
     public Emisor find() {
         return emisorRepository.find().orElse(null);
     }
+
+	@Override
+	public byte[] findLogo() {
+		// TODO Auto-generated method stub
+		return emisorRepository.findLogo();
+	}
 }
