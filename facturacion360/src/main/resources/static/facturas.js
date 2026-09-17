@@ -33,6 +33,7 @@ const sinConceptos = document.getElementById("sinConceptosFactura");
 const campoEstado = document.getElementById("estadoFactura");
 let guardandoFactura = false;
 let siguienteListaSugerencias = 0;
+let siguienteAyudaTotal = 0;
 let idFacturaEnEdicion = null;
 let ultimaCargaBorrador = 0;
 let formularioDisponible = true;
@@ -403,21 +404,98 @@ function actualizarContadorObservaciones() {
 
 function anadirConcepto(datos = null) {
     const concepto = plantillaConcepto.content.firstElementChild.cloneNode(true);
+    const campoTotal = concepto.querySelector('[name="totalConcepto"]');
+    const campoPrecio = concepto.querySelector('[name="precioUnitario"]');
+    const ayudaTotal = concepto.querySelector(".ayuda-total-concepto");
+    ayudaTotal.id = "ayuda-total-concepto-" + ++siguienteAyudaTotal;
+    campoTotal.setAttribute("aria-describedby", ayudaTotal.id);
+    concepto.dataset.entradaPrincipal = "precioUnitario";
     if (datos) {
         for (const campo of ["descripcion", "cantidad", "precioUnitario", "descuento", "porcentajeIva"]) {
             concepto.querySelector('[name="' + campo + '"]').value = datos[campo] ?? "";
         }
     }
     prepararSugerenciasConcepto(concepto);
+
+    function actualizarPrecioDesdeTotal() {
+        campoTotal.setCustomValidity("");
+        ayudaTotal.textContent = "";
+        const cantidad = concepto.querySelector('[name="cantidad"]');
+        const descuento = concepto.querySelector('[name="descuento"]');
+        const iva = concepto.querySelector('[name="porcentajeIva"]');
+        if (campoTotal.value == "") {
+            campoPrecio.value = "";
+        } else if (campoTotal.checkValidity() && cantidad.checkValidity()
+                && descuento.checkValidity() && iva.checkValidity()) {
+            const totalSolicitado = Math.round(Number(campoTotal.value) * 100);
+            const divisor = Number(cantidad.value) * (1 - Number(descuento.value) / 100)
+                * (1 + Number(iva.value) / 100);
+            if (divisor == 0 && totalSolicitado > 0) {
+                campoTotal.setCustomValidity("Con un descuento del 100 %, el total debe ser 0 €.");
+                campoPrecio.value = "";
+            } else {
+                const precioCentimos = divisor == 0 ? 0 : Math.round(totalSolicitado / divisor);
+                if (precioCentimos > 9999999999) {
+                    campoTotal.setCustomValidity("El precio unitario necesario supera el máximo permitido.");
+                    campoPrecio.value = "";
+                } else {
+                    campoPrecio.value = (precioCentimos / 100).toFixed(2);
+                    const importes = calcularImportesConcepto(Number(cantidad.value), precioCentimos,
+                        Number(descuento.value), Number(iva.value));
+                    const totalReal = importes.baseCentimos + importes.impuestoCentimos;
+                    if (totalReal > 9999999999) {
+                        campoTotal.setCustomValidity("El total calculado supera el máximo permitido.");
+                    } else if (totalReal != totalSolicitado) {
+                        ayudaTotal.textContent = "Con el precio unitario calculado, el total será "
+                            + formatearImporte(totalReal / 100) + ".";
+                    }
+                }
+            }
+        }
+        if (campoTotal.validity.customError) {
+            ayudaTotal.textContent = campoTotal.validationMessage;
+        }
+        ayudaTotal.classList.toggle("text-danger", campoTotal.validity.customError);
+        actualizarConceptos(concepto);
+    }
+
     concepto.querySelector(".eliminar-concepto").addEventListener("click", function () {
         concepto.dispatchEvent(new Event("cerrar-sugerencias"));
         concepto.remove();
         actualizarConceptos();
         botonAnadirConcepto.focus();
     });
-    concepto.addEventListener("input", function () {
+    concepto.addEventListener("input", function (evento) {
         concepto.querySelector('[name="descripcion"]').setCustomValidity("");
-        actualizarConceptos();
+        if (evento.target == campoTotal) {
+            concepto.dataset.entradaPrincipal = "totalConcepto";
+            actualizarPrecioDesdeTotal();
+        } else if (evento.target == campoPrecio) {
+            concepto.dataset.entradaPrincipal = "precioUnitario";
+            campoTotal.setCustomValidity("");
+            ayudaTotal.textContent = "";
+            ayudaTotal.classList.remove("text-danger");
+            actualizarConceptos();
+        } else if (concepto.dataset.entradaPrincipal == "totalConcepto" &&
+                ["cantidad", "descuento", "porcentajeIva"].includes(evento.target.name)) {
+            actualizarPrecioDesdeTotal();
+        } else {
+            actualizarConceptos(concepto.dataset.entradaPrincipal == "totalConcepto" ? concepto : null);
+        }
+    });
+    campoTotal.addEventListener("change", function () {
+        if (campoTotal.validity.valid && campoTotal.value != "" && campoPrecio.value != "") {
+            const totalSolicitado = Math.round(Number(campoTotal.value) * 100);
+            const precioCentimos = Math.round(Number(campoPrecio.value) * 100);
+            const importes = calcularImportesConcepto(
+                Number(concepto.querySelector('[name="cantidad"]').value), precioCentimos,
+                Number(concepto.querySelector('[name="descuento"]').value),
+                Number(concepto.querySelector('[name="porcentajeIva"]').value));
+            const totalReal = importes.baseCentimos + importes.impuestoCentimos;
+            campoTotal.value = (totalReal / 100).toFixed(2);
+            ayudaTotal.textContent = totalReal == totalSolicitado ? ""
+                : "Total ajustado por el redondeo del precio unitario.";
+        }
     });
     contenedorConceptos.appendChild(concepto);
     actualizarConceptos();
@@ -467,6 +545,10 @@ function prepararSugerenciasConcepto(concepto) {
                 concepto.querySelector('[name="' + campo + '"]').value = sugerencia[campo] ?? "";
             }
             cerrar();
+            concepto.dataset.entradaPrincipal = "precioUnitario";
+            concepto.querySelector('[name="totalConcepto"]').setCustomValidity("");
+            concepto.querySelector(".ayuda-total-concepto").textContent = "";
+            concepto.querySelector(".ayuda-total-concepto").classList.remove("text-danger");
             actualizarConceptos();
             descripcion.focus();
         }
@@ -572,8 +654,16 @@ function validarFormularioFactura() {
     return valido;
 }
 
+function calcularImportesConcepto(cantidad, precioCentimos, descuento, iva) {
+    const descuentoCentesimas = Math.round(descuento * 100);
+    const ivaCentesimas = Math.round(iva * 100);
+    const baseCentimos = Math.round(cantidad * precioCentimos * (10000 - descuentoCentesimas) / 10000);
+    const impuestoCentimos = Math.round(baseCentimos * ivaCentesimas / 10000);
+    return { baseCentimos, impuestoCentimos };
+}
+
 /** Solo ayuda visual: estos importes no se incluyen en la petición de alta. */
-function actualizarConceptos() {
+function actualizarConceptos(conceptoSinSincronizar = null) {
     let subtotalCentimos = 0;
     let ivaCentimos = 0;
     const conceptos = recogerConceptos();
@@ -581,13 +671,14 @@ function actualizarConceptos() {
         const concepto = conceptos[indice];
         // Céntimos y centésimas de porcentaje evitan restas decimales como 2.30 - 5 %.
         const precioCentimos = Math.round(concepto.precioUnitario * 100);
-        const descuentoCentesimas = Math.round(concepto.descuento * 100);
-        const ivaCentesimas = Math.round(concepto.porcentajeIva * 100);
-        const baseCentimos = Math.round(concepto.cantidad * precioCentimos * (10000 - descuentoCentesimas) / 10000);
-        const impuestoCentimos = Math.round(baseCentimos * ivaCentesimas / 10000);
+        const { baseCentimos, impuestoCentimos } = calcularImportesConcepto(
+            concepto.cantidad, precioCentimos, concepto.descuento, concepto.porcentajeIva);
         subtotalCentimos += baseCentimos;
         ivaCentimos += impuestoCentimos;
         const ficha = contenedorConceptos.children[indice];
+        if (ficha != conceptoSinSincronizar) {
+            ficha.querySelector('[name="totalConcepto"]').value = ((baseCentimos + impuestoCentimos) / 100).toFixed(2);
+        }
         ficha.querySelector("legend").textContent = "Concepto " + (indice + 1);
         ficha.querySelector(".eliminar-concepto").setAttribute("aria-label", "Eliminar concepto " + (indice + 1));
         ficha.querySelector(".resumen-concepto").textContent = "Base: " + formatearImporte(baseCentimos / 100)
