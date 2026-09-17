@@ -1,212 +1,327 @@
 /* ==========================================
-   VARIABLES Y ESTILOS BASE
+   FACTURACIÓN 360 - HOJA DE ESTILOS (nosotros.css)
+   ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ==========================================
+   VARIABLES GLOBALES Y TEMA
    ========================================== */
 :root {
-    --brand-blue: #3366cc;       /* Azul exacto de tu barra superior */
-    --brand-blue-hover: #254eb0;
-    --dark-footer: #1f2328;      /* Gris oscuro exacto de tu pie de página */
-    --body-bg: #f8f9fa;          /* Fondo gris neutro claro */
-    --text-muted: #6c757d;
+    --primary-color: #4776f7;
+    --primary-hover: #305cfc;
+    --secondary-color: #0ea5e9;
+    --secondary-hover: #0284c7;
+    --bg-body: #f8fafc;
+    --text-main: #1f2937;
+    --text-muted: #64748b;
+    --white: #ffffff;
+    --focus-ring: #f59e0b; /* Contraste alto para accesibilidad */
+    /* Estructura, Bordes y Transiciones */
+    --borde-suave: #e2e8f0;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================
+   RESETEO BASE Y TIPOGRAFÍA
+   ========================================== */
+html, body {
+    height: 100%;
+    margin: 0;
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--body-bg);
-    color: #333;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    line-height: 1.7;
+    display: flex;
+    flex-direction: column;
 }
 
-/* ==========================================
-   NAVBAR (Mantiene el tono azul original)
-   ========================================== */
-.main-navbar {
-    background-color: var(--brand-blue);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+main {
+    flex: 1; /* Empuja el footer al fondo si hay poco contenido */
 }
 
-.main-navbar .logo {
-    height: 32px;
-    width: auto;
+footer {
+    flex-shrink: 0;
 }
 
-.main-navbar .nav-link {
-    color: rgba(255, 255, 255, 0.85);
-    font-weight: 500;
-    padding: 0.5rem 1rem !important;
+img {
+    max-width: 100%;
+    height: auto;
 }
 
-.main-navbar .nav-link:hover,
-.main-navbar .nav-link.active {
-    color: #ffffff !important;
-    font-weight: 700;
+/* Indicador visual de accesibilidad al navegar por teclado */
+:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
-/* ==========================================
-   HERO SECTION (Banner Oscuro estilo plantilla)
-   ========================================== */
-.hero-section {
-    position: relative;
-    height: 280px;
-    background: url('https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
-}
-
-.hero-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 23, 42, 0.7); /* Capa oscura */
-}
-
-/* ==========================================
-   ETIQUETAS Y SUBTÍTULOS
-   ========================================== */
-.subtitle-tag {
-    color: var(--brand-blue);
-    font-size: 0.85rem;
-    letter-spacing: 1.5px;
-}
-
+/* Títulos de sección unificados */
 .section-title {
     font-size: 2rem;
     font-weight: 700;
-    color: #1a1a1a;
-}
-
-.section-description {
-    max-width: 600px;
-    color: var(--text-muted);
-    font-size: 0.95rem;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+    position: relative;
 }
 
 /* ==========================================
-   TARJETAS Y SECCIONES
+   HEADER HERO
    ========================================== */
-.content-box {
-    background: #ffffff;
-    border-radius: 12px;
+.hero-section {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    box-shadow: inset 0 -10px 20px rgba(0, 0, 0, 0.05);
+}
+
+.hero-section h1 {
+    letter-spacing: -0.03em;
+}
+
+/* ==========================================
+   SECCIÓN INTRODUCCIÓN Y NUESTRA HISTORIA
+   ========================================== */
+.intro-box {
+    background-color: var(--white);
     padding: 2.5rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-    border: 1px solid #eaeaea;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--borde-suave);
+    box-shadow: var(--shadow-sm);
 }
 
-.intro-img {
-    max-height: 240px;
+.intro-image {
+    border-radius: var(--radius-md);
+    max-height: 380px;
     object-fit: contain;
+    width: 100%;
 }
 
-.stats-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    background-color: #f0f4ff;
-    padding: 0.6rem 1.2rem;
-    border-radius: 8px;
-    border-left: 4px solid var(--brand-blue);
+.stats-box {
+    display: inline-block;
+    background-color: #f0f7ff;
+    border-left: 4px solid var(--primary-color);
+    padding: 1rem 1.5rem;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-.stat-num {
-    font-size: 1.4rem;
-    font-weight: 800;
-    color: var(--brand-blue);
+.stat-number {
+    display: block;
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    line-height: 1.1;
 }
 
-.stat-text {
-    font-size: 0.85rem;
+.stat-label {
+    font-size: 0.9rem;
     font-weight: 600;
-    color: #333;
+    color: var(--text-muted);
     text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.info-card {
-    background: #ffffff;
-    border: 1px solid #eaeaea;
-    border-radius: 12px;
+/* ==========================================
+   MISIÓN, VISIÓN Y VALORES (MVV)
+   ========================================== */
+.mvv-card {
+    background-color: var(--white);
     padding: 2rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--borde-suave);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-smooth);
 }
 
-.info-card:hover {
+.mvv-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(71, 118, 247, 0.3);
 }
 
 .card-icon {
-    font-size: 1.6rem;
-    color: var(--brand-blue);
-    margin-bottom: 1rem;
+    width: 54px;
+    height: 54px;
+    background-color: #e0f2fe;
+    color: var(--secondary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.mvv-card h3 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+    color: var(--text-main);
+}
+
+.mvv-card ul li {
+    margin-bottom: 0.6rem;
+    font-size: 0.95rem;
+    color: #4b5563;
+}
+
+.mvv-card ul li i {
+    color: var(--primary-color) !important;
 }
 
 /* ==========================================
-   SECCIÓN EQUIPO
+   SECCIÓN LOGROS DESTACADOS
+   ========================================== */
+.logros-box {
+    background-color: var(--white);
+    padding: 2.5rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--borde-suave);
+    box-shadow: var(--shadow-sm);
+}
+
+.logros-list li {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+}
+
+.logros-list li:last-child {
+    margin-bottom: 0;
+}
+
+.logro-icon {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    background-color: #eef3ff;
+    padding: 0.8rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.talent-img {
+    border: 1px solid var(--borde-suave);
+    transition: var(--transition-smooth);
+}
+
+.talent-img:hover {
+    transform: scale(1.02);
+}
+
+/* ==========================================
+   SECCIÓN EQUIPO DE TRABAJO
    ========================================== */
 .team-card {
-    background: #ffffff;
-    border: 1px solid #eaeaea;
-    border-radius: 12px;
+    background-color: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--borde-suave);
     padding: 2rem 1.5rem;
     text-align: center;
-    transition: transform 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-smooth);
 }
 
 .team-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
 }
 
-.team-img {
-    width: 90px;
-    height: 90px;
+.team-card a {
+    display: inline-block;
+    border-radius: 50%;
+    padding: 4px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    margin-bottom: 1.2rem;
+    transition: var(--transition-smooth);
+}
+
+.team-card a:hover {
+    transform: scale(1.05);
+}
+
+.team-photo {
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
     object-fit: cover;
-    margin-bottom: 1rem;
-    border: 3px solid #f0f4ff;
+    display: block;
+    border: 3px solid var(--white);
+}
+
+.team-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    color: var(--text-main);
 }
 
 .team-role {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    color: var(--brand-blue);
+    color: var(--secondary-color);
     text-transform: uppercase;
-    margin-bottom: 0.75rem;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.8rem;
 }
 
-.team-desc {
-    font-size: 0.85rem;
+.team-bio {
+    font-size: 0.9rem;
     color: var(--text-muted);
     margin-bottom: 0;
-}
-/* Botón de GitHub en las tarjetas del equipo */
-.team-github-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-main);
-    background-color: #f1f5f9;
-    border: 1px solid #cbd5e1;
-    padding: 0.4rem 0.9rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.25s ease;
-}
-
-.team-github-link i {
-    font-size: 1.1rem;
-}
-
-.team-github-link:hover {
-    background-color: #1f2937;
-    color: #ffffff;
-    border-color: #1f2937;
-    transform: translateY(-2px);
+    line-height: 1.5;
 }
 
 /* ==========================================
-   FOOTER (Coincide con tu diseño actual)
+   PREGUNTAS FRECUENTES (FAQ)
+   ========================================== */
+.faq-section {
+    background-color: transparent;
+}
+
+.accordion-item {
+    border: 1px solid var(--borde-suave) !important;
+    margin-bottom: 0.5rem;
+    border-radius: var(--radius-sm) !important;
+    overflow: hidden;
+}
+
+.accordion-button {
+    font-size: 1rem;
+    background-color: var(--white);
+    padding: 1.2rem 1.5rem;
+    transition: var(--transition-smooth);
+}
+
+.accordion-button:not(.collapsed) {
+    color: var(--primary-color) !important;
+    background-color: #eef3ff;
+    box-shadow: none;
+}
+
+.accordion-button:focus {
+    box-shadow: none;
+    border-color: rgba(71, 118, 247, 0.5);
+}
+
+.accordion-body {
+    padding: 1.2rem 1.5rem;
+    background-color: var(--white);
+    line-height: 1.6;
+}
+
+/* ==========================================
+   PIE DE PÁGINA (Footer)
    ========================================== */
 .footer {
-    background-color: var(--dark-footer);
-    font-size: 0.875rem;
+    background-color: var(--text-main);
+    color: #9ca3af;
+    font-size: 0.9rem;
+    border-top: 1px solid #374151;
 }

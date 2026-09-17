@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="facturas.css">
     <!-- Icono que aparece en la pestaña del navegador. -->
     <link rel="icon" href="./img/fav.ico" type="image/x-icon">
     <script src="facturas.js" defer></script>
@@ -33,7 +34,7 @@
 <main class="container py-5">
     <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
         <h2>Panel de Gestión de Facturas</h2>
-        <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#facturaModal">
+        <button id="botonAltaFactura" class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#facturaModal">
             <i class="bi bi-file-earmark-plus"></i> Añadir factura
         </button>
     </div>
@@ -76,53 +77,6 @@
         <span>Total facturado: <strong id="totalTrimestre"></strong></span>
     </div>
 
-    <section class="card mb-4" aria-labelledby="tituloListadoTrimestral">
-        <div class="card-body">
-            <h3 id="tituloListadoTrimestral" class="h5">Listado trimestral</h3>
-            <div class="row g-3 align-items-end">
-                <div class="col-md-4">
-                    <label for="anioTrimestre" class="form-label">Año</label>
-                    <input type="number" id="anioTrimestre" class="form-control" min="2000" max="2100" required>
-                </div>
-                <div class="col-md-4">
-                    <label for="trimestreFactura" class="form-label">Trimestre</label>
-                    <select id="trimestreFactura" class="form-select">
-                        <option value="1">Primer trimestre</option>
-                        <option value="2">Segundo trimestre</option>
-                        <option value="3">Tercer trimestre</option>
-                        <option value="4">Cuarto trimestre</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <button id="botonListarTrimestre" type="button" class="btn btn-primary w-100">
-                        <i class="bi bi-calendar3"></i> Mostrar trimestre
-                    </button>
-                </div>
-            </div>
-
-            <div id="resumenTrimestral" class="row g-3 mt-2 d-none" aria-live="polite">
-                <div class="col-md-4">
-                    <div class="border rounded p-3 h-100">
-                        <span class="text-muted d-block">Subtotal</span>
-                        <strong id="subtotalTrimestre"></strong>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="border rounded p-3 h-100">
-                        <span class="text-muted d-block">IVA</span>
-                        <strong id="ivaTrimestre"></strong>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="border rounded p-3 h-100">
-                        <span class="text-muted d-block">Total facturado</span>
-                        <strong id="totalTrimestre"></strong>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <div class="table-responsive">
         <table class="table table-striped table-hover align-middle">
             <thead class="table-primary-custom">
@@ -149,64 +103,102 @@
 </footer>
 
 <div class="modal fade" id="facturaModal" tabindex="-1" aria-labelledby="facturaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="facturaModalLabel">Dar de alta una factura</h5>
+                <div>
+                    <h5 class="modal-title" id="facturaModalLabel">Dar de alta una factura</h5>
+                    <p id="ayudaNumeroFactura" class="form-text mb-0">Número automático al guardar por primera vez.</p>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
+                <div id="mensaje-formulario-factura" class="alert alert-danger d-none" role="alert" tabindex="-1"></div>
                 <form id="formularioFactura">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
+                    <fieldset id="camposFactura" class="row g-3">
+                        <div class="col-12 col-md-6">
                             <label for="clienteFactura" class="form-label">Cliente</label>
                             <select id="clienteFactura" class="form-select" required>
                                 <option value="">Selecciona un cliente</option>
                             </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="numeroFactura" class="form-label">Número de factura</label>
-                            <input type="text" id="numeroFactura" class="form-control" maxlength="15" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-6 col-md-3">
                             <label for="fechaEmision" class="form-label">Fecha de emisión</label>
-                            <input type="date" id="fechaEmision" class="form-control" required>
+                            <input type="date" id="fechaEmision" class="form-control" min="1000-01-01" max="9999-12-31" required>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-6 col-md-3">
                             <label for="estadoFactura" class="form-label">Estado</label>
                             <select id="estadoFactura" class="form-select" required>
                                 <option value="BORRADOR">Borrador</option>
                                 <option value="EMITIDA">Emitida</option>
-                                <option value="PAGADA">Pagada</option>
                                 <option value="ANULADA">Anulada</option>
                             </select>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="subtotalFactura" class="form-label">Subtotal</label>
-                            <input type="number" id="subtotalFactura" class="form-control" min="0" step="0.01" required>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="ivaFactura" class="form-label">Importe IVA</label>
-                            <input type="number" id="ivaFactura" class="form-control" min="0" step="0.01" required>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="totalFactura" class="form-label">Total</label>
-                            <input type="text" id="totalFactura" class="form-control" value="0,00 €" readonly>
-                        </div>
-                        <div class="col-12 mb-3">
+                        <section class="col-12" aria-labelledby="tituloConceptosFactura">
+                            <h6 id="tituloConceptosFactura" class="mb-1">Conceptos</h6>
+                            <p class="form-text mt-0 mb-2">Opcionales en borradores; para emitir, añade al menos uno.</p>
+                            <div id="conceptosFactura"></div>
+                            <p id="sinConceptosFactura" class="text-muted mb-2">Todavía no hay conceptos.</p>
+                            <button type="button" id="botonAnadirConcepto" class="btn btn-outline-primary btn-sm">Añadir concepto</button>
+                        </section>
+                        <div class="col-12">
                             <label for="observacionesFactura" class="form-label">Observaciones</label>
-                            <textarea id="observacionesFactura" class="form-control" maxlength="90" rows="2"></textarea>
+                            <textarea id="observacionesFactura" class="form-control" maxlength="90" rows="2" aria-describedby="contadorObservacionesFactura"></textarea>
+                            <div id="contadorObservacionesFactura" class="form-text text-end"></div>
                         </div>
-                    </div>
+                    </fieldset>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="botonGuardarFactura" class="btn btn-primary-custom">Guardar factura</button>
+                <div class="resumen-alta-factura" aria-live="polite" aria-atomic="true" aria-label="Importes provisionales">
+                    <small class="nota-resumen">Importes provisionales; se confirmarán al guardar.</small>
+                    <span>Base <strong id="subtotalFactura">0,00 €</strong></span>
+                    <span>IVA <strong id="ivaFactura">0,00 €</strong></span>
+                    <span class="total-alta-factura">Total <strong id="totalFactura">0,00 €</strong></span>
+                </div>
+                <div class="acciones-alta-factura d-flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="formularioFactura" id="botonGuardarFactura" class="btn btn-primary">Guardar factura</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<template id="plantillaConceptoFactura">
+    <fieldset class="concepto-factura border rounded p-2 mb-2">
+        <legend class="float-none w-auto px-1 fs-6">Concepto</legend>
+        <div class="row g-2">
+            <div class="col-12 descripcion-concepto">
+                <label class="form-label d-block mb-1">Descripción
+                    <input name="descripcion" class="form-control" type="text" maxlength="50" required
+                           autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
+                </label>
+                <div class="sugerencias-concepto d-none" role="listbox" aria-label="Conceptos utilizados anteriormente"></div>
+            </div>
+            <label class="col-6 col-md form-label mb-0">Cantidad
+                <input name="cantidad" class="form-control" type="number" min="1" max="2147483647" step="1" value="1" required>
+            </label>
+            <label class="col-6 col-md form-label mb-0">Precio unitario (€)
+                <input name="precioUnitario" class="form-control" type="number" min="0" max="99999999.99" step="0.01" required>
+            </label>
+            <label class="col-6 col-md form-label mb-0">Descuento (%)
+                <input name="descuento" class="form-control" type="number" min="0" max="100" step="0.01" value="0" required>
+            </label>
+            <label class="col-6 col-md form-label mb-0">IVA (%)
+                <input name="porcentajeIva" class="form-control" type="number" min="0" max="99.99" step="0.01" value="21" required>
+            </label>
+            <label class="col-12 col-md form-label mb-0">Total con IVA (€)
+                <input name="totalConcepto" class="form-control" type="number" min="0" max="99999999.99" step="0.01">
+            </label>
+        </div>
+        <small class="ayuda-total-concepto text-muted" aria-live="polite"></small>
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2">
+            <small class="resumen-concepto text-muted"></small>
+            <button type="button" class="eliminar-concepto btn btn-outline-danger btn-sm">Eliminar concepto</button>
+        </div>
+    </fieldset>
+</template>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
 </body>

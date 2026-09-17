@@ -37,7 +37,7 @@ CREATE TABLE `clientes` (
   `fecha_alta` date DEFAULT NULL,
   PRIMARY KEY (`idcliente`),
   UNIQUE KEY `nif_cif_UNIQUE` (`nif_cif`)
-) ENGINE=InnoDB AUTO_INCREMENT=44 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=54 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -61,7 +61,7 @@ CREATE TABLE `conceptos` (
   PRIMARY KEY (`idconcepto`),
   KEY `FK_FACTURA_idx` (`idfactura`),
   CONSTRAINT `FK_FACTURA` FOREIGN KEY (`idfactura`) REFERENCES `facturas` (`idfactura`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -78,6 +78,7 @@ CREATE TABLE `emisor` (
   `direccion` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_eo_0900_ai_ci NOT NULL,
   `email` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_eo_0900_ai_ci DEFAULT NULL,
   `telefono` varchar(15) CHARACTER SET utf8mb4 COLLATE utf8mb4_eo_0900_ai_ci DEFAULT NULL,
+  `logo` mediumblob,
   PRIMARY KEY (`idemisor`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -117,8 +118,7 @@ CREATE TABLE `facturas` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-09-07 10:45:43
--- añadimos el registro de emisor por defecto, necesario para que el sistema funcione
+-- Dump completed on 2026-09-16 11:56:30
 
 INSERT INTO `bd_facturacion`.`emisor` 
 (`idemisor`, `nombre`, `nif_cif`, `direccion`, `email`, `telefono`) 

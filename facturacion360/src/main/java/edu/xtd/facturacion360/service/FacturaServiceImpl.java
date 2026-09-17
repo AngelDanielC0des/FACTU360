@@ -1,22 +1,34 @@
 package edu.xtd.facturacion360.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import edu.xtd.facturacion360.dto.ClienteFactura;
 import edu.xtd.facturacion360.dto.ConceptoFactura;
+import edu.xtd.facturacion360.dto.ConceptoRequest;
 import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
 import edu.xtd.facturacion360.dto.ResumenTrimestralFactura;
+import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 import edu.xtd.facturacion360.repository.FacturaRepository;
+import edu.xtd.facturacion360.repository.FacturaRepository.NumeroFacturaDuplicadoException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 
 /**
  * Lógica necesaria para crear y buscar facturas.
@@ -27,33 +39,176 @@ public class FacturaServiceImpl implements FacturaService {
 	@Autowired
 	FacturaRepository facturaRepository;
 
-	@Override
-	public Factura crear(FacturaRequest facturaRequest) {
-		BigDecimal total = facturaRequest.subtotal().add(facturaRequest.importeIva());
+	@Autowired
+	Validator validador;
 
-		Factura factura = new Factura(
-				0,
-				facturaRequest.idCliente(),
-				null,
-				facturaRequest.numeroFactura(),
-				facturaRequest.fechaEmision(),
-				facturaRequest.estado(),
-				facturaRequest.observaciones(),
-				facturaRequest.subtotal(),
-				facturaRequest.importeIva(),
-				total);
+	@Autowired
+	PlatformTransactionManager gestorTransacciones;
 
-		Factura facturaNueva = facturaRepository.insertar(factura);
-		if (facturaNueva == null) {
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al insertar la factura");
+	private static final BigDecimal IMPORTE_MAXIMO = new BigDecimal("99999999.99");
+
+	public record CalculoFactura(List<ConceptoFactura> conceptos, BigDecimal subtotal,
+			BigDecimal importeIva, BigDecimal total) {
+	}
+
+	/** Calcula sin acceder al repositorio ni modificar los datos recibidos. */
+	public CalculoFactura calcularImportes(List<ConceptoRequest> conceptos, String estado) {
+		if (estado == null || !List.of("BORRADOR", "EMITIDA", "ANULADA").contains(estado)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El estado de la factura no es válido");
+		}
+		if (conceptos == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La lista de conceptos es obligatoria");
+		}
+		if ("EMITIDA".equals(estado) && conceptos.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Para emitir la factura hace falta al menos un concepto");
 		}
 
-		return facturaNueva;
+		List<ConceptoFactura> conceptosCalculados = new ArrayList<>();
+		BigDecimal subtotal = new BigDecimal("0.00");
+		BigDecimal ivaFactura = new BigDecimal("0.00");
+		BigDecimal totalFactura = new BigDecimal("0.00");
+
+		for (ConceptoRequest concepto : conceptos) {
+			if (concepto == null) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El concepto no puede ser nulo");
+			}
+			Set<ConstraintViolation<ConceptoRequest>> errores = validador.validate(concepto);
+			if (!errores.isEmpty()) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errores.iterator().next().getMessage());
+			}
+
+			BigDecimal bruto = concepto.precioUnitario().multiply(BigDecimal.valueOf(concepto.cantidad()));
+			BigDecimal descuentoImporte = bruto.multiply(concepto.descuento()).movePointLeft(2);
+			BigDecimal baseImponible = bruto.subtract(descuentoImporte).setScale(2, RoundingMode.HALF_UP);
+			BigDecimal importeIva = baseImponible.multiply(concepto.porcentajeIva())
+					.movePointLeft(2).setScale(2, RoundingMode.HALF_UP);
+			BigDecimal total = baseImponible.add(importeIva);
+			validarImporte(baseImponible);
+			validarImporte(importeIva);
+			validarImporte(total);
+
+			conceptosCalculados.add(new ConceptoFactura(0, concepto.descripcion().trim(), concepto.cantidad(),
+					concepto.precioUnitario(), concepto.descuento(), concepto.porcentajeIva(),
+					importeIva, baseImponible, total));
+			subtotal = subtotal.add(baseImponible);
+			ivaFactura = ivaFactura.add(importeIva);
+			totalFactura = totalFactura.add(total);
+			validarImporte(subtotal);
+			validarImporte(ivaFactura);
+			validarImporte(totalFactura);
+		}
+		return new CalculoFactura(List.copyOf(conceptosCalculados), subtotal, ivaFactura, totalFactura);
+	}
+
+	private void validarImporte(BigDecimal importe) {
+		if (importe.compareTo(IMPORTE_MAXIMO) > 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El importe supera el máximo de 99.999.999,99");
+		}
+	}
+
+	@Override
+	public Factura crear(FacturaRequest facturaRequest) {
+		validarPeticion(facturaRequest);
+		int anio = facturaRequest.fechaEmision().getYear();
+		CalculoFactura calculo = calcularImportes(facturaRequest.conceptos(), facturaRequest.estado());
+		TransactionTemplate transaccion = new TransactionTemplate(gestorTransacciones);
+		transaccion.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+		for (int intento = 1; intento <= 3; intento++) {
+			try {
+				return transaccion.execute(estadoTransaccion -> {
+					int ultimoNumero = facturaRepository.obtenerUltimoNumero(anio);
+					if (ultimoNumero >= 9999) {
+						throw new ResponseStatusException(HttpStatus.CONFLICT, "Se ha alcanzado el límite de 9999 facturas para " + anio);
+					}
+					String numeroFactura = String.format(Locale.ROOT, "F-%04d-%04d", anio, ultimoNumero + 1);
+					Factura factura = new Factura(0, facturaRequest.idCliente(), null, numeroFactura,
+							facturaRequest.fechaEmision(), facturaRequest.estado(), facturaRequest.observaciones(),
+							calculo.subtotal(), calculo.importeIva(), calculo.total());
+					Factura facturaNueva = facturaRepository.insertar(factura);
+					if (facturaNueva == null) {
+						throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al insertar la factura");
+					}
+					facturaRepository.insertarConceptos(facturaNueva.idFactura(), calculo.conceptos());
+					return facturaNueva;
+				});
+			} catch (NumeroFacturaDuplicadoException error) {
+				// execute ya ha revertido el intento; el siguiente vuelve a consultar en otra transacción.
+				if (intento == 3) {
+					throw new ResponseStatusException(HttpStatus.CONFLICT,
+							"No se pudo asignar el número tras tres intentos. Vuelve a intentarlo.", error);
+				}
+			}
+		}
+		throw new IllegalStateException("No se completó el guardado de la factura");
+	}
+
+	private void validarPeticion(FacturaRequest facturaRequest) {
+		if (facturaRequest == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La petición es obligatoria");
+		}
+		Set<ConstraintViolation<FacturaRequest>> errores = validador.validate(facturaRequest);
+		if (!errores.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errores.iterator().next().getMessage());
+		}
+		int anio = facturaRequest.fechaEmision().getYear();
+		if (anio < 1000 || anio > 9999) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El año debe estar entre 1000 y 9999");
+		}
+	}
+
+	@Override
+	public Factura editarBorrador(int idFactura, FacturaRequest facturaRequest) {
+		if (idFactura <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El identificador de factura no es válido");
+		}
+		validarPeticion(facturaRequest);
+		if (!List.of("BORRADOR", "EMITIDA").contains(facturaRequest.estado())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La edición solo admite el estado BORRADOR o EMITIDA");
+		}
+		CalculoFactura calculo = calcularImportes(facturaRequest.conceptos(), facturaRequest.estado());
+		TransactionTemplate transaccion = new TransactionTemplate(gestorTransacciones);
+		return transaccion.execute(estadoTransaccion -> {
+			Factura anterior = facturaRepository.buscarPorIdParaActualizar(idFactura);
+			if (anterior == null) {
+				throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la factura");
+			}
+			if (!"BORRADOR".equals(anterior.estado())) {
+				throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo se pueden editar facturas en estado BORRADOR");
+			}
+			int anioNumero = anterior.fechaEmision().getYear();
+			// Los números manuales ajenos al formato mantienen el año de su fecha anterior.
+			if (anterior.numeroFactura().matches("(?i)F-[0-9]{4}-[0-9]{4}")) {
+				anioNumero = Integer.parseInt(anterior.numeroFactura().substring(2, 6));
+			}
+			if (facturaRequest.fechaEmision().getYear() != anioNumero) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha debe conservar el año " + anioNumero + " del número de factura");
+			}
+			Factura modificada = new Factura(idFactura, facturaRequest.idCliente(), null, anterior.numeroFactura(),
+					facturaRequest.fechaEmision(), facturaRequest.estado(), facturaRequest.observaciones(),
+					calculo.subtotal(), calculo.importeIva(), calculo.total());
+			if (facturaRepository.actualizarBorrador(modificada) != 1) {
+				throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo actualizar el borrador");
+			}
+			facturaRepository.eliminarConceptos(idFactura);
+			facturaRepository.insertarConceptos(idFactura, calculo.conceptos());
+			return facturaRepository.buscarPorId(idFactura);
+		});
 	}
 
 	@Override
 	public List<Factura> buscar(String busqueda) {
 		return facturaRepository.buscar(busqueda);
+	}
+
+	@Override
+	public List<SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite) {
+		String textoBuscado = texto == null ? "" : texto.trim();
+		if (textoBuscado.length() < 2 || textoBuscado.length() > 50) {
+			return List.of();
+		}
+		int limiteAcotado = Math.max(1, Math.min(limite, 20));
+		return facturaRepository.buscarSugerenciasConceptos(textoBuscado, limiteAcotado);
 	}
 
 	@Transactional(readOnly = true)

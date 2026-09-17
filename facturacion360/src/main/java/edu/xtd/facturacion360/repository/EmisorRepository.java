@@ -24,4 +24,10 @@ public interface EmisorRepository {
      * Busca el emisor principal.
      */
     Optional<Emisor> find();
+    
+    
+    /**
+     * Busca el emisor principal.
+     */
+    byte[] findLogo();
 }

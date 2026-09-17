@@ -1,9 +1,13 @@
 package edu.xtd.facturacion360.dto;
 
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 
 public record Emisor(
 
@@ -32,6 +36,7 @@ public record Emisor(
                 regexp = "^(?:\\+34\\s?)?[6789][0-9]{8}$",
                 message = "El teléfono no tiene un formato válido"
         )
-        String telefono
+        String telefono,
+        @JsonIgnore byte[] logo
 ) {
 }
