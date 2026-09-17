@@ -455,28 +455,29 @@
 					 		<label for="campo-nifCif-PLANTILLA">
 					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
 
-					 			<span class="texto-etiqueta">NIF/CIF</span>
+					 			<span class="texto-etiqueta">DNI o NIF/</span>
 
 					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
 					 		</label>
 
-					 		<input
-					 			type="text"
-					 			name="nifCif"
-					 			id="campo-nifCif-PLANTILLA"
-					 			class="form-control form-control-sm"
-					 			minlength="9"
-					 			maxlength="9"
-					 			pattern="[0-9]{8}[A-Z]"
+							
+							<input
+								type="text"
+								name="nifCif"
+								id="campo-nifCif-PLANTILLA"
+								class="form-control form-control-sm"
+								minlength="9"
+								maxlength="9"
+								pattern="([0-9]{8}[A-Z]|[XYZ][0-9]{7}[A-Z])"
 								placeholder="12345678Z"
-					 			title="El DNI debe tener 8 números y una letra mayúscula. Ejemplo: 12345678Z"
-					 			required>
+								title="Introduce un DNI (12345678Z) o un NIF de extranjero (X1234567L)"
+								required>
 
-					 		<div class="invalid-feedback">
-					 			El DNI debe tener 8 números y una letra mayúscula.
-					 			Ejemplo: 12345678Z
-					 		</div>
-
+							<div class="invalid-feedback">
+								El documento debe ser un DNI (8 números y una letra) o un NIF
+								de extranjero (X, Y o Z, 7 números y una letra).
+								Ejemplos: 12345678Z o X1234567L
+							</div>
 					 	</div>
 
 
@@ -553,12 +554,12 @@
 					 			id="campo-direccion-PLANTILLA"
 					 			class="form-control form-control-sm"
 								placeholder="Calle Mayor 15"
-								minlength="4"
+								minlength="5"
 					 			maxlength="60"
 					 			required>
 
 					 		<div class="invalid-feedback">
-					 			La dirección es obligatoria y no puede superar 60 caracteres.
+					 			La dirección es obligatoria y no puede tener menos de 5 caracteres y superar 60 caracteres.
 					 		</div>
 
 					 	</div>
