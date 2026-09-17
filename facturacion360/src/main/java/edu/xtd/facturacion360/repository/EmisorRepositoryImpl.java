@@ -28,8 +28,8 @@ public class EmisorRepositoryImpl implements EmisorRepository {
                     `direccion` = ?,
                     `email` = ?,
                     `telefono` = ?, 
-                    `logo` = ?,
-                WHERE `idemisor` = ?
+                    `logo` = ?
+                WHERE `idemisor` = ?;
                 """;
 
         int filas = jdbcTemplate.update(

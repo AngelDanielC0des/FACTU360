@@ -48,6 +48,7 @@ public class EmisorController {
 	@GetMapping("/logo")
 	public ResponseEntity<byte[]> findLogo() {
 
+		//TODO gestionar el logo por defecto si no hay en la BD
 		byte[] logo = emisorService.findLogo();
 
 		return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(logo);
@@ -73,7 +74,7 @@ public class EmisorController {
 	}
 
 	@PutMapping(path = "/con-imagen")
-	public ResponseEntity<Emisor> save(Emisor emisor, MultipartFile logo) throws IOException {
+	public ResponseEntity<Emisor> save(Emisor emisor, MultipartFile foto) throws IOException {
 
 		if (emisor == null) {
 			return ResponseEntity.badRequest().build();
@@ -85,12 +86,14 @@ public class EmisorController {
 		// IDEA: los datos viajan separdos (texto e imagen) por ser de
 		// distinto tipo, pero el servidor, contexto java, se integran en
 		// un mismo objeto de la clase Emisor
-		if (logo != null && !logo.isEmpty())
+		if (foto != null && !foto.isEmpty())
 		// if (!logo.isEmpty() && logo !=null)//susceptible de NullPointerException
 		{
 			emisorCompleto = new Emisor(emisor.nombre(), emisor.cif(), emisor.direccion(), emisor.email(),
-					emisor.telefono(), logo.getBytes());
+					emisor.telefono(), foto.getBytes());
 		}
+		
+	
 
 		Emisor emisorGuardado = emisorService.save(emisorCompleto);
 
@@ -100,4 +103,73 @@ public class EmisorController {
 
 		return ResponseEntity.ok(emisorGuardado);
 	}
+	
+	/**
+	 * AYUDA CLIENTE
+	 * 
+	 * <input type="text" id="nombre">
+<input type="text" id="cif">
+<input type="text" id="direccion">
+<input type="email" id="email">
+<input type="text" id="telefono">
+
+<input type="file" id="foto" accept="image/*">
+
+<button type="button" onclick="actualizarEmisor()">
+    Guardar
+</button>
+
+
+async function actualizarEmisor() {
+
+    const nombre = document.getElementById("nombre").value;
+    const cif = document.getElementById("cif").value;
+    const direccion = document.getElementById("direccion").value;
+    const email = document.getElementById("email").value;
+    const telefono = document.getElementById("telefono").value;
+
+    const inputFoto = document.getElementById("foto");
+    const archivo = inputFoto.files[0];
+
+    const formData = new FormData();
+
+    formData.append("nombre", nombre);
+    formData.append("cif", cif);
+    formData.append("direccion", direccion);
+    formData.append("email", email);
+    formData.append("telefono", telefono);
+
+    if (archivo) {
+        formData.append("foto", archivo);
+    }
+
+    try {
+
+        const response = await fetch(
+            "http://localhost:8080/emisor/con-imagen",
+            {
+                method: "PUT",
+                body: formData
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `Error HTTP: ${response.status}`
+            );
+        }
+
+        const emisor = await response.json();
+
+        console.log("Emisor actualizado:", emisor);
+
+    } catch (error) {
+
+        console.error(
+            "Error actualizando el emisor:",
+            error
+        );
+    }
+}
+	 */
 }
