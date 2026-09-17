@@ -163,10 +163,10 @@ public class FacturaServiceImpl implements FacturaService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El identificador de factura no es válido");
 		}
 		validarPeticion(facturaRequest);
-		if (!"BORRADOR".equals(facturaRequest.estado())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La edición debe conservar el estado BORRADOR");
+		if (!List.of("BORRADOR", "EMITIDA").contains(facturaRequest.estado())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La edición solo admite el estado BORRADOR o EMITIDA");
 		}
-		CalculoFactura calculo = calcularImportes(facturaRequest.conceptos(), "BORRADOR");
+		CalculoFactura calculo = calcularImportes(facturaRequest.conceptos(), facturaRequest.estado());
 		TransactionTemplate transaccion = new TransactionTemplate(gestorTransacciones);
 		return transaccion.execute(estadoTransaccion -> {
 			Factura anterior = facturaRepository.buscarPorIdParaActualizar(idFactura);
@@ -185,7 +185,7 @@ public class FacturaServiceImpl implements FacturaService {
 				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha debe conservar el año " + anioNumero + " del número de factura");
 			}
 			Factura modificada = new Factura(idFactura, facturaRequest.idCliente(), null, anterior.numeroFactura(),
-					facturaRequest.fechaEmision(), "BORRADOR", facturaRequest.observaciones(),
+					facturaRequest.fechaEmision(), facturaRequest.estado(), facturaRequest.observaciones(),
 					calculo.subtotal(), calculo.importeIva(), calculo.total());
 			if (facturaRepository.actualizarBorrador(modificada) != 1) {
 				throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo actualizar el borrador");
