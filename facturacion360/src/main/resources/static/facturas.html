@@ -108,39 +108,68 @@
             <div class="modal-header">
                 <div>
                     <h5 class="modal-title" id="facturaModalLabel">Dar de alta una factura</h5>
-                    <p id="ayudaNumeroFactura" class="form-text mb-0">Número automático al guardar por primera vez.</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <div id="mensaje-formulario-factura" class="alert alert-danger d-none" role="alert" tabindex="-1"></div>
                 <form id="formularioFactura">
-                    <fieldset id="camposFactura" class="row g-3">
-                        <div class="col-12 col-md-6">
-                            <label for="clienteFactura" class="form-label">Cliente</label>
-                            <select id="clienteFactura" class="form-select" required>
-                                <option value="">Selecciona un cliente</option>
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <label for="fechaEmision" class="form-label">Fecha de emisión</label>
-                            <input type="date" id="fechaEmision" class="form-control" min="1000-01-01" max="9999-12-31" required>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <label for="estadoFactura" class="form-label">Estado</label>
-                            <select id="estadoFactura" class="form-select" required>
-                                <option value="BORRADOR">Borrador</option>
-                                <option value="EMITIDA">Emitida</option>
-                                <option value="ANULADA">Anulada</option>
-                            </select>
-                        </div>
-                        <section class="col-12" aria-labelledby="tituloConceptosFactura">
-                            <h6 id="tituloConceptosFactura" class="mb-1">Conceptos</h6>
-                            <p class="form-text mt-0 mb-2">Opcionales en borradores; para emitir, añade al menos uno.</p>
-                            <div id="conceptosFactura"></div>
-                            <p id="sinConceptosFactura" class="text-muted mb-2">Todavía no hay conceptos.</p>
-                            <button type="button" id="botonAnadirConcepto" class="btn btn-outline-primary btn-sm">Añadir concepto</button>
+                    <fieldset id="camposFactura" class="row gx-3 gy-2">
+                        <section class="col-12 col-md-7" aria-labelledby="tituloClienteFactura">
+                            <div id="tituloClienteFactura" class="form-label">Cliente</div>
+                            <div id="zonaBusquedaCliente" class="input-group">
+                                <div class="campo-busqueda-cliente position-relative flex-grow-1">
+                                    <label for="clienteFactura" class="visually-hidden">Buscar cliente por nombre o NIF/CIF</label>
+                                    <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" aria-hidden="true"></i>
+                                    <input id="clienteFactura" class="form-control" type="search" maxlength="60"
+                                           placeholder="Buscar por nombre o NIF/CIF..." autocomplete="off"
+                                           aria-describedby="mensajeBusquedaCliente">
+                                </div>
+                                <button id="botonAltaCliente" type="button" class="btn btn-outline-primary btn-sm" aria-label="Crear cliente" title="Crear cliente"><i class="bi bi-person-plus" aria-hidden="true"></i><span class="texto-nuevo-cliente"> Nuevo</span></button>
+                            </div>
+                            <div id="clienteSeleccionado" class="mb-0 flex-grow-1" role="status"></div>
+                            <div id="resultadosClientes" class="list-group resultados-clientes mt-2"></div>
+                            <p id="mensajeBusquedaCliente" class="form-text mt-1 mb-0" role="status">Escribe al menos dos caracteres.</p>
+                            <div id="accionesClienteSeleccionado" class="d-flex gap-2 mt-2 d-none">
+                                <button id="botonCambiarCliente" type="button" class="btn btn-outline-secondary btn-sm d-none flex-shrink-0" aria-label="Cambiar cliente" title="Cambiar cliente">Cambiar</button>
+                            </div>
                         </section>
+                        <section class="col-12 col-md-5" aria-label="Datos de factura">
+                            <div class="dato-cabecera-factura mb-2">
+                                <span>Nº factura:</span>
+                                <strong id="ayudaNumeroFactura">Pendiente de asignación</strong>
+                            </div>
+                            <div class="dato-cabecera-factura mb-2">
+                                <label for="fechaEmision" class="form-label mb-0">Fecha de emisión</label>
+                                <input type="date" id="fechaEmision" class="form-control form-control-sm" min="1000-01-01" max="9999-12-31" required>
+                            </div>
+                            <div class="dato-cabecera-factura mb-2">
+                                <label for="estadoFactura" class="form-label mb-0">Estado</label>
+                                <select id="estadoFactura" class="form-select form-select-sm" required>
+                                    <option value="BORRADOR">Borrador</option>
+                                    <option value="EMITIDA">Emitida</option>
+                                    <option value="ANULADA">Anulada</option>
+                                </select>
+                            </div>
+                        </section>
+                        <section class="col-12" aria-labelledby="tituloConceptosFactura">
+                            <div id="cabeceraConceptos" class="d-flex justify-content-between align-items-center gap-2">
+                                <h6 id="tituloConceptosFactura" class="mb-0">Conceptos</h6>
+                                <button type="button" id="botonAnadirConcepto" class="btn btn-outline-primary btn-sm">Añadir concepto</button>
+                            </div>
+                            <p class="form-text my-1">Opcionales en borradores; para emitir, añade al menos uno.</p>
+                            <div id="conceptosFactura"></div>
+                            <div id="accionesTrasConceptos" class="d-flex justify-content-end"></div>
+                            <p id="sinConceptosFactura" class="text-muted small mb-0">Todavía no hay conceptos.</p>
+                        </section>
+                        <div class="col-12">
+                            <div class="resumen-alta-factura" aria-live="polite" aria-atomic="true" aria-label="Importes provisionales">
+                                <small class="nota-resumen">Importes provisionales; se confirmarán al guardar.</small>
+                                <span>Subtotal <strong id="subtotalFactura">0,00 €</strong></span>
+                                <span>IVA <strong id="ivaFactura">0,00 €</strong></span>
+                                <span class="total-alta-factura">Total <strong id="totalFactura">0,00 €</strong></span>
+                            </div>
+                        </div>
                         <div class="col-12">
                             <label for="observacionesFactura" class="form-label">Observaciones</label>
                             <textarea id="observacionesFactura" class="form-control" maxlength="90" rows="2" aria-describedby="contadorObservacionesFactura"></textarea>
@@ -148,14 +177,51 @@
                         </div>
                     </fieldset>
                 </form>
+                <form id="formularioClienteFactura" class="d-none" aria-labelledby="tituloNuevoCliente">
+                    <h6 id="tituloNuevoCliente" class="mb-1">Nuevo cliente</h6>
+                    <p class="form-text mt-0 mb-2">Estás creando un cliente para esta factura.</p>
+                    <div id="mensajeAltaCliente" class="alert alert-danger d-none" role="alert" tabindex="-1"></div>
+                    <fieldset id="camposNuevoCliente" class="row gx-3 gy-2">
+                        <div class="col-12 col-md-6">
+                            <label for="nuevoCliente-nombre" class="form-label">Nombre *</label>
+                            <input id="nuevoCliente-nombre" name="nombre" type="text" class="form-control" maxlength="60" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="nuevoCliente-nifCif" class="form-label">NIF/CIF *</label>
+                            <input id="nuevoCliente-nifCif" name="nifCif" type="text" class="form-control" maxlength="10" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="nuevoCliente-direccion" class="form-label">Dirección *</label>
+                            <input id="nuevoCliente-direccion" name="direccion" type="text" class="form-control" maxlength="90" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="nuevoCliente-codigoPostal" class="form-label">Código postal</label>
+                            <input id="nuevoCliente-codigoPostal" name="codigoPostal" type="text" class="form-control" maxlength="5">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="nuevoCliente-poblacion" class="form-label">Población *</label>
+                            <input id="nuevoCliente-poblacion" name="poblacion" type="text" class="form-control" maxlength="30" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="nuevoCliente-provincia" class="form-label">Provincia *</label>
+                            <input id="nuevoCliente-provincia" name="provincia" type="text" class="form-control" maxlength="15" required>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="nuevoCliente-telefono" class="form-label">Teléfono</label>
+                            <input id="nuevoCliente-telefono" name="telefono" type="tel" class="form-control" maxlength="15">
+                        </div>
+                        <div class="col-12">
+                            <label for="nuevoCliente-email" class="form-label">Email</label>
+                            <input id="nuevoCliente-email" name="email" type="email" class="form-control" maxlength="30">
+                        </div>
+                        <div class="col-12 d-flex justify-content-end gap-2">
+                            <button id="botonVolverFactura" type="button" class="btn btn-secondary">← Volver a la factura</button>
+                            <button id="botonGuardarCliente" type="submit" class="btn btn-primary">Guardar cliente</button>
+                        </div>
+                    </fieldset>
+                </form>
             </div>
-            <div class="modal-footer">
-                <div class="resumen-alta-factura" aria-live="polite" aria-atomic="true" aria-label="Importes provisionales">
-                    <small class="nota-resumen">Importes provisionales; se confirmarán al guardar.</small>
-                    <span>Base <strong id="subtotalFactura">0,00 €</strong></span>
-                    <span>IVA <strong id="ivaFactura">0,00 €</strong></span>
-                    <span class="total-alta-factura">Total <strong id="totalFactura">0,00 €</strong></span>
-                </div>
+            <div id="pieFactura" class="modal-footer">
                 <div class="acciones-alta-factura d-flex gap-2">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" form="formularioFactura" id="botonGuardarFactura" class="btn btn-primary">Guardar factura</button>
@@ -166,35 +232,36 @@
 </div>
 
 <template id="plantillaConceptoFactura">
-    <fieldset class="concepto-factura border rounded p-2 mb-2">
-        <legend class="float-none w-auto px-1 fs-6">Concepto</legend>
-        <div class="row g-2">
-            <div class="col-12 descripcion-concepto">
+    <fieldset class="concepto-factura border rounded p-2 mb-3">
+        <legend class="float-none w-auto px-1 mb-1 small fw-semibold">Concepto</legend>
+        <div class="linea-concepto">
+            <div class="descripcion-concepto">
                 <label class="form-label d-block mb-1">Descripción
                     <input name="descripcion" class="form-control" type="text" maxlength="50" required
                            autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
                 </label>
                 <div class="sugerencias-concepto d-none" role="listbox" aria-label="Conceptos utilizados anteriormente"></div>
             </div>
-            <label class="col-6 col-md form-label mb-0">Cantidad
+            <label class="form-label mb-0">Cantidad
                 <input name="cantidad" class="form-control" type="number" min="1" max="2147483647" step="1" value="1" required>
             </label>
-            <label class="col-6 col-md form-label mb-0">Precio unitario (€)
-                <input name="precioUnitario" class="form-control" type="number" min="0" max="99999999.99" step="0.01" required>
+            <label class="form-label mb-0">Precio (€)
+                <input name="precioUnitario" aria-label="Precio unitario (€)" class="form-control" type="number" min="0" max="99999999.99" step="0.01" required>
             </label>
-            <label class="col-6 col-md form-label mb-0">Descuento (%)
-                <input name="descuento" class="form-control" type="number" min="0" max="100" step="0.01" value="0" required>
+            <label class="form-label mb-0">Dto. (%)
+                <input name="descuento" aria-label="Descuento (%)" class="form-control" type="number" min="0" max="100" step="0.01" value="0" required>
             </label>
-            <label class="col-6 col-md form-label mb-0">IVA (%)
+            <div>Base (€)<output class="base-concepto d-flex align-items-center justify-content-end" aria-label="Base calculada"></output></div>
+            <label class="form-label mb-0">IVA (%)
                 <input name="porcentajeIva" class="form-control" type="number" min="0" max="99.99" step="0.01" value="21" required>
             </label>
-            <label class="col-12 col-md form-label mb-0">Total con IVA (€)
-                <input name="totalConcepto" class="form-control" type="number" min="0" max="99999999.99" step="0.01">
+            <label class="form-label mb-0">Total (€)
+                <input name="totalConcepto" aria-label="Total con IVA (€)" class="form-control text-end fw-semibold" type="number" min="0" max="99999999.99" step="0.01">
             </label>
         </div>
         <small class="ayuda-total-concepto text-muted" aria-live="polite"></small>
-        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2">
-            <small class="resumen-concepto text-muted"></small>
+        <div class="pie-concepto d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2">
+            <small class="text-muted">IVA del concepto: <span class="iva-concepto"></span></small>
             <button type="button" class="eliminar-concepto btn btn-outline-danger btn-sm">Eliminar concepto</button>
         </div>
     </fieldset>
