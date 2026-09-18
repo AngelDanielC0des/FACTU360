@@ -229,6 +229,26 @@
     overflow-wrap: anywhere;
 }
 
+/* Dos posiciones fijas: Ver no se desplaza cuando no hay Editar. */
+#tablaFacturas .acciones-factura {
+    display: grid;
+    grid-template-columns: repeat(2, 2.25rem);
+    gap: 0.25rem;
+    width: 4.75rem;
+    margin: 0 auto;
+}
+
+#tablaFacturas .acciones-factura .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 0.875rem;
+    line-height: 1;
+}
+
 #facturaModal #zonaBusquedaCliente {
     min-width: 0;
 }

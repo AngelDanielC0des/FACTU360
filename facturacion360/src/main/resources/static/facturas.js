@@ -149,28 +149,38 @@ async function cargarListadoTrimestral() {
 /** Añade a la fila el botón que abre la factura preparada para imprimir. */
 function agregarAccionVisor(fila, factura) {
     const celda = document.createElement("td");
-    celda.className = "text-end";
+    celda.className = "text-center";
+    const acciones = document.createElement("div");
+    acciones.className = "acciones-factura";
 
     const boton = document.createElement("button");
     boton.type = "button";
-    boton.className = "btn btn-sm btn-outline-primary";
-    boton.title = "Ver e imprimir factura";
+    boton.className = "btn btn-sm btn-primary-custom-table btn-ver";
+    boton.title = "Ver e imprimir factura (PDF)";
     boton.setAttribute("aria-label", "Ver e imprimir factura");
-    boton.textContent = "Ver / PDF";
+    const iconoVer = document.createElement("i");
+    iconoVer.className = "fa-solid fa-eye";
+    iconoVer.setAttribute("aria-hidden", "true");
+    boton.appendChild(iconoVer);
     boton.addEventListener("click", function () {
         window.open("factura-imprimir.html?idFactura=" + factura.idFactura, "_blank");
     });
 
-    celda.appendChild(boton);
+    acciones.appendChild(boton);
     if (factura.estado == "BORRADOR") {
         const editar = document.createElement("button");
         editar.type = "button";
-        editar.className = "btn btn-sm btn-outline-primary ms-1";
-        editar.textContent = "Editar";
+        editar.className = "btn btn-sm btn-primary-custom-table btn-editar";
+        editar.title = "Editar borrador " + factura.numeroFactura;
+        const iconoEditar = document.createElement("i");
+        iconoEditar.className = "fa-solid fa-pencil";
+        iconoEditar.setAttribute("aria-hidden", "true");
+        editar.appendChild(iconoEditar);
         editar.setAttribute("aria-label", "Editar borrador " + factura.numeroFactura);
         editar.addEventListener("click", () => abrirBorrador(factura.idFactura));
-        celda.appendChild(editar);
+        acciones.appendChild(editar);
     }
+    celda.appendChild(acciones);
     fila.appendChild(celda);
 }
 
