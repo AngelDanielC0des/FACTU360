@@ -186,7 +186,13 @@
                 <input name="descuento" class="form-control" type="number" min="0" max="100" step="0.01" value="0" required>
             </label>
             <label class="col-6 col-md form-label mb-0">IVA (%)
-                <input name="porcentajeIva" class="form-control" type="number" min="0" max="99.99" step="0.01" value="21" required>
+                <select name="porcentajeIva" class="form-select" aria-label="IVA (%)" required>
+                    <option value="" disabled>Selecciona IVA</option>
+                    <option value="21" selected>21 % — General</option>
+                    <option value="10">10 % — Reducido</option>
+                    <option value="4">4 % — Superreducido</option>
+                    <option value="0">0 %</option>
+                </select>
             </label>
             <label class="col-12 col-md form-label mb-0">Total con IVA (€)
                 <input name="totalConcepto" class="form-control" type="number" min="0" max="99999999.99" step="0.01">
