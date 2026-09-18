@@ -105,18 +105,26 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 	/**
 	 * Se factura a un cliente que ya no está.
 	 *
-	 * <p>400 y no 409: lo que llega señala a un identificador que no existe, así que el
-	 * problema está en lo enviado. Un 409 diría que choca con algo que hay, y aquí es al
-	 * revés: falta.</p>
+	 * <p>409 y no 400, y conviene dejar escrito por qué. Se puede argumentar que el problema
+	 * está en lo enviado —el identificador no corresponde a nada— y responder 400. Pero quien
+	 * factura no escribió ese número: lo eligió de una lista donde estaba. Lo que ha pasado es
+	 * que alguien borró el cliente por debajo, y eso es un <em>conflicto con el estado
+	 * actual</em>, que es exactamente lo que significa un 409.</p>
+	 *
+	 * <p>Y hay una razón práctica que pesa más: este caso <strong>ya salía como 409</strong>
+	 * antes, por el manejador genérico de integridad, y el formulario de facturas lo trata como
+	 * tal («…o el cliente ya no estar disponible»). Lo que esta clase arregla es el mensaje, que
+	 * decía que sobraban datos relacionados cuando lo que falta es el cliente. Cambiar además
+	 * el código rompería a quien ya lo consume sin ganar nada.</p>
 	 *
 	 * @param excepcion la clave ajena huérfana, ya traducida por el repositorio
-	 * @return 400 diciendo que el cliente ya no existe
+	 * @return 409 diciendo que el cliente ya no existe
 	 */
 	@ExceptionHandler(FacturaRepository.ClienteInexistenteException.class)
 	public ProblemDetail gestionarClienteInexistente(
 			FacturaRepository.ClienteInexistenteException excepcion) {
 		log.warn("Se ha intentado facturar a un cliente que ya no existe");
-		return problema(HttpStatus.BAD_REQUEST, excepcion.getMessage());
+		return problema(HttpStatus.CONFLICT, excepcion.getMessage());
 	}
 
 	/**

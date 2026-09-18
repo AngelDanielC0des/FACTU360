@@ -29,16 +29,21 @@ public interface FacturaRepository {
 	/**
 	 * Se factura a un cliente que ya no está en la base de datos.
 	 *
-	 * <p>Pasa de verdad: el desplegable de «Nueva factura» se carga una vez, y si mientras
-	 * tanto alguien borra ese cliente, al guardar se manda un identificador que ya no existe.
-	 * Sin traducirlo, el manejador global respondía «no se puede realizar la operación porque
-	 * hay datos relacionados», que dice justo lo contrario de lo que ha ocurrido: el problema
-	 * no es que haya datos relacionados, es que faltan.</p>
+	 * <p>Pasa de verdad: entre que se elige el cliente y se guarda la factura cabe que alguien
+	 * lo haya borrado, así que al guardar viaja un identificador que ya no existe. Sin
+	 * traducirlo, el manejador global respondía «no se puede realizar la operación porque hay
+	 * datos relacionados», que dice justo lo contrario de lo que ha ocurrido: el problema no es
+	 * que haya datos relacionados, es que faltan.</p>
+	 *
+	 * <p>El mensaje no nombra ningún control de la pantalla —ni desplegable, ni buscador, ni
+	 * lista— a propósito. El repositorio no sabe con qué interfaz le están hablando, y de hecho
+	 * ya ha cambiado una vez: decir «recarga la lista» dejó de tener sentido en cuanto el campo
+	 * pasó a ser un buscador. Se cuenta el hecho y se deja la instrucción a quien pinta.</p>
 	 */
 	class ClienteInexistenteException extends RuntimeException {
 		public ClienteInexistenteException(Throwable causa) {
-			super("El cliente al que se factura ya no existe. Recarga la lista de clientes y "
-					+ "vuelve a elegirlo", causa);
+			super("El cliente al que se factura ya no existe. Búscalo otra vez o vuelve a "
+					+ "darlo de alta", causa);
 		}
 	}
 

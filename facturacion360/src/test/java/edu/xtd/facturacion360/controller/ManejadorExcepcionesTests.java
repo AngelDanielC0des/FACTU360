@@ -140,13 +140,16 @@ class ManejadorExcepcionesTests {
 	@Test
 	void elClienteQueYaNoEstaNoSaleComoDatosRelacionados() throws Exception {
 		// El manejador generico de integridad respondia "hay datos relacionados", que dice lo
-		// contrario de lo que pasa: no sobran datos relacionados, falta el cliente. Y 400, no
-		// 409, porque el fallo esta en el identificador enviado y no en un choque con algo.
+		// contrario de lo que pasa: no sobran datos relacionados, falta el cliente.
+		//
+		// Lo que se comprueba aqui es el MENSAJE, no el codigo: el 409 se conserva a proposito
+		// porque es el que ya devolvia el generico y el que el formulario de facturas trata.
+		// Arreglar el texto no es motivo para mover el codigo y romper a quien lo consume.
 		when(servicio.crear(any(Cliente.class)))
 				.thenThrow(new ClienteInexistenteException(new RuntimeException("fk")));
 
 		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON).content(CLIENTE_VALIDO))
-				.andExpect(status().isBadRequest())
+				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.detail").value(Matchers.containsString("ya no existe")))
 				.andExpect(content().string(Matchers.not(Matchers.containsString("datos relacionados"))));
 	}
