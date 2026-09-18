@@ -53,6 +53,23 @@ class FacturaServiceImplTests {
 		}
 
 		@Override
+		public void insertarDesglose(int idFactura,
+				List<edu.xtd.facturacion360.dto.DesgloseImpositivo> desglose) {
+			// No se comprueba nada del desglose aqui: de eso se encarga CalculadoraDesgloseTests,
+			// que lo prueba sin repositorio ni base de datos de por medio.
+		}
+
+		@Override
+		public void eliminarDesglose(int idFactura) {
+			throw new UnsupportedOperationException("Esta prueba no edita borradores");
+		}
+
+		@Override
+		public List<edu.xtd.facturacion360.dto.DesgloseImpositivo> buscarDesglose(int idFactura) {
+			return List.of();
+		}
+
+		@Override
 		public List<edu.xtd.facturacion360.dto.SugerenciaConcepto> buscarSugerenciasConceptos(String texto, int limite) {
 			return List.of();
 		}

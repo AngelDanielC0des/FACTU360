@@ -8,6 +8,13 @@ import java.util.List;
 public record DetalleFactura(
 		Factura factura,
 		ClienteFactura cliente,
-		List<ConceptoFactura> conceptos) {
+		List<ConceptoFactura> conceptos,
+
+		/**
+		 * El IVA agrupado por tipo, que es como lo lleva una factura impresa y como lo exige
+		 * la AEAT. Va aparte de los conceptos porque no es una vista de ellos: es lo que se
+		 * declaro, congelado.
+		 */
+		List<DesgloseImpositivo> desglose) {
 
 }

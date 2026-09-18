@@ -5,6 +5,7 @@ import java.util.List;
 
 import edu.xtd.facturacion360.dto.ClienteFactura;
 import edu.xtd.facturacion360.dto.ConceptoFactura;
+import edu.xtd.facturacion360.dto.DesgloseImpositivo;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 
@@ -56,6 +57,18 @@ public interface FacturaRepository {
 	public int actualizarBorrador(Factura factura);
 
 	public void eliminarConceptos(int idFactura);
+
+	/**
+	 * Guarda el desglose del IVA tal y como ha quedado al calcularlo.
+	 *
+	 * <p>Se guarda en vez de recalcularse al leer porque el dia que esto se comunique a
+	 * Hacienda, lo declarado no puede cambiar aunque despues alguien corrija una linea.</p>
+	 */
+	public void insertarDesglose(int idFactura, List<DesgloseImpositivo> desglose);
+
+	public void eliminarDesglose(int idFactura);
+
+	public List<DesgloseImpositivo> buscarDesglose(int idFactura);
 
 	public ClienteFactura buscarCliente(int idCliente);
 
