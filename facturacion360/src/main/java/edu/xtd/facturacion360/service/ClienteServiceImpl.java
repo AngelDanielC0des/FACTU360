@@ -147,7 +147,10 @@ public class ClienteServiceImpl implements ClienteService {
 
 		clienteNuevo = clienteRepository.insert(cliente);
 		if (clienteNuevo == null) {
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al insertar el cliente");
+			// "Error al insertar" es como se llama esto por dentro, no lo que le ha pasado a
+			// quien rellenó el formulario. Lo que necesita saber es si volver a intentarlo.
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+					"No se ha podido guardar el cliente. Vuelve a intentarlo en unos segundos");
 		}
 
 		return clienteNuevo;
@@ -210,11 +213,16 @@ public class ClienteServiceImpl implements ClienteService {
 
 	    if (!eliminado) {
 
-	        log.error("No se pudo eliminar el cliente con ID {}", id);
+	        // 404 y no 500, que es lo que devolvía antes. Desde que el repositorio traduce la
+	        // clave ajena, el cliente con facturas ya no llega hasta aquí: sale antes como
+	        // ClienteConFacturasException. Así que llegar aquí solo puede significar que el
+	        // DELETE no encontró la fila, o sea que ese cliente ya no está. Contarlo como un
+	        // error del servidor invitaba a reintentar algo que nunca va a funcionar.
+	        log.warn("No existe el cliente con ID {}, no hay nada que eliminar", id);
 
 	        throw new ResponseStatusException(
-	                HttpStatus.INTERNAL_SERVER_ERROR,
-	                "No se pudo eliminar el cliente."
+	                HttpStatus.NOT_FOUND,
+	                "El cliente " + id + " ya no existe: puede que lo haya eliminado otra persona"
 	        );
 	    }
 

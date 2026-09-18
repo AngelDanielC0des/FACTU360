@@ -86,5 +86,11 @@ function motivoDeNoBorrar(estado) {
         return "No se puede eliminar: este cliente tiene facturas asociadas.";
     }
 
+    if (estado === 404) {
+        // Ya no está: alguien se le adelantó. Antes esto caía en el texto de abajo, que
+        // invita a reintentar un borrado que nunca va a funcionar porque ya está hecho.
+        return "Este cliente ya no existe: alguien lo ha eliminado antes.";
+    }
+
     return "No se ha podido eliminar el cliente. Inténtalo de nuevo.";
 }
