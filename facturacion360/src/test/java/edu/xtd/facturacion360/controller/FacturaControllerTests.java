@@ -170,7 +170,13 @@ class FacturaControllerTests {
 				.when(repositorio).eliminarConceptos(7);
 		clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)
 				.content(PETICION.replace("EMITIDA", "BORRADOR")))
-				.andExpect(status().isInternalServerError()).andExpect(content().string("Error al acceder a la base de datos"));
+				.andExpect(status().isInternalServerError())
+				// El cuerpo de los errores es ahora un ProblemDetail (RFC 9457), asi que el
+				// motivo va en su campo detail y no suelto. Y se comprueba ademas lo que de
+				// verdad protege esta prueba: que el mensaje interno de SQL NO sale.
+				.andExpect(jsonPath("$.detail").value("Error al acceder a la base de datos"))
+				.andExpect(content().string(org.hamcrest.Matchers.not(
+						org.hamcrest.Matchers.containsString("SQL secreto"))));
 	}
 
 	@Test

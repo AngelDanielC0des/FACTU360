@@ -10,7 +10,8 @@ import { API_CLIENTE, CAMPOS_CLIENTE, CAMPOS_EDITABLES, DURACION_PLEGADO_MS } fr
 import { columnasVisibles, cuerpoTabla, plantillaDespliegue } from "./dom.js";
 import { clientesEnPagina, filasDesplegadas } from "./estado.js";
 import { esCancelacion, pedirJson, peticionesEnVuelo } from "./api.js";
-import { anunciar, escribirPista, limpiarPistas } from "./avisos.js";
+import { anunciar, escribirPista, fijar, limpiarPistas } from "./avisos.js";
+import { crearAlerta } from "./notificaciones.js";
 import { filaViva, modoDe, panelDe, pintarCeldasFila } from "./fila.js";
 import { etiquetaDe, valoresDe } from "./formulario.js";
 import { confirmarDescarte } from "./dialogo.js";
@@ -195,7 +196,9 @@ function conciliarFormulario(formulario, recibido) {
 
     // En la alerta del propio formulario, que es donde está mirando: es role="alert" y estaba
     // en el documento desde que se pintó, así que escribir dentro basta para que se anuncie.
-    formulario.querySelector(".alerta-edicion").textContent = partes.join(" ");
+    // Con informar() y no con mostrarError(): decir qué campos se han refrescado no es un
+    // fallo de nadie, y en rojo parecería que algo ha ido mal.
+    crearAlerta(formulario.querySelector(".alerta-formulario")).informar(partes.join(" "));
 }
 
 /**
@@ -208,8 +211,8 @@ function fallaComprobacion(idCliente, error) {
     if (error.estado === 404) {
         // Lo han borrado. Se avisa fuera de la tabla, que es lo único que sobrevive al
         // refresco, y se olvida el panel para que no se reabra sobre una fila que ya no viene.
-        anunciar("Este cliente ya no existe: alguien lo ha eliminado.",
-            { visible: true, esError: true });
+        fijar("Este cliente ya no existe: alguien lo ha eliminado.",
+            { esError: true });
         filasDesplegadas.delete(idCliente);
         document.dispatchEvent(new CustomEvent("clientes:cambiaron"));
         return;

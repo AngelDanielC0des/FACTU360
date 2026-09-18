@@ -6,52 +6,23 @@
  * @author AngelDanielC0des
  */
 
-import { DURACION_AVISO_MS, RETARDO_PISTA_MS } from "./config.js";
+import { RETARDO_PISTA_MS } from "./config.js";
 import { avisoClientes, barraFiltros, cuerpoTabla, regionAnuncios } from "./dom.js";
+import { crearAvisos } from "./notificaciones.js";
 
-// Temporizador que borra el aviso de la zona de estado pasado un rato.
-let temporizadorAviso = null;
+// Los avisos de esta pantalla. El comportamiento —cuándo se borra uno, cómo se lee en alto,
+// por qué se vacía en vez de esconderse— vive en notificaciones.js, que es el mismo para las
+// cuatro páginas. Aquí solo se dice CUÁLES son los dos contenedores de clientes.
+//
+// Se reexportan para que los módulos que ya llamaban a anunciar() sigan importando de aquí y
+// no tengan que enterarse de nada. limpiar() no se saca: en clientes la franja nunca se vacía
+// a mano, cada aviso releva al anterior. El día que haga falta, se añade aquí.
+const { anunciar, fijar } = crearAvisos({
+    franja: avisoClientes,
+    region: regionAnuncios,
+});
 
-/**
- * Cuenta lo que acaba de pasar: siempre a quien no ve la pantalla, y además en la franja de
- * avisos cuando no haya otro sitio donde se vea.
- *
- * Son dos elementos y no uno porque resuelven cosas distintas. #anuncios está siempre en el
- * documento, vacío e invisible, y es lo único que lee el lector de pantalla: una región que
- * aparece con el mensaje ya dentro no se anuncia, porque lo que se vigila es el cambio de
- * contenido de algo que ya estaba. Y al ser invisible puede repetir un texto que ya se ve en
- * su sitio (el mensaje de la tabla vacía, el del panel) sin que salga escrito dos veces.
- *
- * @param {string} texto lo que se cuenta
- * @param {Object} [opciones]
- * @param {boolean} [opciones.visible=false] si además se escribe en la franja de avisos.
- *        Para lo que no tiene otro sitio donde verse, como el "Cliente guardado" de una fila
- *        que el refresco se lleva por delante
- * @param {boolean} [opciones.esError=false] si es un problema y no una confirmación
- */
-export function anunciar(texto, { visible = false, esError = false } = {}) {
-    // Se vacía y se reescribe en el fotograma siguiente, en vez de asignar el texto sin más.
-    // Lo que el lector de pantalla vigila es el CAMBIO de contenido, así que un mensaje
-    // idéntico al anterior no se leería: guardar dos clientes seguidos anunciaba el primero y
-    // callaba el segundo, que es justo cuando hace falta la confirmación.
-    regionAnuncios.textContent = "";
-    requestAnimationFrame(() => {
-        regionAnuncios.textContent = texto;
-    });
-
-    if (!visible) return;
-
-    clearTimeout(temporizadorAviso);
-    avisoClientes.classList.toggle("aviso-error", esError);
-    avisoClientes.textContent = texto;
-
-    // Se borra solo: es información de "ha pasado esto ahora", y dejarla fija acaba
-    // confundiendo (un "Cliente guardado" de hace diez minutos parece de la última acción).
-    // Se vacía en vez de esconderse: la hoja de estilos ya oculta la franja vacía.
-    temporizadorAviso = setTimeout(() => {
-        avisoClientes.textContent = "";
-    }, DURACION_AVISO_MS);
-}
+export { anunciar, fijar };
 
 /** Escribe el texto del aviso en cada elemento y descarta el globo que ya tuviera. */
 export function escribirPista(elementos, texto) {
