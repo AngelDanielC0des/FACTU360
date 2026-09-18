@@ -97,6 +97,31 @@ function mostrarConceptos(conceptos) {
         }
     }
 }
+/** Carga los datos de la informacion del emisor */
+async function cargarEmisor() {
+    try {
+        const respuesta = await fetch("/emisor");
+        if (respuesta.ok) {
+            const emisor = await respuesta.json();
+            mostrarEmisor(emisor);
+        }
+    } catch (error) {
+        console.error("Error al cargar los datos del emisor", error);
+    }
+}
+/** Muestra los datos de la informacion del emisor */
+function mostrarEmisor(emisor) {
+    if (!emisor) return;
+    
+    // Asignamos los datos únicamente a la sección del recuadro "Emisor"
+    document.getElementById("nombreEmisor").textContent = emisor.nombre || "—";
+    document.getElementById("cifEmisor").textContent = "NIF/CIF: " + (emisor.cif || emisor.nifCif || "—");
+    document.getElementById("direccionEmisor").textContent = emisor.direccion || "—";
+    
+    const tel = emisor.telefono || "";
+    const email = emisor.email || "";
+    document.getElementById("contactoEmisor").textContent = [tel, email].filter(Boolean).join(" · ") || "Sin contacto";
+}
 
 function agregarCelda(fila, texto, clases) {
     const celda = document.createElement("td");
@@ -143,3 +168,4 @@ botonImprimir.addEventListener("click", function () {
 });
 
 cargarDetalleFactura();
+cargarEmisor();
