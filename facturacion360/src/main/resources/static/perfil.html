@@ -8,8 +8,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    
     <link rel="icon" href="./img/fav.ico" type="image/x-icon">
-	<script src="perfil.js" defer></script>
+	<script type="module" src="perfil.js"></script>
 </head>
 <body>
  
@@ -21,11 +22,11 @@
                 Facturación 360
             </a>
             <ul class="navbar-nav">
-                <li><a class="nav-link active" href="index.html">Inicio</a></li>
-				<li><a class="nav-link" href="perfil.html">Datos Emisor</a></li>
+                <li><a class="nav-link " href="index.html">Inicio</a></li>
+				<li><a class="nav-link active" href="perfil.html">Datos Emisor</a></li>
                 <li><a class="nav-link" href="clientes.html">Clientes</a></li>
                 <li><a class="nav-link" href="facturas.html">Facturas</a></li>
-                <li><a class="nav-link active" href="nosotros.html">Sobre Nosotros</a></li>
+                <li><a class="nav-link " href="nosotros.html">Sobre Nosotros</a></li>
             </ul>
         </div>
     </nav>
@@ -34,6 +35,16 @@
     <main class="container main-wrapper py-5">
         <div class="row justify-content-center w-100">
             <div class="col-lg-8 col-md-10">
+                <!-- La región viva que lee el lector de pantalla. Está siempre en el
+                     documento, vacía e invisible: una región que aparece con el mensaje ya
+                     dentro NO se anuncia, porque lo que se vigila es el cambio de contenido. -->
+                <p id="anuncios" class="visually-hidden" role="status"></p>
+
+                <!-- Y esta es la franja visible. Sustituye a la alerta que perfil.js creaba y
+                     borraba a mano con innerHTML: ahora la escribe el módulo común, con el
+                     mismo comportamiento que en clientes y en facturas. Vacía no ocupa. -->
+                <p id="aviso-emisor" class="aviso"></p>
+
                 <div class="card shadow-sm border-0 p-4" id="tarjetaEmisor">
  
                     <!-- Cabecera de la Tarjeta -->
@@ -79,35 +90,43 @@
                     <h5 class="modal-title" id="modalEditarEmisorLabel"><i class="fas fa-edit me-2"></i>Editar Datos de la Empresa</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="formEditarEmisor">
+                <!-- novalidate: el navegador comprueba pero no dibuja el globo nativo. Cada campo
+                     enseña su error en el .invalid-feedback de debajo, igual que en clientes y en
+                     facturas. Un campo con restricciones y sin su hueco no avisaría de nada. -->
+                <form id="formEditarEmisor" novalidate>
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="inputNombre" class="form-label font-weight-bold">Nombre o Razón Social*</label>
-                            <input type="text" class="form-control" id="inputNombre" placeholder="Empresa S.L.U" required>
+                            <input type="text" class="form-control" name="nombre" id="inputNombre" placeholder="Empresa S.L.U" required>
+                            <div class="invalid-feedback">Escribe el nombre o la razón social.</div>
                         </div>
                         <div class="mb-3">
                             <label for="inputCif" class="form-label">NIF / CIF*</label>
-                            <input type="text" class="form-control" id="inputCif" placeholder="Z00000000" required>
+                            <input type="text" class="form-control" name="cif" id="inputCif" placeholder="Z00000000" required>
+                            <div class="invalid-feedback">Escribe el NIF o el CIF.</div>
                         </div>
                         <div class="mb-3">
                             <label for="inputDireccion" class="form-label">Dirección Fiscal*</label>
-                            <input type="text" class="form-control" id="inputDireccion" placeholder="Calle Mayor 15, 28015, Madrid" required>
+                            <input type="text" class="form-control" name="direccion" id="inputDireccion" placeholder="Calle Mayor 15, 28015, Madrid" required>
+                            <div class="invalid-feedback">Escribe la dirección fiscal.</div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="inputEmail" class="form-label">Correo Electrónico*</label>
-                                <input type="email" class="form-control" id="inputEmail" placeholder="email@dominio.es"  required>
+                                <input type="email" class="form-control" name="email" id="inputEmail" placeholder="email@dominio.es"  required>
+                                <div class="invalid-feedback">Escribe un correo electrónico válido.</div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="inputTelefono" class="form-label">Teléfono*</label>
-                                <input type="tel" class="form-control" id="inputTelefono"  placeholder="600000000" required>
+                                <input type="tel" class="form-control" name="telefono" id="inputTelefono"  placeholder="600000000" required>
+                                <div class="invalid-feedback">Escribe el teléfono de contacto.</div>
                             </div>
                         </div>
 						Los Campos marcados con un * Son Obligatorios
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" onclick="actualizarEmisor(event)">Guardar Cambios</button>
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
                     </div>
                 </form>
             </div>
@@ -116,9 +135,9 @@
    
  
     <!-- Pie de página -->
-    <footer class="bg-dark text-white py-4">
+      <footer class="bg-dark text-white py-4 mt-5">
         <div class="container text-center">
-            <p class="mb-0">&copy; 2026 Facturación 360. Todos los derechos reservados.</p>
+            <p>&copy; 2026 Facturación 360. Todos los derechos reservados.</p>
         </div>
     </footer>
  

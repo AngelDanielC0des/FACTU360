@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="facturas.css">
     <!-- Icono que aparece en la pestaña del navegador. -->
     <link rel="icon" href="./img/fav.ico" type="image/x-icon">
-    <script src="facturas.js" defer></script>
+	<script type="module" src="facturas.js"></script>
 </head>
 <body>
 
@@ -26,7 +26,7 @@
 			<li><a class="nav-link" href="perfil.html">Datos Emisor</a></li>
             <li><a class="nav-link" href="clientes.html">Clientes</a></li>
             <li><a class="nav-link active" href="facturas.html">Facturas</a></li>
-            <li><a class="nav-link active" href="nosotros.html">Sobre Nosotros</a></li>
+            <li><a class="nav-link " href="nosotros.html">Sobre Nosotros</a></li>
         </ul>
     </div>
 </nav>
@@ -39,7 +39,15 @@
         </button>
     </div>
 
-    <div id="mensaje-facturas" class="alert d-none" role="alert"></div>
+    <!-- La región viva que lee el lector de pantalla. Está siempre en el documento, vacía e
+         invisible: una región que aparece con el mensaje ya dentro NO se anuncia, porque lo
+         que se vigila es el cambio de contenido de algo que ya estaba. -->
+    <p id="anuncios" class="visually-hidden" role="status"></p>
+
+    <!-- Y esta es la franja visible de lo que pasa en la pantalla. Sin role propio: de
+         anunciarla se encarga la región de arriba, y con los dos puestos se leería dos veces.
+         Vacía no ocupa (:empty en la hoja de estilos), así que tampoco hace falta d-none. -->
+    <p id="mensaje-facturas" class="aviso"></p>
 
     <div class="barra-filtros barra-filtros-facturas mb-4" role="group" aria-label="Búsqueda y listado trimestral de facturas">
         <div id="buscadorFacturas" class="buscador-clientes">
@@ -53,6 +61,11 @@
         <div class="input-group input-group-sm control-filtro">
             <label for="anioTrimestre" class="input-group-text text-body">Año</label>
             <input type="number" id="anioTrimestre" class="form-control" min="2000" max="2100" required>
+            <!-- El último control que quedaba enseñando el globo nativo del navegador. Está
+                 fuera de todo <form>, así que no le vale was-validated: lo marca a mano
+                 cargarListadoTrimestral() con marcarCampo(), y .is-invalid ~ .invalid-feedback
+                 hace el resto. -->
+            <div class="invalid-feedback">Indica un año entre 2000 y 2100.</div>
         </div>
 
         <div class="input-group input-group-sm control-filtro">
@@ -96,11 +109,6 @@
     </div>
 
 
-<footer class="bg-dark text-white py-4 mt-auto">
-    <div class="container text-center">
-        <p>&copy; 2026 Facturación 360. Todos los derechos reservados.</p>
-    </div>
-</footer>
 
 <div class="modal fade" id="facturaModal" tabindex="-1" aria-labelledby="facturaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -113,18 +121,24 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <div id="mensaje-formulario-factura" class="alert alert-danger d-none" role="alert" tabindex="-1"></div>
-                <form id="formularioFactura">
+                <p id="mensaje-formulario-factura" class="alerta-formulario" role="alert"></p>
+                <!-- novalidate: el navegador sigue comprobando, pero NO dibuja el globo nativo. Los
+                     errores se enseñan en el .invalid-feedback de cada campo, igual que en clientes.
+                     OJO: con esto, un campo con restricciones y SIN su hueco de error no avisa de
+                     nada; simplemente no deja guardar y no dice por qué. -->
+                <form id="formularioFactura" novalidate>
                     <fieldset id="camposFactura" class="row g-3">
                         <div class="col-12 col-md-6">
                             <label for="clienteFactura" class="form-label">Cliente</label>
                             <select id="clienteFactura" class="form-select" required>
                                 <option value="">Selecciona un cliente</option>
                             </select>
+                            <div class="invalid-feedback">Elige el cliente al que se factura.</div>
                         </div>
                         <div class="col-6 col-md-3">
                             <label for="fechaEmision" class="form-label">Fecha de emisión</label>
                             <input type="date" id="fechaEmision" class="form-control" min="1000-01-01" max="9999-12-31" required>
+                            <div class="invalid-feedback">Indica la fecha de emisión.</div>
                         </div>
                         <div class="col-6 col-md-3">
                             <label for="estadoFactura" class="form-label">Estado</label>
@@ -133,6 +147,7 @@
                                 <option value="EMITIDA">Emitida</option>
                                 <option value="ANULADA">Anulada</option>
                             </select>
+                            <div class="invalid-feedback">Elige el estado de la factura.</div>
                         </div>
                         <section class="col-12" aria-labelledby="tituloConceptosFactura">
                             <h6 id="tituloConceptosFactura" class="mb-1">Conceptos</h6>
@@ -163,8 +178,7 @@
             </div>
         </div>
     </div>
-</div>
-
+</main>
 <template id="plantillaConceptoFactura">
     <fieldset class="concepto-factura border rounded p-2 mb-2">
         <legend class="float-none w-auto px-1 fs-6">Concepto</legend>
@@ -173,17 +187,21 @@
                 <label class="form-label d-block mb-1">Descripción
                     <input name="descripcion" class="form-control" type="text" maxlength="50" required
                            autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
+                    <div class="invalid-feedback">Escribe una descripción.</div>
                 </label>
                 <div class="sugerencias-concepto d-none" role="listbox" aria-label="Conceptos utilizados anteriormente"></div>
             </div>
             <label class="col-6 col-md form-label mb-0">Cantidad
                 <input name="cantidad" class="form-control" type="number" min="1" max="2147483647" step="1" value="1" required>
+                <div class="invalid-feedback">Indica una cantidad entera de 1 o más.</div>
             </label>
             <label class="col-6 col-md form-label mb-0">Precio unitario (€)
                 <input name="precioUnitario" class="form-control" type="number" min="0" max="99999999.99" step="0.01" required>
+                <div class="invalid-feedback">Indica un precio entre 0 y 99.999.999,99 €.</div>
             </label>
             <label class="col-6 col-md form-label mb-0">Descuento (%)
                 <input name="descuento" class="form-control" type="number" min="0" max="100" step="0.01" value="0" required>
+                <div class="invalid-feedback">El descuento va de 0 a 100 %.</div>
             </label>
             <label class="col-6 col-md form-label mb-0">IVA (%)
                 <select name="porcentajeIva" class="form-select" aria-label="IVA (%)" required>
@@ -206,6 +224,12 @@
     </fieldset>
 </template>
 
+<footer class="bg-dark text-white py-4 mt-auto">
+    <div class="container text-center">
+        <p>&copy; 2026 Facturación 360. Todos los derechos reservados.</p>
+    </div>
+</footer>
+  <script src="facturas.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
 </body>
 </html>

@@ -97,4 +97,21 @@ body {
     tr {
         break-inside: avoid;
     }
+    .logo-emisor {
+    height: 100px !important;
+    max-height: 100px !important;
+    max-width: 150px !important;
+    width: auto !important;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.datos-partes,
+.datos-cliente,
+.observaciones-factura {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
 }

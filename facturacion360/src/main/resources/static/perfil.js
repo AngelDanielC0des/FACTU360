@@ -1,3 +1,15 @@
+import { crearAvisos } from './js/notificaciones.js';
+import { motivoDe } from './js/problema.js';
+import { limpiarValidacion, validar } from './js/validacion.js';
+
+// Los avisos de esta pantalla. El comportamiento —cuándo se borra uno, cómo se lee en alto—
+// vive en js/notificaciones.js, el mismo módulo que usan clientes, facturas y el visor. Aquí
+// solo se dice cuáles son los dos contenedores del perfil.
+const { anunciar, fijar } = crearAvisos({
+    franja: document.getElementById('aviso-emisor'),
+    region: document.getElementById('anuncios'),
+});
+
 document.addEventListener('DOMContentLoaded', () => {
 
     cargarEmisor();
@@ -6,6 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (formulario) {
         formulario.addEventListener('submit', actualizarEmisor);
+
+        // Al reabrir el modal se quita la marca de validación. Si no, un intento fallido
+        // dejaría los cinco campos en rojo desde el momento de abrirlo, sin tocar nada.
+        document.getElementById('modalEditarEmisor')
+            ?.addEventListener('show.bs.modal', () => limpiarValidacion(formulario));
     }
 
 });
@@ -45,9 +62,9 @@ async function cargarEmisor() {
 
         console.error('Error al cargar el emisor:', error);
 
-        mostrarMensaje(
+        fijar(
             'No se han podido cargar los datos del emisor.',
-            'danger'
+            { esError: true }
         );
     }
 }
@@ -66,12 +83,9 @@ async function actualizarEmisor(event) {
 
     const formulario = document.getElementById('formEditarEmisor');
 
-    if (!formulario.checkValidity()) {
-
-        formulario.reportValidity();
-
-        return;
-    }
+    // De pintar en rojo el campo que falla, enseñar su mensaje y llevar el cursor hasta él
+    // se encarga validar(), igual que en clientes y en facturas.
+    if (!validar(formulario)) return;
 
     const emisor = {
 
@@ -118,21 +132,11 @@ async function actualizarEmisor(event) {
 
         if (!response.ok) {
 
-            let mensaje = 'No se han podido guardar los cambios.';
-
-            try {
-
-                const textoError = await response.text();
-
-                if (textoError) {
-                    mensaje += ' ' + textoError;
-                }
-
-            } catch (error) {
-                console.error(error);
-            }
-
-            throw new Error(mensaje);
+            // motivoDe no lanza nunca: si el servidor no explica nada, devuelve el texto
+            // de reserva, asi que aqui ya no hace falta el try/catch de antes.
+            throw new Error(
+                await motivoDe(response, 'No se han podido guardar los cambios.')
+            );
         }
 
 
@@ -161,9 +165,9 @@ async function actualizarEmisor(event) {
 
 
         // Mostrar mensaje de éxito.
-        mostrarMensaje(
+        anunciar(
             'Los datos del emisor se han guardado correctamente.',
-            'success'
+            { visible: true }
         );
 
 
@@ -171,10 +175,10 @@ async function actualizarEmisor(event) {
 
         console.error('Error al guardar el emisor:', error);
 
-        mostrarMensaje(
+        fijar(
             error.message ||
             'Ha ocurrido un error al guardar los cambios.',
-            'danger'
+            { esError: true }
         );
     }
 }
@@ -258,56 +262,3 @@ function limpiarDatosEmisor() {
 }
 
 
-/**
- * Muestra un mensaje Bootstrap en la parte superior
- * de la tarjeta del emisor.
- */
-function mostrarMensaje(mensaje, tipo) {
-
-    const tarjeta = document.getElementById('tarjetaEmisor');
-
-    if (!tarjeta) {
-        return;
-    }
-
-
-    // Eliminamos mensajes anteriores.
-    const mensajesAnteriores =
-        tarjeta.querySelectorAll('.mensaje-emisor');
-
-    mensajesAnteriores.forEach(elemento => {
-        elemento.remove();
-    });
-
-
-    const alerta = document.createElement('div');
-
-    alerta.className =
-        `alert alert-${tipo} alert-dismissible fade show mensaje-emisor`;
-
-    alerta.setAttribute('role', 'alert');
-
-    alerta.innerHTML = `
-        ${mensaje}
-        <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="alert"
-            aria-label="Cerrar">
-        </button>
-    `;
-
-
-    tarjeta.prepend(alerta);
-
-
-    // El mensaje desaparece automáticamente después de 5 segundos.
-    setTimeout(() => {
-
-        if (alerta && alerta.parentNode) {
-
-            alerta.remove();
-        }
-
-    }, 5000);
-}

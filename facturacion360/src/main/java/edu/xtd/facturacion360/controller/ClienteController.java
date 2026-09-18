@@ -1,9 +1,6 @@
 package edu.xtd.facturacion360.controller;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,8 +10,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.TransactionException;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -27,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import edu.xtd.facturacion360.dto.ApiResponseDto;
 import edu.xtd.facturacion360.dto.Cliente;
 import edu.xtd.facturacion360.dto.ClienteMapper;
 import edu.xtd.facturacion360.dto.ClienteRequest;
@@ -102,77 +96,27 @@ public class ClienteController {
         )
     })
     @PostMapping
-    public ResponseEntity<?> crear(
-            @Valid @RequestBody ClienteRequest clienteRequest,
-            BindingResult bindingResult) {
+    public ResponseEntity<ClienteResponse> crear(
+            @Valid @RequestBody ClienteRequest clienteRequest) {
 
-        if (bindingResult.hasErrors()) {
+        // Sin BindingResult al lado del @Valid a proposito: con el, Spring mete los errores
+        // ahi dentro y no lanza nada, asi que este mismo bloque habia que repetirlo en crear
+        // y en actualizar. Sin el lanza MethodArgumentNotValidException, y el manejador
+        // global la devuelve como un 400 con el motivo de CADA campo.
+        //
+        // El NIF repetido tampoco se atrapa aqui: el DuplicateKeyException sube y el mismo
+        // manejador lo convierte en un 409. Antes ese 409 se devolvia con el cuerpo vacio.
+        Cliente clienteNuevo =
+                clienteService.crear(clienteMapper.toDomain(clienteRequest));
 
-            log.warn(
-                "POST /cliente -> 400, datos no válidos: {}",
-                bindingResult.getFieldErrors()
-                    .stream()
-                    .map(error ->
-                        error.getField() + ": " + error.getDefaultMessage()
-                    )
-                    .toList()
-            );
+        log.info(
+            "POST /cliente -> 201, cliente {}",
+            clienteNuevo.idCliente()
+        );
 
-            Map<String, String> errores = new HashMap<>();
-
-            bindingResult.getFieldErrors().forEach(error ->
-                errores.put(
-                    error.getField(),
-                    error.getDefaultMessage()
-                )
-            );
-
-            return ResponseEntity
-                    .badRequest()
-                    .body(errores);
-        }
-
-        try {
-
-            log.debug("Cliente sin errores de validación");
-
-            Cliente cliente =
-                    clienteMapper.toDomain(clienteRequest);
-
-            Cliente clienteNuevo =
-                    clienteService.crear(cliente);
-
-            log.debug(
-                "Cliente creado correctamente {}",
-                clienteNuevo
-            );
-
-            ClienteResponse clienteResponse =
-                    clienteMapper.toResponse(clienteNuevo);
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(clienteResponse);
-
-        } catch (DuplicateKeyException e) {
-
-            log.error("NIF duplicado", e);
-
-            return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .build();
-
-        } catch (Exception e) {
-
-            log.error(
-                "Excepción creando cliente",
-                e
-            );
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .build();
-        }
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(clienteMapper.toResponse(clienteNuevo));
     }
 
     /**
@@ -199,63 +143,82 @@ public class ClienteController {
     })
     @GetMapping("/listar-pagina")
     public ResponseEntity<PaginaClienteResponse> listarPagina(
-            @Valid @ModelAttribute CriteriosCliente criterios,
-            BindingResult bindingResult) {
-
-        ResponseEntity<PaginaClienteResponse> respuestaHttp = null;
+            @Valid @ModelAttribute CriteriosCliente criterios) {
 
         log.info(
             "GET /cliente/listar-pagina -> {}",
             criterios
         );
 
-        if (bindingResult.hasErrors()) {
+        PaginaClienteResponse pagina =
+                clienteService.listarPagina(criterios);
 
-            log.warn(
-                "GET /cliente/listar-pagina -> 400, criterios no válidos: {}",
-                bindingResult.getFieldErrors()
+        log.info(
+            "GET /cliente/listar-pagina -> 200 (pagina {} de {})",
+            pagina.paginaActual() + 1,
+            pagina.totalPaginas()
+        );
+
+        return ResponseEntity.ok(pagina);
+    }
+
+    /**
+     * Devuelve los ultimos clientes dados de alta, para rellenar un desplegable.
+     *
+     * <p>Sigue marcado como obsoleto, pero obsoleto no es lo mismo que roto: es el endpoint
+     * con el que se monto el selector de clientes del alta de facturas, y ese selector lo
+     * sigue llamando. Se perdio en la resolucion de un merge (documentado en
+     * {@code docu/fallos_master.txt}) y con el se quedo sin poder crearse ninguna factura,
+     * porque el desplegable salia vacio.</p>
+     *
+     * <p>El sintoma engañaba: al no existir la ruta, la peticion encajaba en
+     * {@code @GetMapping("/{id}")} y fallaba al convertir "listar-ultimos" a int, asi que
+     * devolvia 400 y no 404. Eso es justo lo que ManejadorExcepciones corrige ahora.</p>
+     *
+     * @param limite cuantos se piden; se acota en silencio entre LIMITE_MIN y LIMITE_MAX
+     * @return los clientes mas recientes
+     */
+    @Deprecated
+    @Operation(
+        summary = "Lista los ultimos clientes",
+        description = "Devuelve los clientes mas recientes, para rellenar un desplegable."
+    )
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de clientes"
+        )
+    })
+    @GetMapping("/listar-ultimos")
+    public ResponseEntity<List<ClienteResponse>> listarUltimos(
+            @Parameter(
+                description = "Cuantos clientes se piden",
+                example = "100"
+            )
+            @RequestParam(defaultValue = "10") int limite) {
+
+        // Pedir cero o un numero negativo no es un error del que haya que avisar: se acota y
+        // se sigue. El log deja constancia del valor pedido y del que se ha usado de verdad.
+        int limiteSeguro = Math.max(LIMITE_MIN, Math.min(LIMITE_MAX, limite));
+
+        log.info(
+            "GET /cliente/listar-ultimos?limite={} (acotado a {})",
+            limite,
+            limiteSeguro
+        );
+
+        List<ClienteResponse> respuesta =
+                clienteService.listarUltimos(limiteSeguro)
                     .stream()
-                    .map(error ->
-                        error.getField() + ": " + error.getDefaultMessage()
-                    )
-                    .toList()
-            );
+                    .map(clienteMapper::toResponse)
+                    .toList();
 
-            respuestaHttp =
-                    ResponseEntity.badRequest().build();
+        log.info(
+            "GET /cliente/listar-ultimos -> 200 ({} clientes)",
+            respuesta.size()
+        );
 
-        } else {
-
-            try {
-
-                PaginaClienteResponse pagina =
-                        clienteService.listarPagina(criterios);
-
-                log.info(
-                    "GET /cliente/listar-pagina -> 200 (pagina {} de {})",
-                    pagina.paginaActual() + 1,
-                    pagina.totalPaginas()
-                );
-
-                respuestaHttp =
-                        ResponseEntity.ok(pagina);
-
-            } catch (
-                DataAccessException |
-                TransactionException e
-            ) {
-
-                log.error(
-                    "Error al listar la pagina de clientes",
-                    e
-                );
-
-                respuestaHttp =
-                        ResponseEntity.internalServerError().build();
-            }
-        }
-
-        return respuestaHttp;
+        return ResponseEntity.ok(respuesta);
     }
 
     /**
@@ -278,35 +241,17 @@ public class ClienteController {
     @GetMapping("/provincias")
     public ResponseEntity<List<String>> listarProvincias() {
 
-        ResponseEntity<List<String>> respuestaHttp = null;
-
         log.info("GET /cliente/provincias");
 
-        try {
+        List<String> provincias =
+                clienteService.listarProvincias();
 
-            List<String> provincias =
-                    clienteService.listarProvincias();
+        log.info(
+            "GET /cliente/provincias -> 200 ({} provincias)",
+            provincias.size()
+        );
 
-            log.info(
-                "GET /cliente/provincias -> 200 ({} provincias)",
-                provincias.size()
-            );
-
-            respuestaHttp =
-                    ResponseEntity.ok(provincias);
-
-        } catch (DataAccessException e) {
-
-            log.error(
-                "Error al listar las provincias",
-                e
-            );
-
-            respuestaHttp =
-                    ResponseEntity.internalServerError().build();
-        }
-
-        return respuestaHttp;
+        return ResponseEntity.ok(provincias);
     }
 
     /**
@@ -334,38 +279,20 @@ public class ClienteController {
             )
             @RequestParam(required = false) String provincia) {
 
-        ResponseEntity<List<String>> respuestaHttp = null;
-
         log.info(
             "GET /cliente/poblaciones?provincia={}",
             provincia
         );
 
-        try {
+        List<String> poblaciones =
+                clienteService.listarPoblaciones(provincia);
 
-            List<String> poblaciones =
-                    clienteService.listarPoblaciones(provincia);
+        log.info(
+            "GET /cliente/poblaciones -> 200 ({} poblaciones)",
+            poblaciones.size()
+        );
 
-            log.info(
-                "GET /cliente/poblaciones -> 200 ({} poblaciones)",
-                poblaciones.size()
-            );
-
-            respuestaHttp =
-                    ResponseEntity.ok(poblaciones);
-
-        } catch (DataAccessException e) {
-
-            log.error(
-                "Error al listar las poblaciones",
-                e
-            );
-
-            respuestaHttp =
-                    ResponseEntity.internalServerError().build();
-        }
-
-        return respuestaHttp;
+        return ResponseEntity.ok(poblaciones);
     }
 
     /**
@@ -397,52 +324,23 @@ public class ClienteController {
             )
             @PathVariable int id) {
 
-        ResponseEntity<ClienteResponse> respuestaHttp = null;
-
         log.info("GET /cliente/{}", id);
 
-        try {
+        // orElseThrow en vez de un if con notFound().build(): el 404 sale con su motivo
+        // dentro en lugar de con el cuerpo vacio, y de darle formato se encarga
+        // ManejadorExcepciones. El DataAccessException, si lo hubiera, sube igual.
+        Cliente cliente = clienteService.obtenerPorId(id)
+                .orElseThrow(() -> {
+                    log.warn("GET /cliente/{} -> 404, no existe", id);
+                    return new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "No existe el cliente " + id
+                    );
+                });
 
-            Optional<Cliente> cliente =
-                    clienteService.obtenerPorId(id);
+        log.info("GET /cliente/{} -> 200", id);
 
-            if (cliente.isPresent()) {
-
-                ClienteResponse respuesta =
-                        clienteMapper.toResponse(cliente.get());
-
-                log.info(
-                    "GET /cliente/{} -> 200",
-                    id
-                );
-
-                respuestaHttp =
-                        ResponseEntity.ok(respuesta);
-
-            } else {
-
-                log.warn(
-                    "GET /cliente/{} -> 404, no existe",
-                    id
-                );
-
-                respuestaHttp =
-                        ResponseEntity.notFound().build();
-            }
-
-        } catch (DataAccessException e) {
-
-            log.error(
-                "Error al obtener el cliente {}",
-                id,
-                e
-            );
-
-            respuestaHttp =
-                    ResponseEntity.internalServerError().build();
-        }
-
-        return respuestaHttp;
+        return ResponseEntity.ok(clienteMapper.toResponse(cliente));
     }
 
     /**
@@ -478,111 +376,36 @@ public class ClienteController {
         )
     })
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(
+    public ResponseEntity<ClienteResponse> actualizar(
             @Parameter(
                 description = "Identificador del cliente",
                 example = "1"
             )
             @PathVariable int id,
 
-            @Valid @RequestBody ClienteRequest clienteRequest,
-
-            BindingResult bindingResult) {
+            @Valid @RequestBody ClienteRequest clienteRequest) {
 
         log.info(
             "PUT /cliente/{}",
             id
         );
 
-        if (bindingResult.hasErrors()) {
-
-            log.warn(
-                "PUT /cliente/{} -> 400, datos no válidos: {}",
-                id,
-                bindingResult.getFieldErrors()
-                    .stream()
-                    .map(error ->
-                        error.getField() + ": " + error.getDefaultMessage()
-                    )
-                    .toList()
-            );
-
-            Map<String, String> errores =
-                    new HashMap<>();
-
-            bindingResult.getFieldErrors().forEach(error ->
-                errores.put(
-                    error.getField(),
-                    error.getDefaultMessage()
-                )
-            );
-
-            return ResponseEntity
-                    .badRequest()
-                    .body(errores);
-        }
-
-        try {
-
-            Cliente cliente =
-                    clienteMapper.toDomain(clienteRequest);
-
-            Optional<Cliente> actualizado =
-                    clienteService.actualizar(
-                        id,
-                        cliente
+        // Igual que en crear: sin BindingResult, los errores de validacion los formatea el
+        // manejador global, y el NIF/CIF duplicado sube como DuplicateKeyException y sale
+        // como 409. Antes ese 409 iba sin cuerpo y este bloque estaba duplicado.
+        Cliente actualizado = clienteService
+                .actualizar(id, clienteMapper.toDomain(clienteRequest))
+                .orElseThrow(() -> {
+                    log.warn("PUT /cliente/{} -> 404, no existe", id);
+                    return new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "No existe el cliente " + id
                     );
+                });
 
-            if (actualizado.isPresent()) {
+        log.info("PUT /cliente/{} -> 200", id);
 
-                ClienteResponse respuesta =
-                        clienteMapper.toResponse(
-                            actualizado.get()
-                        );
-
-                log.info(
-                    "PUT /cliente/{} -> 200",
-                    id
-                );
-
-                return ResponseEntity.ok(respuesta);
-
-            } else {
-
-                log.warn(
-                    "PUT /cliente/{} -> 404, no existe",
-                    id
-                );
-
-                return ResponseEntity.notFound().build();
-            }
-
-        } catch (DuplicateKeyException e) {
-
-            log.warn(
-                "PUT /cliente/{} -> 409, NIF/CIF duplicado",
-                id
-            );
-
-            return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .build();
-
-        } catch (
-            DataAccessException |
-            TransactionException e
-        ) {
-
-            log.error(
-                "Error al actualizar el cliente {}",
-                id,
-                e
-            );
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
-        }
+        return ResponseEntity.ok(clienteMapper.toResponse(actualizado));
     }
 
     /**
@@ -611,7 +434,7 @@ public class ClienteController {
         )
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponseDto> eliminar(
+    public ResponseEntity<Void> eliminar(
             @Parameter(
                 description = "Identificador del cliente",
                 example = "1"
@@ -619,7 +442,7 @@ public class ClienteController {
             @PathVariable int id) {
 
         log.info(
-            "Petición DELETE recibida para eliminar el cliente con ID {}",
+            "Peticion DELETE recibida para eliminar el cliente con ID {}",
             id
         );
 
@@ -627,67 +450,30 @@ public class ClienteController {
 
             clienteService.eliminar(id);
 
-            log.info(
-                "Cliente con ID {} eliminado correctamente.",
-                id
-            );
-
-            return ResponseEntity.ok(
-                new ApiResponseDto(
-                    true,
-                    "Cliente eliminado correctamente"
-                )
-            );
-
         } catch (DataIntegrityViolationException e) {
 
+            // El unico catch que se queda en todo el controlador, y se queda por un motivo:
+            // el manejador global sabe que hay "datos relacionados", pero no puede saber que
+            // en este caso son facturas. Se relanza solo para ponerle ese nombre; del formato
+            // de la respuesta sigue encargandose el advice.
             log.error(
                 "No se puede eliminar el cliente {} porque tiene datos relacionados.",
                 id,
                 e
             );
 
-            return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .body(
-                        new ApiResponseDto(
-                            false,
-                            "No se puede eliminar el cliente porque tiene facturas asociadas."
-                        )
-                    );
-
-        } catch (ResponseStatusException e) {
-
-            log.warn(
-                "No existe el cliente con ID {}.",
-                id
-            );
-
-            return ResponseEntity
-                    .status(e.getStatusCode())
-                    .body(
-                        new ApiResponseDto(
-                            false,
-                            e.getReason()
-                        )
-                    );
-
-        } catch (Exception e) {
-
-            log.error(
-                "Error inesperado eliminando el cliente {}.",
-                id,
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "No se puede eliminar el cliente porque tiene facturas asociadas.",
                 e
             );
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                        new ApiResponseDto(
-                            false,
-                            "No se pudo eliminar el cliente."
-                        )
-                    );
         }
+
+        log.info(
+            "Cliente con ID {} eliminado correctamente.",
+            id
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import edu.xtd.facturacion360.dto.Emisor;
 import edu.xtd.facturacion360.service.EmisorService;
@@ -36,7 +37,11 @@ public class EmisorController {
 		Emisor emisor = emisorService.find();
 
 		if (emisor == null) {
-			return ResponseEntity.notFound().build();
+			// Con cuerpo y no con notFound().build(): un 404 vacio no le dice a nadie si es
+			// que la ruta no existe o que todavia no se han guardado los datos. Del formato
+			// se encarga ManejadorExcepciones.
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+					"Todavia no se han guardado los datos del emisor");
 		}
 
 		return ResponseEntity.ok(emisor);
@@ -61,13 +66,15 @@ public class EmisorController {
 	public ResponseEntity<Emisor> save(@RequestBody Emisor emisor) {
 
 		if (emisor == null) {
-			return ResponseEntity.badRequest().build();
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"No se han recibido los datos del emisor");
 		}
 
 		Emisor emisorGuardado = emisorService.save(emisor);
 
 		if (emisorGuardado == null) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+					"No se han podido guardar los datos del emisor");
 		}
 
 		return ResponseEntity.ok(emisorGuardado);
@@ -77,7 +84,8 @@ public class EmisorController {
 	public ResponseEntity<Emisor> save(Emisor emisor, MultipartFile foto) throws IOException {
 
 		if (emisor == null) {
-			return ResponseEntity.badRequest().build();
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"No se han recibido los datos del emisor");
 		}
 
 		Emisor emisorCompleto = emisor;
@@ -98,7 +106,8 @@ public class EmisorController {
 		Emisor emisorGuardado = emisorService.save(emisorCompleto);
 
 		if (emisorGuardado == null) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+					"No se han podido guardar los datos del emisor");
 		}
 
 		return ResponseEntity.ok(emisorGuardado);
