@@ -26,6 +26,22 @@ public interface FacturaRepository {
 		}
 	}
 
+	/**
+	 * Se factura a un cliente que ya no está en la base de datos.
+	 *
+	 * <p>Pasa de verdad: el desplegable de «Nueva factura» se carga una vez, y si mientras
+	 * tanto alguien borra ese cliente, al guardar se manda un identificador que ya no existe.
+	 * Sin traducirlo, el manejador global respondía «no se puede realizar la operación porque
+	 * hay datos relacionados», que dice justo lo contrario de lo que ha ocurrido: el problema
+	 * no es que haya datos relacionados, es que faltan.</p>
+	 */
+	class ClienteInexistenteException extends RuntimeException {
+		public ClienteInexistenteException(Throwable causa) {
+			super("El cliente al que se factura ya no existe. Recarga la lista de clientes y "
+					+ "vuelve a elegirlo", causa);
+		}
+	}
+
 	public List<Factura> buscar(String busqueda);
 	
 	public Factura buscarPorId(int idFactura);

@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -446,28 +445,11 @@ public class ClienteController {
             id
         );
 
-        try {
-
-            clienteService.eliminar(id);
-
-        } catch (DataIntegrityViolationException e) {
-
-            // El unico catch que se queda en todo el controlador, y se queda por un motivo:
-            // el manejador global sabe que hay "datos relacionados", pero no puede saber que
-            // en este caso son facturas. Se relanza solo para ponerle ese nombre; del formato
-            // de la respuesta sigue encargandose el advice.
-            log.error(
-                "No se puede eliminar el cliente {} porque tiene datos relacionados.",
-                id,
-                e
-            );
-
-            throw new ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "No se puede eliminar el cliente porque tiene facturas asociadas.",
-                e
-            );
-        }
+        // Sin try/catch, que era el ultimo del controlador. Si el cliente tiene facturas,
+        // el repositorio lanza ClienteConFacturasException y el manejador global la
+        // convierte en un 409 que dice justamente eso. Traducirlo aqui obligaba a que el
+        // controlador supiera de claves ajenas.
+        clienteService.eliminar(id);
 
         log.info(
             "Cliente con ID {} eliminado correctamente.",

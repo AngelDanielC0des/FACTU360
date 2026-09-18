@@ -13,6 +13,8 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -386,7 +388,10 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 	    KeyHolder keyHolder = new GeneratedKeyHolder();
 	    LocalDate fechaAlta = LocalDate.now();
 
-	    int numFilasAfectadas = jdbcTemplate.update(connection -> {
+	    int numFilasAfectadas;
+
+	    try {
+	    numFilasAfectadas = jdbcTemplate.update(connection -> {
 
 	       PreparedStatement ps = connection.prepareStatement(
 	                INSERTAR_CLIENTE,
@@ -406,6 +411,18 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 	        return ps;
 
 	    }, keyHolder);
+
+	    } catch (DuplicateKeyException error) {
+	        // Se traduce aqui, que es donde se sabe que indice es cual. Mas arriba solo
+	        // llegaria un DuplicateKeyException identico al del numero de factura.
+	        if (RestriccionSql.duplicado(error, "nif_cif_UNIQUE")) {
+	            throw new NifCifDuplicadoException(error);
+	        }
+
+	        // Si no es la que conocemos, sube tal cual: tragarse lo que no se entiende es
+	        // peor que no haberlo mirado.
+	        throw error;
+	    }
 
 	    
 	    if (numFilasAfectadas == 1) 
@@ -451,7 +468,10 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 	    // Ejecutamos la sentencia SQL utilizando JdbcTemplate.
 	    // Cada '?' de la consulta se sustituye por el valor correspondiente
 	    // del objeto Cliente.
-	    int filas = jdbcTemplate.update(
+	    int filas;
+
+	    try {
+	        filas = jdbcTemplate.update(
 	            sql,
 	            cliente.nombre(),
 	            cliente.nifCif(),
@@ -462,7 +482,14 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 	            cliente.telefono(),
 	            cliente.email(),
 	            cliente.idCliente()
-	    );
+	        );
+	    } catch (DuplicateKeyException error) {
+	        if (RestriccionSql.duplicado(error, "nif_cif_UNIQUE")) {
+	            throw new NifCifDuplicadoException(error);
+	        }
+
+	        throw error;
+	    }
 
 	    // Si se ha modificado al menos una fila, devolvemos true.
 	    // Si no se ha modificado ninguna, devolvemos false.
@@ -480,7 +507,19 @@ public class ClienteRepositoryJdbcImpl implements ClienteRepository {
 		boolean borrarOk = false;
 		String instruccionBorrar = "DELETE FROM clientes where idcliente = ?;";
 
-		int filasborradas = jdbcTemplate.update(instruccionBorrar, id);
+		int filasborradas;
+
+		try {
+			filasborradas = jdbcTemplate.update(instruccionBorrar, id);
+		} catch (DataIntegrityViolationException error) {
+			// El manejador global sabe que hay datos relacionados, pero no que son facturas.
+			// Eso lo sabe quien escribio la clave ajena, o sea este fichero.
+			if (RestriccionSql.padreConHijos(error, "FK_CLIENTE")) {
+				throw new ClienteConFacturasException(error);
+			}
+
+			throw error;
+		}
 		if (filasborradas == 1) {
 			borrarOk = true;
 		} 
