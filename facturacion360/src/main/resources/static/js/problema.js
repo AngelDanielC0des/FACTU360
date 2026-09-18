@@ -27,7 +27,9 @@ export async function motivoDe(respuesta, reserva) {
         const problema = await respuesta.json();
 
         return problema?.detail || reserva;
-    } catch (error) {
+    } catch {
+        // Sin variable: no hay nada que mirar. Que el cuerpo no sea JSON es justo el caso
+        // para el que existe la reserva, no una incidencia que haga falta registrar.
         return reserva;
     }
 }

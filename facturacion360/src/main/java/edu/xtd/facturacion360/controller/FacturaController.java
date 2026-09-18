@@ -42,7 +42,11 @@ public class FacturaController {
 		// en ese objeto y no lanza nada, y hay que repetir el mismo bloque en cada método.
 		// Sin él lanza MethodArgumentNotValidException, que ManejadorExcepciones convierte en
 		// un 400 con el motivo de CADA campo, no solo el del primero que falló.
-		return ResponseEntity.status(HttpStatus.CREATED).body(facturaService.crear(facturaRequest));
+		Factura facturaNueva = facturaService.crear(facturaRequest);
+
+		log.info("POST /factura -> 201, factura {}", facturaNueva.numeroFactura());
+
+		return ResponseEntity.status(HttpStatus.CREATED).body(facturaNueva);
 	}
 
 	@PutMapping("/{idFactura}/borrador")

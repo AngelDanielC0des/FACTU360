@@ -54,9 +54,19 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 	 * @param detalle el motivo, redactado para que lo lea una persona
 	 * @return el cuerpo, listo para devolver
 	 */
-	private static ProblemDetail problema(HttpStatus estado, String detalle) {
+	private static ProblemDetail problema(HttpStatusCode estado, String detalle) {
 		ProblemDetail cuerpo = ProblemDetail.forStatusAndDetail(estado, detalle);
-		cuerpo.setTitle(estado.getReasonPhrase());
+
+		// resolve() y no valueOf(): valueOf lanza IllegalArgumentException con un codigo que
+		// no sea de los estandar, y lanzar DESDE AQUI es lo peor que puede pasar, porque se
+		// pierde el error original y el contenedor acaba respondiendo con su pagina por
+		// defecto. resolve() devuelve null y nos quedamos sin titulo, que no es grave.
+		HttpStatus conocido = HttpStatus.resolve(estado.value());
+
+		if (conocido != null) {
+			cuerpo.setTitle(conocido.getReasonPhrase());
+		}
+
 		return cuerpo;
 	}
 
@@ -121,10 +131,10 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 	public ResponseEntity<ProblemDetail> gestionarEstadoHttp(ResponseStatusException excepcion) {
 		log.warn("No se ha podido realizar la operación solicitada: {}", excepcion.getReason());
 
-		HttpStatus estado = HttpStatus.valueOf(excepcion.getStatusCode().value());
+		HttpStatusCode estado = excepcion.getStatusCode();
 		String motivo = excepcion.getReason() != null
 				? excepcion.getReason()
-				: estado.getReasonPhrase();
+				: "No se ha podido completar la operación";
 
 		return ResponseEntity.status(estado).body(problema(estado, motivo));
 	}

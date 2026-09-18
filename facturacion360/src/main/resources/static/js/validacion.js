@@ -42,6 +42,12 @@ export function mensajeDe(formulario, campo) {
  * control suelto de la barra de filtros, y ahí `campo.form` es null. Se busca por el nombre
  * cuando lo tiene y, si no, entre sus hermanos.
  *
+ * OJO con la segunda vía: coge el PRIMER .invalid-feedback del contenedor, así que da por
+ * hecho que ahí dentro hay un solo campo. Hoy se cumple en los tres formularios, pero si
+ * alguna vez conviven dos controles en el mismo envoltorio, el segundo escribiría su error
+ * en el hueco del primero. Si llega ese caso, lo que toca es darle un `name` al campo para
+ * que entre por la primera vía, no retorcer esta.
+ *
  * @param {HTMLElement} campo
  * @return {Element|null}
  */
