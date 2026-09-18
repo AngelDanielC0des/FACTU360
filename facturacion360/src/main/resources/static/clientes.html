@@ -88,8 +88,8 @@
                      que mide la columna nombre: pasarse solo sirve para que el servidor
                      conteste 400. Mismo criterio que en el formulario de edición. -->
 			<input type="search" id="buscador-clientes" class="buscador-input"
-				placeholder="Buscar por nombre o CIF..." maxlength="60"
-				aria-label="Buscar cliente por nombre o CIF">
+				placeholder="Buscar por nombre o NIF/CIF..." maxlength="60"
+				aria-label="Buscar cliente por nombre o NIF/CIF">
 		</div>
 
 		<div class="input-group control-filtro">
@@ -180,7 +180,7 @@
                  las pinta el JavaScript, así que marca él mismo la paridad por cliente. -->
 			<table class="table table-hover align-middle tabla-clientes">
 				<caption id="titulo-tabla-clientes" class="visually-hidden">
-					Clientes registrados, con su CIF, email, teléfono y fecha de alta</caption>
+					Clientes registrados, con su NIF/CIF, email, teléfono y fecha de alta</caption>
 				<thead class="table-primary-custom">
 					<tr>
 						<!-- Cabeceras pulsables: es el gesto que todo el mundo prueba
@@ -194,7 +194,7 @@
 									aria-hidden="true"></i>
 							</button>
 						</th>
-						<th scope="col">CIF</th>
+						<th scope="col">NIF/CIF</th>
 						<!-- En móvil se ocultan email y teléfono: seis columnas obligan a
                              desplazar en horizontal, y estos dos datos siguen estando a un clic
                              en el panel de detalle. -->
@@ -456,7 +456,7 @@
 					 		<label for="campo-nifCif-PLANTILLA">
 					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
 
-					 			<span class="texto-etiqueta">CIF</span>
+					 			<span class="texto-etiqueta">NIF/CIF</span>
 
 					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
 					 		</label>
