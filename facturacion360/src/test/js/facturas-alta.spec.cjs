@@ -653,7 +653,7 @@ test("4: guardado correcto con refresco fallido avisa sin ocultar el resultado",
     await pagina.locator("#botonGuardarFactura").click();
     await expect(pagina.locator("#mensaje-facturas")).toContainText("actualizada");
     await expect(pagina.locator("#mensaje-facturas")).toContainText("No se pudo actualizar el listado");
-    await expect(pagina.locator("#mensaje-facturas")).toHaveClass(/alert-warning/);
+    await expect(pagina.locator("#mensaje-facturas")).toHaveClass(/aviso-error/);
 });
 
 test("4: editar desde trimestre conserva filtro y refresca sus totales", async ({ page: pagina }) => {
@@ -804,4 +804,41 @@ test("E2E real: Spring rechaza un desbordamiento y conserva lo escrito", async (
     await expect(pagina.getByLabel("Precio unitario (€)", { exact: true })).toHaveValue("99999999.99");
     await expect(pagina.locator("#botonGuardarFactura")).toBeEnabled();
     expect(consultarBaseAislada("SELECT COUNT(*) FROM facturas;")).toBe(anteriores);
+});
+
+// Los dos que fijan el criterio de la franja de avisos: un EVENTO se retira solo, un ESTADO
+// se queda. Si alguien vuelve a poner un mensaje fijo donde iba uno temporal (o al revés),
+// es aquí donde salta.
+
+test("5: la confirmación de una factura guardada se retira sola", async ({ page: pagina }) => {
+    const factura = await simularBorrador(pagina);
+    await abrirEdicionSimulada(pagina);
+    await pagina.route("**/factura/7/borrador", ruta => ruta.fulfill({ json: factura }));
+    await pagina.locator("#botonGuardarFactura").click();
+
+    // Cuenta algo que acaba de pasar, así que sale en verde y se va: un "Factura creada" de
+    // hace diez minutos engaña, porque parece de la última acción.
+    await expect(pagina.locator("#mensaje-facturas")).toContainText(factura.numeroFactura);
+    await expect(pagina.locator("#mensaje-facturas")).toHaveClass(/aviso-exito/);
+    await expect(pagina.locator("#mensaje-facturas")).toBeEmpty({ timeout: 8000 });
+});
+
+test("5: el rótulo del trimestre se queda mientras se esté viendo", async ({ page: pagina }) => {
+    await pagina.route("**/factura/trimestral?*", ruta => ruta.fulfill({ json: {
+        anio: 2026, trimestre: 3, facturas: [], subtotal: 0, importeIva: 0, total: 0
+    } }));
+    await pagina.goto("/facturas.html");
+    await pagina.locator("#anioTrimestre").fill("2026");
+    await pagina.locator("#trimestreFactura").selectOption("3");
+    await pagina.locator("#botonListarTrimestre").click();
+
+    // No es un evento: describe QUÉ hay en la tabla, y eso sigue siendo verdad. Va en tono
+    // neutro, ni verde de confirmación ni rojo de error.
+    await expect(pagina.locator("#mensaje-facturas")).toContainText("3º trimestre de 2026");
+    await expect(pagina.locator("#mensaje-facturas")).not.toHaveClass(/aviso-exito|aviso-error/);
+
+    // La espera es a propósito y no se puede sustituir por un reintento: lo que se comprueba
+    // es justamente que pasado el tiempo de un aviso temporal el rótulo NO se ha ido.
+    await pagina.waitForTimeout(6000);
+    await expect(pagina.locator("#mensaje-facturas")).toContainText("3º trimestre de 2026");
 });

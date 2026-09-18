@@ -1,7 +1,18 @@
+import { crearAvisos } from "./js/notificaciones.js";
+import { motivoDe } from "./js/problema.js";
+
 const estadoVisor = document.getElementById("estadoVisor");
 const contenidoFactura = document.getElementById("contenidoFactura");
 const botonImprimir = document.getElementById("botonImprimir");
 const tablaConceptos = document.getElementById("tablaConceptos");
+
+// Los avisos de esta pantalla. Aquí la franja es el propio rótulo de estado del visor: el
+// "Cargando factura..." que ya viene escrito en el HTML es un estado, no un evento, así que
+// se queda hasta que la factura carga (limpiar) o hasta que falla (fijar).
+const { fijar, limpiar } = crearAvisos({
+    franja: estadoVisor,
+    region: document.getElementById("anuncios"),
+});
 
 /** Carga la factura indicada en la dirección de la página. */
 async function cargarDetalleFactura() {
@@ -15,8 +26,7 @@ async function cargarDetalleFactura() {
                 const detalle = await respuesta.json();
                 mostrarDetalle(detalle);
             } else {
-                const mensaje = await respuesta.text();
-                mostrarError(mensaje || "No se pudo cargar la factura.");
+                mostrarError(await motivoDe(respuesta, "No se pudo cargar la factura."));
             }
         } catch (error) {
             console.error("Error al cargar el detalle de la factura", error);
@@ -55,7 +65,7 @@ function mostrarDetalle(detalle) {
         document.getElementById("bloqueObservaciones").classList.remove("d-none");
     }
 
-    estadoVisor.classList.add("d-none");
+    limpiar();
     contenidoFactura.classList.remove("d-none");
     document.getElementById("documentoFactura").setAttribute("aria-busy", "false");
     botonImprimir.disabled = false;
@@ -149,8 +159,7 @@ function formatearPorcentaje(porcentaje) {
 }
 
 function mostrarError(mensaje) {
-    estadoVisor.textContent = mensaje;
-    estadoVisor.className = "alert alert-danger";
+    fijar(mensaje, { esError: true });
     document.getElementById("documentoFactura").setAttribute("aria-busy", "false");
 }
 

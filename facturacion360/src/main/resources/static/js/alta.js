@@ -15,7 +15,7 @@ import {
     marcarAltaAbierta,
 } from "./estado.js";
 import { enviarJson, esCancelacion } from "./api.js";
-import { anunciar } from "./avisos.js";
+import { anunciar, fijar } from "./avisos.js";
 import { filaViva } from "./fila.js";
 import {
     cuerpoPeticion,
@@ -23,6 +23,7 @@ import {
     limpiarErrores,
     mostrarErrorGuardado,
 } from "./formulario.js";
+import { validar } from "./validacion.js";
 import { preguntarDescarte } from "./dialogo.js";
 import { pintarPanelAlta } from "./paneles.js";
 import { cargarClientes } from "./listado.js";
@@ -192,11 +193,7 @@ export async function guardarCliente(formulario) {
 
     // Las restricciones del HTML son las mismas que valida el backend, así que el navegador
     // corta aquí lo que el servidor rechazaría con un 400 y nos ahorramos la petición.
-    formulario.classList.add("was-validated");
-    if (!formulario.checkValidity()) {
-        formulario.querySelector(":invalid")?.focus();
-        return;
-    }
+    if (!validar(formulario)) return;
 
     const boton = formulario.querySelector(".btn-guardar");
     boton.disabled = true;   // sin esto, dos clics seguidos crean dos clientes
@@ -245,8 +242,8 @@ function contarErrorAlta(estado) {
         return;
     }
 
-    anunciar("No se pudo crear el cliente. Vuelve a intentarlo.",
-        { visible: true, esError: true });
+    fijar("No se pudo crear el cliente. Vuelve a intentarlo.",
+        { esError: true });
 }
 
 /**

@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="factura-imprimir.css">
     <!-- Icono que aparece en la pestaña del navegador. -->
     <link rel="icon" href="./img/fav.ico" type="image/x-icon">
-    <script src="factura-imprimir.js" defer></script>
+    <script type="module" src="factura-imprimir.js"></script>
 </head>
 <body>
     <div class="acciones-visor container py-3 d-flex flex-wrap gap-2 justify-content-between">
@@ -23,7 +23,14 @@
     </div>
 
     <main id="documentoFactura" class="documento-factura container mb-5" aria-busy="true">
-        <div id="estadoVisor" class="alert alert-info">Cargando factura...</div>
+        <!-- La región viva que lee el lector de pantalla: el visor no tenía ninguna, así que
+             quien no ve la pantalla no se enteraba ni de que la factura había fallado. -->
+        <p id="anuncios" class="visually-hidden" role="status"></p>
+
+        <!-- El rótulo de estado del visor hace de franja de avisos. Arranca con texto puesto
+             a propósito: "Cargando factura..." es un estado, y desaparece cuando la factura
+             entra (limpiar) o se vuelve rojo si falla (fijar). -->
+        <p id="estadoVisor" class="aviso">Cargando factura...</p>
 
         <div id="contenidoFactura" class="d-none">
             <header class="cabecera-factura align-items-center">

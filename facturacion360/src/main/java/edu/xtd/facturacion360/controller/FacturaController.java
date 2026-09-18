@@ -7,9 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -17,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
@@ -40,35 +37,22 @@ public class FacturaController {
 	FacturaService facturaService;
 
 	@PostMapping
-	public ResponseEntity<Factura> crear(@Valid @RequestBody FacturaRequest facturaRequest,
-			BindingResult bindingResult) {
-		ResponseEntity<Factura> respuesta;
+	public ResponseEntity<Factura> crear(@Valid @RequestBody FacturaRequest facturaRequest) {
+		// Sin BindingResult al lado del @Valid a propósito: con él, Spring mete los errores
+		// en ese objeto y no lanza nada, y hay que repetir el mismo bloque en cada método.
+		// Sin él lanza MethodArgumentNotValidException, que ManejadorExcepciones convierte en
+		// un 400 con el motivo de CADA campo, no solo el del primero que falló.
+		Factura facturaNueva = facturaService.crear(facturaRequest);
 
-		if (bindingResult.hasErrors()) {
-			log.error("Factura recibida con errores de validación");
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					bindingResult.getAllErrors().get(0).getDefaultMessage());
-		} else {
-			Factura facturaNueva = facturaService.crear(facturaRequest);
-			respuesta = ResponseEntity.status(HttpStatus.CREATED).body(facturaNueva);
-		}
+		log.info("POST /factura -> 201, factura {}", facturaNueva.numeroFactura());
 
-		return respuesta;
+		return ResponseEntity.status(HttpStatus.CREATED).body(facturaNueva);
 	}
 
 	@PutMapping("/{idFactura}/borrador")
 	public ResponseEntity<Factura> editarBorrador(@PathVariable int idFactura,
-			@Valid @RequestBody FacturaRequest facturaRequest, BindingResult errores) {
-		if (errores.hasErrors()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					errores.getAllErrors().get(0).getDefaultMessage());
-		}
+			@Valid @RequestBody FacturaRequest facturaRequest) {
 		return ResponseEntity.ok(facturaService.editarBorrador(idFactura, facturaRequest));
-	}
-
-	@ExceptionHandler(ResponseStatusException.class)
-	public ResponseEntity<String> mostrarErrorDeFactura(ResponseStatusException error) {
-		return ResponseEntity.status(error.getStatusCode()).body(error.getReason());
 	}
 
 	@GetMapping("/{idFactura}/detalle")
