@@ -10,6 +10,7 @@ import { API_CLIENTE } from "./config.js";
 import { filasDesplegadas } from "./estado.js";
 import { enviarJson, esCancelacion } from "./api.js";
 import { anunciar } from "./avisos.js";
+import { crearAlerta } from "./notificaciones.js";
 import { anotarFoco } from "./foco.js";
 import { filaVecina, filaViva, panelDe } from "./fila.js";
 import { cerrarDespliegue } from "./despliegue.js";
@@ -26,11 +27,11 @@ import { cerrarDespliegue } from "./despliegue.js";
  */
 export async function borrarCliente(fila, idCliente) {
     const panel = panelDe(fila);
-    const alerta = panel?.querySelector(".alerta-borrado");
+    const alerta = crearAlerta(panel?.querySelector(".alerta-borrado"));
     const botonConfirmar = panel?.querySelector(".btn-confirmar-borrado");
 
     if (botonConfirmar) botonConfirmar.disabled = true;
-    if (alerta) alerta.textContent = "";
+    alerta.limpiar();
 
     let estado;
     try {
@@ -70,7 +71,7 @@ export async function borrarCliente(fila, idCliente) {
     // No se ha borrado: el panel se queda abierto con el motivo escrito dentro, y no se cierra
     // para que quien lo pidió vea por qué no ha pasado nada sin perder el sitio.
     if (botonConfirmar) botonConfirmar.disabled = false;
-    if (alerta) alerta.textContent = motivoDeNoBorrar(estado);
+    alerta.mostrarError(motivoDeNoBorrar(estado));
 }
 
 /**

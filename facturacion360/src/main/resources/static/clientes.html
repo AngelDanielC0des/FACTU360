@@ -157,7 +157,7 @@
              fuera de la tabla a propósito: dentro del panel de la fila, el refresco que sigue a
              un guardado la borraría junto con la fila y no daría tiempo a leerla. Sin role
              propio: de anunciarla se encarga la región de arriba. Vacía no ocupa (:empty). -->
-		<p id="aviso-clientes" class="aviso-clientes"></p>
+		<p id="aviso-clientes" class="aviso"></p>
 
 		<!--
             CORRECCION: el div.table-responsive envuelve UNICAMENTE la tabla y
@@ -367,7 +367,7 @@
                      y ya en el documento porque ese rol solo anuncia lo que se escribe DENTRO
                      de un elemento que estaba antes; insertado con el mensaje ya puesto, el
                      lector de pantalla no dice nada. -->
-				<p class="alerta-borrado" role="alert"></p>
+				<p class="alerta-formulario alerta-borrado" role="alert"></p>
 				<div class="acciones-borrado">
 					<button type="button"
 						class="btn btn-sm btn-outline-secondary btn-cancelar-borrado">Cancelar</button>
@@ -650,7 +650,7 @@
 
 					 <div class="pie-edicion">
 
-					 	<p class="alerta-edicion" role="alert"></p>
+					 	<p class="alerta-formulario" role="alert"></p>
 
 					 	<div class="acciones-edicion">
 

@@ -5,7 +5,7 @@
    petición. Este @import trae los pesos 400, 500 y 700; el <link> que las tres páginas llevan
    en su <head> trae 400, 600 y 700. La hoja usa 500, 600 y 700, así que hoy hace falta que
    estén los dos: quitando el @import a secas se pierde el 500 (lo usan .navbar-nav .nav-link,
-   .buscador-etiqueta y .aviso-clientes) y el navegador lo falsea engordando el 400, que se
+   .buscador-etiqueta y .aviso) y el navegador lo falsea engordando el 400, que se
    nota poco y por eso es un fallo fácil de colar.
 
    Lo suyo sería quedarse solo con el <link>: un @import obliga al navegador a descargar y
@@ -536,25 +536,38 @@ footer {
    AVISOS DE LA PANTALLA
    ========================================== */
 
-/* Franja entre los filtros y la tabla que cuenta lo que acaba de pasar ("Cliente guardado").
-   Está fuera de la tabla porque el refresco que sigue a un guardado la repinta entera. */
-.aviso-clientes {
+/* Franja que cuenta lo que está pasando en la pantalla. La usan las CUATRO páginas, no solo
+   clientes, y en todas va en el mismo sitio: entre los controles y el contenido. En clientes
+   además está fuera de la tabla, porque el refresco que sigue a un guardado la repinta
+   entera y se llevaría el aviso por delante. */
+.aviso {
     margin: 0 0 0.75rem;
     padding: 0.5rem 0.85rem;
-    /* Verde de confirmacion, el mismo del alta. Antes leia --estado-detalle, que servia
-       porque tambien era verde; al pasar el detalle a morado se habria quedado un borde
-       morado sobre fondo verde. El color de esta franja depende de lo que significa
-       (algo ha ido bien), no del estado en que este una fila. */
-    border-left: 4px solid var(--estado-alta);
+    border-left: 4px solid #94a3b8;
     border-radius: 0.35rem;
+    background-color: #f1f5f9;
+    color: #334155;
+    font-weight: 500;
+}
+
+/* El de arriba es el tono neutro, y debajo van las dos variantes. Cuál se pone NO lo decide
+   quien escribe el mensaje: sale solo de haber llamado a anunciar() (un evento, que o ha ido
+   bien o ha fallado) o a fijar() (un estado, que solo informa). Está explicado en
+   notificaciones.js, que es quien pone estas clases. */
+
+/* Verde de confirmacion, el mismo del alta. Antes leia --estado-detalle, que servia
+   porque tambien era verde; al pasar el detalle a morado se habria quedado un borde
+   morado sobre fondo verde. El color de esta franja depende de lo que significa
+   (algo ha ido bien), no del estado en que este una fila. */
+.aviso.aviso-exito {
+    border-left-color: var(--estado-alta);
     background-color: #eaf6ef;
     color: #14532d;
-    font-weight: 500;
 }
 
 /* Que algo haya ido mal no se dice solo con el color (criterio 1.4.1): cambian el texto y la
    franja de la izquierda, que es lo que sigue viéndose en escala de grises. */
-.aviso-clientes.aviso-error {
+.aviso.aviso-error {
     border-left-color: #b02a37;
     background-color: #fdecee;
     color: #842029;
@@ -563,7 +576,7 @@ footer {
 /* Se esconde vacía en vez de con el atributo hidden: el elemento tiene que estar siempre en
    el documento para que su gemela invisible (#anuncios) tenga sentido, y con hidden habría
    que acordarse de quitarlo y ponerlo en cada mensaje. */
-.aviso-clientes:empty {
+.aviso:empty {
     display: none;
 }
 
@@ -932,15 +945,38 @@ footer {
     gap: 0.5rem;
 }
 
-.alerta-edicion {
+/* La alerta de un formulario: POR QUÉ no se ha podido guardar, dentro del propio panel o
+   modal en vez de en la franja de la página. La usan los tres formularios que hay (cliente,
+   factura y emisor).
+
+   Es la hermana pequeña de .aviso —misma barra a la izquierda y mismo fondo tenue, cuerpo
+   menor— para que las dos capas de aviso se lean como una sola familia y no como dos
+   sistemas que casualmente conviven. */
+.alerta-formulario {
     margin: 0;
-    color: #b91c1c;
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid #94a3b8;
+    border-radius: 0.3rem;
+    background-color: #f1f5f9;
+    color: #334155;
     font-size: 0.9rem;
 }
 
-/* Vacía no ocupa. Va con :empty y no con hidden por lo mismo que la franja de avisos: el
-   role="alert" solo funciona si el elemento lleva ahí desde antes del mensaje. */
-.alerta-edicion:empty {
+/* Rojo solo cuando de verdad ha fallado algo. No todo lo que cae en esta alerta es un error:
+   al reabrir un panel cuyos datos han cambiado se cuenta aquí mismo qué campos se han
+   refrescado, y eso es información, no un problema. Mismo reparto de tonos que en .aviso, y
+   por el mismo motivo: el color no va solo (criterio 1.4.1), cambia también la barra. */
+.alerta-formulario.alerta-error {
+    border-left-color: #b02a37;
+    background-color: #fdecee;
+    color: #842029;
+}
+
+/* Vacía no ocupa. Va con :empty y no con hidden ni con d-none por lo mismo que la franja de
+   avisos: el role="alert" solo funciona si el elemento lleva ahí desde antes del mensaje,
+   así que no puede quitarse y volver a ponerse. Y de paso nadie tiene que acordarse de
+   esconderla a mano. */
+.alerta-formulario:empty {
     display: none;
 }
 
@@ -964,17 +1000,12 @@ footer {
     font-weight: 700;
 }
 
-/* El motivo cuando el servidor rechaza el borrado (409: el cliente tiene facturas). Mismo
-   tratamiento que .alerta-edicion, y por el mismo motivo va con :empty y no con hidden: el
-   role="alert" solo anuncia si el elemento ya estaba en el documento antes del mensaje. */
+/* El motivo cuando el servidor rechaza el borrado (409: el cliente tiene facturas). El
+   aspecto y el ocultado los pone .alerta-formulario, que lleva puesta; esta clase solo la
+   separa de los botones que tiene debajo, y es además el gancho por el que la busca
+   borrado.js. */
 .alerta-borrado {
-    margin: 0 0 0.75rem;
-    color: var(--estado-borrado);
-    font-size: 0.9rem;
-}
-
-.alerta-borrado:empty {
-    display: none;
+    margin-bottom: 0.75rem;
 }
 
 .acciones-borrado {
