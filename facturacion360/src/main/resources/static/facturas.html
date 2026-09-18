@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="facturas.css">
     <!-- Icono que aparece en la pestaña del navegador. -->
     <link rel="icon" href="./img/fav.ico" type="image/x-icon">
-    <script type="module" src="facturas.js"></script>
+	<script type="module" src="facturas.js"></script>
 </head>
 <body>
 
@@ -26,7 +26,7 @@
 			<li><a class="nav-link" href="perfil.html">Datos Emisor</a></li>
             <li><a class="nav-link" href="clientes.html">Clientes</a></li>
             <li><a class="nav-link active" href="facturas.html">Facturas</a></li>
-            <li><a class="nav-link active" href="nosotros.html">Sobre Nosotros</a></li>
+            <li><a class="nav-link " href="nosotros.html">Sobre Nosotros</a></li>
         </ul>
     </div>
 </nav>
@@ -109,11 +109,6 @@
     </div>
 
 
-<footer class="bg-dark text-white py-4 mt-auto">
-    <div class="container text-center">
-        <p>&copy; 2026 Facturación 360. Todos los derechos reservados.</p>
-    </div>
-</footer>
 
 <div class="modal fade" id="facturaModal" tabindex="-1" aria-labelledby="facturaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -183,8 +178,7 @@
             </div>
         </div>
     </div>
-</div>
-
+</main>
 <template id="plantillaConceptoFactura">
     <fieldset class="concepto-factura border rounded p-2 mb-2">
         <legend class="float-none w-auto px-1 fs-6">Concepto</legend>
@@ -225,6 +219,12 @@
     </fieldset>
 </template>
 
+<footer class="bg-dark text-white py-4 mt-auto">
+    <div class="container text-center">
+        <p>&copy; 2026 Facturación 360. Todos los derechos reservados.</p>
+    </div>
+</footer>
+  <script src="facturas.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
 </body>
 </html>
