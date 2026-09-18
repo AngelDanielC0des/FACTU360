@@ -27,6 +27,9 @@ import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 
 import edu.xtd.facturacion360.dto.Cliente;
 import edu.xtd.facturacion360.dto.ClienteMapper;
+import edu.xtd.facturacion360.repository.ClienteRepository.ClienteConFacturasException;
+import edu.xtd.facturacion360.repository.ClienteRepository.NifCifDuplicadoException;
+import edu.xtd.facturacion360.repository.FacturaRepository.ClienteInexistenteException;
 import edu.xtd.facturacion360.service.ClienteService;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -109,6 +112,59 @@ class ManejadorExcepcionesTests {
 		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON).content(CLIENTE_VALIDO))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.detail").value(Matchers.containsString("Ya existe")));
+	}
+
+	@Test
+	void elNifRepetidoDiceQueEsElNifYNoUnDatoCualquiera() throws Exception {
+		when(servicio.crear(any(Cliente.class)))
+				.thenThrow(new NifCifDuplicadoException(new RuntimeException("uk")));
+
+		// El repositorio ha mirado el nombre del indice para saber que era el NIF y no el
+		// numero de una factura. Sin eso, los dos casos salian con el mismo mensaje generico.
+		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON).content(CLIENTE_VALIDO))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.detail").value(Matchers.containsString("NIF/CIF")));
+	}
+
+	@Test
+	void elClienteConFacturasDiceQueSonFacturas() throws Exception {
+		org.mockito.Mockito.doThrow(new ClienteConFacturasException(new RuntimeException("fk")))
+				.when(servicio).eliminar(7);
+
+		clienteHttp.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+				.delete("/cliente/7"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.detail").value(Matchers.containsString("facturas")));
+	}
+
+	@Test
+	void elClienteQueYaNoEstaNoSaleComoDatosRelacionados() throws Exception {
+		// El manejador generico de integridad respondia "hay datos relacionados", que dice lo
+		// contrario de lo que pasa: no sobran datos relacionados, falta el cliente.
+		//
+		// Lo que se comprueba aqui es el MENSAJE, no el codigo: el 409 se conserva a proposito
+		// porque es el que ya devolvia el generico y el que el formulario de facturas trata.
+		// Arreglar el texto no es motivo para mover el codigo y romper a quien lo consume.
+		when(servicio.crear(any(Cliente.class)))
+				.thenThrow(new ClienteInexistenteException(new RuntimeException("fk")));
+
+		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON).content(CLIENTE_VALIDO))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.detail").value(Matchers.containsString("ya no existe")))
+				.andExpect(content().string(Matchers.not(Matchers.containsString("datos relacionados"))));
+	}
+
+	@Test
+	void unaRestriccionDesconocidaSigueSaliendoGenericaYSinFiltrar() throws Exception {
+		// La red final tiene que seguir ahi: si manana alguien anade un indice y nadie lo
+		// traduce, el mensaje sera generico pero NUNCA filtrara el texto de MySQL.
+		when(servicio.crear(any(Cliente.class))).thenThrow(new DuplicateKeyException(
+				"Duplicate entry 'X' for key 'clientes.indice_que_nadie_ha_traducido'"));
+
+		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON).content(CLIENTE_VALIDO))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.detail").value("Ya existe un registro con ese dato"))
+				.andExpect(content().string(Matchers.not(Matchers.containsString("indice_que_nadie"))));
 	}
 
 	@Test

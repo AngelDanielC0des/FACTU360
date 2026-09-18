@@ -16,7 +16,7 @@ import jakarta.validation.constraints.Size;
  */
 public record FacturaRequest(
 		@NotNull(message = "El cliente es obligatorio")
-		@Positive(message = "El cliente no es válido")
+		@Positive(message = "Elige el cliente al que se factura")
 		Integer idCliente,
 
 		@NotNull(message = "La fecha de emisión es obligatoria")

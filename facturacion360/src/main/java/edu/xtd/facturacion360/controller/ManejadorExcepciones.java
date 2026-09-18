@@ -24,6 +24,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import edu.xtd.facturacion360.repository.ClienteRepository;
+import edu.xtd.facturacion360.repository.FacturaRepository;
+
 /**
  * El único sitio donde se decide qué responde la API cuando algo sale mal.
  *
@@ -68,6 +71,60 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 		}
 
 		return cuerpo;
+	}
+
+	/**
+	 * El NIF/CIF de un cliente que ya está en la base de datos.
+	 *
+	 * <p>Va antes que el manejador genérico de duplicados a propósito: los dos responden 409,
+	 * pero este puede decir QUÉ campo ha chocado. El repositorio ya ha mirado el nombre del
+	 * índice para poder lanzarlo, así que aquí solo hay que dar su motivo.</p>
+	 *
+	 * @param excepcion la colisión, ya traducida por el repositorio
+	 * @return 409 nombrando el campo
+	 */
+	@ExceptionHandler(ClienteRepository.NifCifDuplicadoException.class)
+	public ProblemDetail gestionarNifDuplicado(ClienteRepository.NifCifDuplicadoException excepcion) {
+		log.warn("NIF/CIF repetido al guardar un cliente");
+		return problema(HttpStatus.CONFLICT, excepcion.getMessage());
+	}
+
+	/**
+	 * El cliente que no se puede borrar porque tiene facturas.
+	 *
+	 * @param excepcion el borrado bloqueado, ya traducido por el repositorio
+	 * @return 409 diciendo que son facturas
+	 */
+	@ExceptionHandler(ClienteRepository.ClienteConFacturasException.class)
+	public ProblemDetail gestionarClienteConFacturas(
+			ClienteRepository.ClienteConFacturasException excepcion) {
+		log.warn("Se ha intentado borrar un cliente que tiene facturas");
+		return problema(HttpStatus.CONFLICT, excepcion.getMessage());
+	}
+
+	/**
+	 * Se factura a un cliente que ya no está.
+	 *
+	 * <p>409 y no 400, y conviene dejar escrito por qué. Se puede argumentar que el problema
+	 * está en lo enviado —el identificador no corresponde a nada— y responder 400. Pero quien
+	 * factura no escribió ese número: lo eligió de una lista donde estaba. Lo que ha pasado es
+	 * que alguien borró el cliente por debajo, y eso es un <em>conflicto con el estado
+	 * actual</em>, que es exactamente lo que significa un 409.</p>
+	 *
+	 * <p>Y hay una razón práctica que pesa más: este caso <strong>ya salía como 409</strong>
+	 * antes, por el manejador genérico de integridad, y el formulario de facturas lo trata como
+	 * tal («…o el cliente ya no estar disponible»). Lo que esta clase arregla es el mensaje, que
+	 * decía que sobraban datos relacionados cuando lo que falta es el cliente. Cambiar además
+	 * el código rompería a quien ya lo consume sin ganar nada.</p>
+	 *
+	 * @param excepcion la clave ajena huérfana, ya traducida por el repositorio
+	 * @return 409 diciendo que el cliente ya no existe
+	 */
+	@ExceptionHandler(FacturaRepository.ClienteInexistenteException.class)
+	public ProblemDetail gestionarClienteInexistente(
+			FacturaRepository.ClienteInexistenteException excepcion) {
+		log.warn("Se ha intentado facturar a un cliente que ya no existe");
+		return problema(HttpStatus.CONFLICT, excepcion.getMessage());
 	}
 
 	/**
@@ -172,8 +229,15 @@ public class ManejadorExcepciones extends ResponseEntityExceptionHandler {
 
 		log.warn("Parámetro {} con un valor no válido: {}", excepcion.getName(), excepcion.getValue());
 
+		// Se dice QUE se esperaba, no solo que lo enviado no vale: "limite no tiene un valor
+		// valido" deja igual de perdido que no decir nada. El tipo se saca del propio metodo,
+		// asi que no hay que mantener una lista a mano.
+		Class<?> esperado = excepcion.getRequiredType();
+		String tipo = esperado != null ? esperado.getSimpleName() : "otro tipo";
+
 		return ResponseEntity.badRequest().body(problema(HttpStatus.BAD_REQUEST,
-				"El parámetro " + excepcion.getName() + " no tiene un valor válido"));
+				"El parámetro " + excepcion.getName() + " esperaba un valor de tipo " + tipo
+						+ " y se ha recibido " + excepcion.getValue()));
 	}
 
 	/**

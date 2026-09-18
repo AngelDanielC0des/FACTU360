@@ -92,6 +92,32 @@ public interface ClienteRepository {
      */
     List<String> findPoblaciones(String provincia);
 
+    /**
+     * Solo representa la colisión del índice único del NIF/CIF.
+     *
+     * <p>Existe para que quien recibe el error sepa QUÉ ha chocado. Spring entrega un
+     * DuplicateKeyException idéntico tanto si se repite el NIF de un cliente como el número
+     * de una factura, y sin distinguirlos solo se puede decir "ya existe un registro con ese
+     * dato", que obliga al usuario a adivinar cuál de los ocho campos es.</p>
+     */
+    class NifCifDuplicadoException extends RuntimeException {
+        public NifCifDuplicadoException(Throwable causa) {
+            super("Ya existe otro cliente con ese NIF/CIF", causa);
+        }
+    }
+
+    /**
+     * El cliente no se puede borrar porque tiene facturas apuntándole.
+     *
+     * <p>El manejador global sabe que hay "datos relacionados", pero no puede saber que en
+     * este caso son facturas: eso lo sabe quien escribió la clave ajena.</p>
+     */
+    class ClienteConFacturasException extends RuntimeException {
+        public ClienteConFacturasException(Throwable causa) {
+            super("No se puede eliminar el cliente porque tiene facturas asociadas", causa);
+        }
+    }
+
 }
 
 
