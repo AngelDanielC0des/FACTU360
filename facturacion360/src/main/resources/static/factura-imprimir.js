@@ -1,4 +1,5 @@
 import { crearAvisos } from "./js/notificaciones.js";
+import { motivoDe } from "./js/problema.js";
 
 const estadoVisor = document.getElementById("estadoVisor");
 const contenidoFactura = document.getElementById("contenidoFactura");
@@ -25,8 +26,7 @@ async function cargarDetalleFactura() {
                 const detalle = await respuesta.json();
                 mostrarDetalle(detalle);
             } else {
-                const mensaje = await respuesta.text();
-                mostrarError(mensaje || "No se pudo cargar la factura.");
+                mostrarError(await motivoDe(respuesta, "No se pudo cargar la factura."));
             }
         } catch (error) {
             console.error("Error al cargar el detalle de la factura", error);

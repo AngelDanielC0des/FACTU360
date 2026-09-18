@@ -1,4 +1,5 @@
 import { crearAlerta, crearAvisos } from "./js/notificaciones.js";
+import { motivoDe } from "./js/problema.js";
 import { limpiarCampo, limpiarValidacion, marcarCampo, validar } from "./js/validacion.js";
 
 const RUTA_FACTURAS = "/factura/buscar";
@@ -183,9 +184,9 @@ async function cargarListadoTrimestral() {
                 actualizada = true;
             }
         } else {
-            const mensajeError = await respuesta.text();
+            const mensajeError = await motivoDe(respuesta, "No se pudo cargar el listado trimestral.");
             if (numeroConsulta == ultimaConsultaFacturas) {
-                fijar(mensajeError || "No se pudo cargar el listado trimestral.", { esError: true });
+                fijar(mensajeError, { esError: true });
             }
         }
     } catch (error) {

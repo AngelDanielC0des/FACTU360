@@ -1,4 +1,5 @@
 import { crearAvisos } from './js/notificaciones.js';
+import { motivoDe } from './js/problema.js';
 import { limpiarValidacion, validar } from './js/validacion.js';
 
 // Los avisos de esta pantalla. El comportamiento —cuándo se borra uno, cómo se lee en alto—
@@ -131,21 +132,11 @@ async function actualizarEmisor(event) {
 
         if (!response.ok) {
 
-            let mensaje = 'No se han podido guardar los cambios.';
-
-            try {
-
-                const textoError = await response.text();
-
-                if (textoError) {
-                    mensaje += ' ' + textoError;
-                }
-
-            } catch (error) {
-                console.error(error);
-            }
-
-            throw new Error(mensaje);
+            // motivoDe no lanza nunca: si el servidor no explica nada, devuelve el texto
+            // de reserva, asi que aqui ya no hace falta el try/catch de antes.
+            throw new Error(
+                await motivoDe(response, 'No se han podido guardar los cambios.')
+            );
         }
 
 
