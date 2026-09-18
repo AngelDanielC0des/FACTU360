@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import edu.xtd.facturacion360.dto.ApiResponseDto;
 import edu.xtd.facturacion360.dto.Cliente;
 import edu.xtd.facturacion360.dto.ClienteMapper;
 import edu.xtd.facturacion360.dto.ClienteRequest;
@@ -435,7 +434,7 @@ public class ClienteController {
         )
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponseDto> eliminar(
+    public ResponseEntity<Void> eliminar(
             @Parameter(
                 description = "Identificador del cliente",
                 example = "1"
@@ -475,11 +474,6 @@ public class ClienteController {
             id
         );
 
-        return ResponseEntity.ok(
-            new ApiResponseDto(
-                true,
-                "Cliente eliminado correctamente"
-            )
-        );
+        return ResponseEntity.noContent().build();
     }
 }

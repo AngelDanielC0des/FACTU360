@@ -45,7 +45,7 @@ export async function borrarCliente(fila, idCliente) {
     // El 404 se trata como un éxito. Significa que alguien se ha adelantado, pero el cliente ya
     // no está, que es exactamente lo que se pedía: contarlo como error sería darle un fallo a
     // quien ha obtenido lo que quería.
-    if (estado === 200 || estado === 404) {
+    if (estado === 204 || estado === 404) {
         const filaActual = filaViva(idCliente);
 
         if (filaActual) {
