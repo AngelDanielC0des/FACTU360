@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="factura-imprimir.css">
     <!-- Icono que aparece en la pestaña del navegador. -->
     <link rel="icon" href="./img/fav.ico" type="image/x-icon">
-    <script src="factura-imprimir.js" defer></script>
+    <script type="module" src="factura-imprimir.js"></script>
 </head>
 <body>
     <div class="acciones-visor container py-3 d-flex flex-wrap gap-2 justify-content-between">
@@ -23,28 +23,53 @@
     </div>
 
     <main id="documentoFactura" class="documento-factura container mb-5" aria-busy="true">
-        <div id="estadoVisor" class="alert alert-info">Cargando factura...</div>
+        <!-- La región viva que lee el lector de pantalla: el visor no tenía ninguna, así que
+             quien no ve la pantalla no se enteraba ni de que la factura había fallado. -->
+        <p id="anuncios" class="visually-hidden" role="status"></p>
+
+        <!-- El rótulo de estado del visor hace de franja de avisos. Arranca con texto puesto
+             a propósito: "Cargando factura..." es un estado, y desaparece cuando la factura
+             entra (limpiar) o se vuelve rojo si falla (fijar). -->
+        <p id="estadoVisor" class="aviso">Cargando factura...</p>
 
         <div id="contenidoFactura" class="d-none">
-            <header class="cabecera-factura">
-                <div>
-                    <h1>Facturación 360</h1>
-                    <p class="mb-0">Documento de factura</p>
-                </div>
-                <div class="text-end">
-                    <h2 id="numeroFactura" class="h4"></h2>
-                    <p id="fechaFactura" class="mb-0"></p>
-                    <p id="estadoFactura" class="mb-0"></p>
-                </div>
-            </header>
+            <header class="cabecera-factura align-items-center">
+    <div class="d-flex align-items-center gap-3">
+        <img id="logoEmisor" src="/emisor/logo" alt="Logo emisor" class="logo-emisor" style="height: 100px; width: auto; max-height: 100px;" onerror="this.style.display='none'">
+        <div>
+            <h1 id="nombreEmisorCabecera" class="h4 mb-0 text-primary">Facturación 360</h1>
+            <p class="mb-0 text-muted small">Documento de factura</p>
+        </div>
+    </div>
+    <div class="text-end">
+        <h2 id="numeroFactura" class="h5 mb-1"></h2>
+        <p id="fechaFactura" class="mb-0 small"></p>
+        <p id="estadoFactura" class="mb-0 small text-muted"></p>
+    </div>
+</header>
 
-            <section class="datos-cliente" aria-labelledby="tituloCliente">
-                <h2 id="tituloCliente" class="h5">Cliente</h2>
+<div class="datos-partes mb-4">
+    <div class="row">
+        <div class="col-6 border-end">
+            <section aria-labelledby="tituloEmisor">
+                <h2 id="tituloEmisor" class="h6 fw-bold border-bottom pb-2 mb-2">Emisor</h2>
+                <p id="nombreEmisor" class="fw-bold mb-1"></p>
+                <p id="cifEmisor" class="mb-1"></p>
+                <p id="direccionEmisor" class="mb-1"></p>
+                <p id="contactoEmisor" class="mb-0"></p>
+            </section>
+        </div>
+        <div class="col-6">
+            <section class="ps-2" aria-labelledby="tituloCliente">
+                <h2 id="tituloCliente" class="h6 fw-bold border-bottom pb-2 mb-2">Cliente</h2>
                 <p id="nombreCliente" class="fw-bold mb-1"></p>
                 <p id="nifCliente" class="mb-1"></p>
                 <p id="direccionCliente" class="mb-1"></p>
                 <p id="contactoCliente" class="mb-0"></p>
             </section>
+        </div>
+    </div>
+</div>
 
             <section aria-labelledby="tituloConceptos">
                 <h2 id="tituloConceptos" class="h5">Conceptos</h2>

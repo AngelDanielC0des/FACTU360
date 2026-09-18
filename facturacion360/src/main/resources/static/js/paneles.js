@@ -9,7 +9,8 @@
 import { CAMPOS_EDITABLES, SUFIJO_ALTA } from "./config.js";
 import { plantillaPanelBorrado, plantillaPanelDetalle, plantillaPanelEdicion } from "./dom.js";
 import { anunciar } from "./avisos.js";
-import { mensajeDe, textoOGuion, valoresDe } from "./formulario.js";
+import { textoOGuion, valoresDe } from "./formulario.js";
+import { mensajeDe } from "./validacion.js";
 
 /**
  * Mete en el panel lo que toca según el modo. Está aparte porque los dos caminos de

@@ -7,9 +7,11 @@
  */
 
 import { CAMPOS_EDITABLES, CAMPOS_OPCIONALES } from "./config.js";
-import { MENSAJE_NIF_BASE } from "./dom.js";
+import { MENSAJES_BASE } from "./dom.js";
 import { filasDesplegadas } from "./estado.js";
-import { anunciar } from "./avisos.js";
+import { fijar } from "./avisos.js";
+import { crearAlerta } from "./notificaciones.js";
+import { limpiarCampo, marcarCampo } from "./validacion.js";
 
 /**
  * El nombre visible de un campo del formulario, para poder nombrarlo en un aviso.
@@ -73,20 +75,6 @@ export function leerFormulario(formulario) {
     return valores;
 }
 
-/**
- * El hueco donde va el mensaje de error de un campo del formulario.
- *
- * Se busca por el nombre del campo y no con nextElementSibling: así el mensaje se puede mover
- * dentro de la celda sin que esto deje de encontrarlo.
- *
- * @param {HTMLFormElement} formulario el formulario de edición
- * @param {string} campo el atributo name del campo
- * @return {Element} el div del mensaje
- */
-export function mensajeDe(formulario, campo) {
-    return formulario.querySelector(`[name="${campo}"] ~ .invalid-feedback`);
-}
-
 /** ¿Se ha tocado algo respecto a lo que hay en la base de datos? */
 export function hayCambios(formulario) {
     return JSON.stringify(leerFormulario(formulario)) !== formulario.dataset.valoresOriginales;
@@ -117,28 +105,18 @@ export function cuerpoPeticion(formulario) {
  * @param {HTMLFormElement} formulario el formulario que se intentó guardar
  * @param {number} estado el código HTTP (0 si ni siquiera hubo respuesta)
  */
-export function mostrarErrorGuardado(formulario, estado) {
+export function mostrarErrorGuardado(formulario, estado, errores = {}) {
     // El NIF/CIF tiene un índice UNIQUE en la base de datos: es el único dato que puede chocar
     // con otro cliente, así que el 409 se señala en SU campo. Un aviso general obligaría al
     // usuario a adivinar cuál de los ocho campos es el del problema.
     if (estado === 409) {
-        const campo = formulario.elements.nifCif;
-        const mensaje = mensajeDe(formulario, "nifCif");
-
-        mensaje.textContent = "Ya existe otro cliente con este NIF/CIF.";
-        campo.classList.add("is-invalid");
-
-        // El rojo de Bootstrap es solo color. aria-invalid es lo que hace que un lector de
-        // pantalla diga "no válido" al llegar al campo, y describedby es lo que le hace leer
-        // el motivo: sin ellos, quien no ve la pantalla se queda con el foco en un campo que
-        // aparentemente no tiene nada.
-        campo.setAttribute("aria-invalid", "true");
-        campo.setAttribute("aria-describedby", mensaje.id);
-        campo.focus();
+        // Con enfocar: esto llega de una respuesta del servidor, no de lo que se está
+        // tecleando, así que llevar el cursor al campo es justo lo que hace falta para poder
+        // corregirlo. marcarCampo pone el rojo, el aria-invalid y el aria-describedby.
+        marcarCampo(formulario.elements.nifCif,
+            "Ya existe otro cliente con este NIF/CIF.", { enfocar: true });
         return;
     }
-
-    const alerta = formulario.querySelector(".alerta-edicion");
 
     if (estado === 404) {
         // Alguien lo ha borrado mientras se editaba: no hay nada que guardar y la tabla que se
@@ -146,8 +124,8 @@ export function mostrarErrorGuardado(formulario, estado) {
         // se escribe en la alerta del formulario: el refresco que viene a continuación se
         // lleva por delante la fila y con ella la alerta, así que el aviso va a la franja de
         // fuera, que es la que sobrevive.
-        anunciar("Este cliente ya no existe: alguien lo ha eliminado mientras lo editabas.",
-            { visible: true, esError: true });
+        fijar("Este cliente ya no existe: alguien lo ha eliminado mientras lo editabas.",
+            { esError: true });
         filasDesplegadas.delete(Number(formulario.dataset.clienteId));
         document.dispatchEvent(new CustomEvent("clientes:cambiaron"));
         return;
@@ -156,25 +134,38 @@ export function mostrarErrorGuardado(formulario, estado) {
     // Los demás dejan el panel abierto para poder corregir, así que se cuentan ahí mismo. La
     // alerta es role="alert" y estaba en el documento desde que se pintó el formulario: basta
     // con escribirle el texto para que se anuncie.
+    const alerta = crearAlerta(formulario.querySelector(".alerta-formulario"));
+
     if (estado === 400) {
-        alerta.textContent = "El servidor ha rechazado los datos. Revisa los campos marcados.";
+        // El servidor dice QUE campo y POR QUE. Es lo que hace falta para un NIF con la letra
+        // de control cambiada: la forma es correcta, asi que el navegador lo deja pasar, y sin
+        // este mapa el usuario solo leeria "revisa los campos marcados" sin ninguno marcado.
+        const marcados = Object.entries(errores);
+
+        for (const [campo, motivo] of marcados) {
+            if (formulario.elements[campo]) marcarCampo(formulario.elements[campo], motivo);
+        }
+
+        if (marcados.length > 0) {
+            formulario.querySelector(".is-invalid")?.focus();
+            return;
+        }
+
+        alerta.mostrarError("El servidor ha rechazado los datos. Revisa los campos marcados.");
     } else {
-        alerta.textContent = "No se pudo guardar. Inténtalo de nuevo en unos segundos.";
+        alerta.mostrarError("No se pudo guardar. Inténtalo de nuevo en unos segundos.");
     }
 }
 
 /** Borra las marcas del intento anterior para no mezclar errores viejos con nuevos. */
 export function limpiarErrores(formulario) {
-    // Vaciarla es esconderla: la hoja de estilos oculta la alerta sin texto, y así el elemento
-    // no se va nunca del documento, que es lo que necesita su role="alert" para anunciar.
-    formulario.querySelector(".alerta-edicion").textContent = "";
+    crearAlerta(formulario.querySelector(".alerta-formulario")).limpiar();
 
-    const campo = formulario.elements.nifCif;
-    campo.classList.remove("is-invalid");
-    campo.removeAttribute("aria-invalid");
-    campo.removeAttribute("aria-describedby");
-
-    // Se devuelve el mensaje que el <template> trae de fábrica (el de "es obligatorio"), que es
-    // el que le toca enseñar al navegador si el campo se queda vacío.
-    mensajeDe(formulario, "nifCif").textContent = MENSAJE_NIF_BASE;
+    // Todos los que estuvieran marcados y no solo el NIF/CIF: un 400 puede venir señalando
+    // varios campos, y sin esto las marcas del intento anterior se quedarian puestas. A cada
+    // uno se le devuelve el mensaje que el <template> trae de fabrica, que es el que le toca
+    // enseñar si se queda vacio.
+    for (const campo of formulario.querySelectorAll(".is-invalid")) {
+        limpiarCampo(campo, MENSAJES_BASE[campo.name]);
+    }
 }

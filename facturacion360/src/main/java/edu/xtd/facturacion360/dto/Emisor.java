@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Size;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import edu.xtd.facturacion360.validacion.NifCif;
+
 
 public record Emisor(
 
@@ -15,11 +17,11 @@ public record Emisor(
         @Size(min = 2, max = 150, message = "El nombre debe tener entre 2 y 150 caracteres")
         String nombre,
 
+        // La misma regla que en ClienteRequest, que para eso es el mismo dato. El patron
+        // que habia aqui era el mejor de los tres del proyecto, pero no admitia NIE y
+        // tampoco comprobaba la letra de control.
         @NotBlank(message = "El NIF/CIF es obligatorio")
-        @Pattern(
-                regexp = "^(?:[0-9]{8}[A-Za-z]|[ABCDEFGHJNPQRSUVWabcdefghjnpqrsuvw][0-9]{7}[0-9A-Ja-j])$",
-                message = "El NIF/CIF no tiene un formato válido"
-        )
+        @NifCif
         String cif,
 
         @NotBlank(message = "La dirección fiscal es obligatoria")

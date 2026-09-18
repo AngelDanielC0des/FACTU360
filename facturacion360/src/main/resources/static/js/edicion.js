@@ -10,7 +10,7 @@ import { API_CLIENTE } from "./config.js";
 import { cuerpoTabla } from "./dom.js";
 import { altaAbierta, filasDesplegadas } from "./estado.js";
 import { enviarJson, esCancelacion } from "./api.js";
-import { anunciar } from "./avisos.js";
+import { anunciar, fijar } from "./avisos.js";
 import { anotarFoco } from "./foco.js";
 import { filaViva, formularioVivo } from "./fila.js";
 import {
@@ -19,6 +19,7 @@ import {
     limpiarErrores,
     mostrarErrorGuardado,
 } from "./formulario.js";
+import { validar } from "./validacion.js";
 import { cerrarDespliegue } from "./despliegue.js";
 
 /** Guarda lo escrito en los formularios abiertos antes de que la tabla se repinte. */
@@ -53,19 +54,15 @@ export async function guardarEdicion(formulario) {
 
     // Las restricciones del HTML (required, maxlength, type=email) son las mismas que valida
     // el backend, así que el navegador corta aquí lo que el servidor rechazaría con un 400 y
-    // nos ahorramos la petición. was-validated es lo que hace que Bootstrap pinte en rojo el
-    // campo que falla y enseñe su mensaje.
-    formulario.classList.add("was-validated");
-    if (!formulario.checkValidity()) {
-        formulario.querySelector(":invalid")?.focus();
-        return;
-    }
+    // nos ahorramos la petición. De pintar en rojo el campo que falla, enseñar su mensaje y
+    // llevar el cursor hasta él se encarga validar().
+    if (!validar(formulario)) return;
 
     const boton = formulario.querySelector(".btn-guardar");
     boton.disabled = true;   // sin esto, dos clics seguidos mandan dos PUT
 
     try {
-        const estado = await enviarJson(`guardar-${idCliente}`, "PUT",
+        const { estado, errores } = await enviarJson(`guardar-${idCliente}`, "PUT",
             `${API_CLIENTE}/${idCliente}`, cuerpoPeticion(formulario));
 
         if (estado === 200) {
@@ -92,7 +89,7 @@ export async function guardarEdicion(formulario) {
             return;
         }
 
-        contarErrorGuardado(idCliente, estado);
+        contarErrorGuardado(idCliente, estado, errores);
     } catch (error) {
         if (esCancelacion(error)) return;
         console.error("No se pudo guardar el cliente:", error);
@@ -120,14 +117,14 @@ export async function guardarEdicion(formulario) {
  * @param {number} idCliente el cliente que se intentaba guardar
  * @param {number} estado el código HTTP (0 si ni siquiera hubo respuesta)
  */
-function contarErrorGuardado(idCliente, estado) {
+function contarErrorGuardado(idCliente, estado, errores) {
     const formulario = formularioVivo(idCliente);
 
     if (formulario) {
-        mostrarErrorGuardado(formulario, estado);
+        mostrarErrorGuardado(formulario, estado, errores);
         return;
     }
 
-    anunciar("No se pudo guardar el cliente. Vuelve a abrirlo e inténtalo de nuevo.",
-        { visible: true, esError: true });
+    fijar("No se pudo guardar el cliente. Vuelve a abrirlo e inténtalo de nuevo.",
+        { esError: true });
 }

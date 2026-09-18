@@ -70,11 +70,19 @@ export const btnAnadirCliente = document.getElementById("btn-anadir-cliente");
 const CABECERAS_TABLA = cuerpoTabla.closest("table")
     .querySelectorAll(":scope > thead > tr > th");
 
-// El texto por defecto del error del NIF/CIF, sacado del propio <template> donde está escrito.
-// Se guarda al arrancar porque al mostrar el error del servidor se pisa, y al cerrar hay que
-// devolverlo: copiarlo aquí a mano serían dos textos que acabarían diciendo cosas distintas.
-export const MENSAJE_NIF_BASE = plantillaPanelEdicion.content
-    .querySelector('[name="nifCif"] ~ .invalid-feedback').textContent;
+// El texto de fábrica del error de CADA campo, sacado del propio <template> donde está
+// escrito. Se guardan al arrancar porque los mensajes del servidor los pisan y al reintentar
+// hay que devolverlos: copiarlos aquí a mano serían dos textos que acabarían divergiendo.
+//
+// Son todos y no solo el del NIF/CIF porque desde que la API devuelve el mapa de errores por
+// campo, un 400 puede marcar varios a la vez.
+export const MENSAJES_BASE = Object.fromEntries(
+    [...plantillaPanelEdicion.content.querySelectorAll("[name]")].map((control) => [
+        control.name,
+        plantillaPanelEdicion.content
+            .querySelector(`[name="${control.name}"] ~ .invalid-feedback`)?.textContent ?? "",
+    ])
+);
 
 /**
  * Cuántas columnas se están viendo ahora mismo.

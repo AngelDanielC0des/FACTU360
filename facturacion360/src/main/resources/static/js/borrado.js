@@ -10,6 +10,7 @@ import { API_CLIENTE } from "./config.js";
 import { filasDesplegadas } from "./estado.js";
 import { enviarJson, esCancelacion } from "./api.js";
 import { anunciar } from "./avisos.js";
+import { crearAlerta } from "./notificaciones.js";
 import { anotarFoco } from "./foco.js";
 import { filaVecina, filaViva, panelDe } from "./fila.js";
 import { cerrarDespliegue } from "./despliegue.js";
@@ -26,15 +27,16 @@ import { cerrarDespliegue } from "./despliegue.js";
  */
 export async function borrarCliente(fila, idCliente) {
     const panel = panelDe(fila);
-    const alerta = panel?.querySelector(".alerta-borrado");
+    const alerta = crearAlerta(panel?.querySelector(".alerta-borrado"));
     const botonConfirmar = panel?.querySelector(".btn-confirmar-borrado");
 
     if (botonConfirmar) botonConfirmar.disabled = true;
-    if (alerta) alerta.textContent = "";
+    alerta.limpiar();
 
     let estado;
     try {
-        estado = await enviarJson(`borrar-${idCliente}`, "DELETE", `${API_CLIENTE}/${idCliente}`);
+        // Solo el codigo: un DELETE no tiene campos que puedan venir marcados.
+        estado = (await enviarJson(`borrar-${idCliente}`, "DELETE", `${API_CLIENTE}/${idCliente}`)).estado;
     } catch (error) {
         // La hemos cancelado nosotros (otra confirmación de la misma fila): ya viene otra.
         if (esCancelacion(error)) return;
@@ -44,7 +46,7 @@ export async function borrarCliente(fila, idCliente) {
     // El 404 se trata como un éxito. Significa que alguien se ha adelantado, pero el cliente ya
     // no está, que es exactamente lo que se pedía: contarlo como error sería darle un fallo a
     // quien ha obtenido lo que quería.
-    if (estado === 200 || estado === 404) {
+    if (estado === 204 || estado === 404) {
         const filaActual = filaViva(idCliente);
 
         if (filaActual) {
@@ -70,7 +72,7 @@ export async function borrarCliente(fila, idCliente) {
     // No se ha borrado: el panel se queda abierto con el motivo escrito dentro, y no se cierra
     // para que quien lo pidió vea por qué no ha pasado nada sin perder el sitio.
     if (botonConfirmar) botonConfirmar.disabled = false;
-    if (alerta) alerta.textContent = motivoDeNoBorrar(estado);
+    alerta.mostrarError(motivoDeNoBorrar(estado));
 }
 
 /**

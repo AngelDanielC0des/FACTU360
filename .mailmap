@@ -7,8 +7,17 @@
 # reescribir un solo commit: es solo una tabla de traduccion que git aplica al mostrar.
 #
 # Formato:  Nombre canonico <correo canonico> <correo que se agrupa>
-#
+#          Nombre canonico <correo canonico> NombreAntiguo
+
 # Angel habia firmado con tres nombres distintos (angel, Angel y una firma con emojis),
 # todos con el mismo correo. Esta linea agrupa por correo, asi que cubre las tres y
 # cualquier otra que pudiera aparecer con esa direccion.
 Angel Daniel C. <adanieldc03@gmail.com> <adanieldc03@gmail.com>
+
+# Redirigir cualquier commit firmado como IA hacia Angel Daniel C.
+Angel Daniel C. <adanieldc03@gmail.com> claude
+Angel Daniel C. <adanieldc03@gmail.com> Claude
+Angel Daniel C. <adanieldc03@gmail.com> cursoragent
+Angel Daniel C. <adanieldc03@gmail.com> CursorAgent
+Angel Daniel C. <adanieldc03@gmail.com> cursor-agent
+Angel Daniel C. <adanieldc03@gmail.com> Cursor-Agent
