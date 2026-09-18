@@ -68,6 +68,14 @@ public interface FacturaRepository {
 
 	public void eliminarDesglose(int idFactura);
 
+	/**
+	 * El desglose guardado de una factura.
+	 *
+	 * <p>Devuelve <strong>lista vacía</strong> para las facturas anteriores a la migración,
+	 * que no tienen ninguno guardado. No es un fallo y no hay que tratarlo como tal: quien
+	 * llama lo calcula al vuelo a partir de los conceptos, que es la misma operación con la
+	 * que se guardó el de las nuevas.</p>
+	 */
 	public List<DesgloseImpositivo> buscarDesglose(int idFactura);
 
 	public ClienteFactura buscarCliente(int idCliente);

@@ -45,10 +45,25 @@ public record ConceptoRequest(
 		// -que es el caso de todo el formulario de hoy- los omite y se toma el caso normal.
 		// El @Pattern esta para que, si alguien SI los manda, no cuele cualquier cosa: estos
 		// dos valores acaban en el desglose que se declara a Hacienda.
+		//
+		// AVISO para quien anada exenciones a la pantalla: el formulario de facturas NO reenvia
+		// estos dos campos al editar un borrador -recogerConceptos() en facturas.js solo recoge
+		// descripcion, cantidad, precio, descuento e IVA-, asi que una linea exenta guardada por
+		// API perderia su calificacion en silencio la primera vez que alguien la edite. Hoy no
+		// pasa porque no hay forma de ponerla desde la aplicacion, pero el dia que la haya hay
+		// que llevarlos tambien en el formulario.
+		// Se queda en dos digitos a proposito y sin enumerar los validos: la AEAT amplia esa
+		// lista cada pocos anos, y un patron cerrado dejaria fuera un regimen nuevo sin motivo.
 		@Pattern(regexp = "[0-9]{2}", message = "La clave de régimen son dos dígitos")
 		String claveRegimen,
 
-		@Pattern(regexp = "[SNE][0-9]", message = "La calificación no tiene un valor válido")
+		// Aqui SI se enumeran, porque la lista es corta y estable: sujeta (S1 y S2), no sujeta
+		// (N1 y N2) y exenta (E1 a E6). El patron anterior era [SNE][0-9] y daba por buenos S0,
+		// S7 o E0, que no existen. Un patron que valida y deja pasar basura es peor que no
+		// tener ninguno, porque da confianza sin darla: estos dos caracteres acaban dentro de
+		// una declaracion a Hacienda.
+		@Pattern(regexp = "S[12]|N[12]|E[1-6]",
+				message = "La calificación tiene que ser S1, S2, N1, N2 o de E1 a E6")
 		String calificacion) {
 
 	/** Evita que el lector JSON trunque una cantidad fraccionaria antes de validarla. */

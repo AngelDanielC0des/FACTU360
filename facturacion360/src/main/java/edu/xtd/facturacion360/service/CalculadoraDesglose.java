@@ -36,6 +36,21 @@ public final class CalculadoraDesglose {
 	}
 
 	/**
+	 * Lo que lleva sumado un grupo mientras se recorren las líneas.
+	 *
+	 * <p>Un record y no un array de dos posiciones, que es como estaba: {@code acumulado[0]} y
+	 * {@code acumulado[1]} no dicen cuál es la base y cuál la cuota, hay que recordarlo. Aquí
+	 * van importes, y si alguien los intercambia en una edición futura el compilador no dice
+	 * nada y las pruebas de totales siguen pasando, porque la suma de los dos no cambia.</p>
+	 */
+	private record Acumulado(BigDecimal base, BigDecimal cuota) {
+
+		Acumulado mas(Acumulado otro) {
+			return new Acumulado(base.add(otro.base()), cuota.add(otro.cuota()));
+		}
+	}
+
+	/**
 	 * Un importe que puede venir vacío, contado como cero.
 	 *
 	 * <p>En el esquema, {@code porcentaje_iva}, {@code importe_iva} y {@code base_imponible}
@@ -66,21 +81,19 @@ public final class CalculadoraDesglose {
 
 		// LinkedHashMap y no HashMap: mantiene el orden de aparicion mientras se agrupa, que es
 		// el que se ve en la factura. Aun asi se ordena despues, por lo dicho arriba.
-		Map<ClaveDesglose, BigDecimal[]> grupos = new LinkedHashMap<>();
+		Map<ClaveDesglose, Acumulado> grupos = new LinkedHashMap<>();
 
 		for (ConceptoFactura concepto : conceptos) {
-			ClaveDesglose clave = ClaveDesglose.de(concepto);
-			BigDecimal[] acumulado = grupos.computeIfAbsent(clave,
-					sinUsar -> new BigDecimal[] { CERO, CERO });
+			Acumulado linea = new Acumulado(oCero(concepto.baseImponible()),
+					oCero(concepto.importeIva()));
 
-			acumulado[0] = acumulado[0].add(oCero(concepto.baseImponible()));
-			acumulado[1] = acumulado[1].add(oCero(concepto.importeIva()));
+			grupos.merge(ClaveDesglose.de(concepto), linea, Acumulado::mas);
 		}
 
 		List<DesgloseImpositivo> desglose = new ArrayList<>(grupos.size());
-		for (Map.Entry<ClaveDesglose, BigDecimal[]> grupo : grupos.entrySet()) {
+		for (Map.Entry<ClaveDesglose, Acumulado> grupo : grupos.entrySet()) {
 			desglose.add(DesgloseImpositivo.de(grupo.getKey(),
-					grupo.getValue()[0], grupo.getValue()[1]));
+					grupo.getValue().base(), grupo.getValue().cuota()));
 		}
 
 		desglose.sort(Comparator.comparing(DesgloseImpositivo::impuesto)
