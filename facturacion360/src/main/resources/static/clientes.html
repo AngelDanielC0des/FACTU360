@@ -469,15 +469,20 @@
 								class="form-control form-control-sm"
 								minlength="9"
 								maxlength="9"
-								pattern="([A-Z][0-9]{8}|[0-9]{8}[A-Z]|[XYZ][0-9]{7}[A-Z])"
+								pattern="[0-9]{8}[A-Za-z]|[XYZxyz][0-9]{7}[A-Za-z]|[ABCDEFGHJNPQRSUVWabcdefghjnpqrsuvw][0-9]{7}[0-9A-Ja-j]"
 								placeholder="12345678Z"
-								title="Introduce un DNI CIF o NIF"
+								title="DNI (12345678Z), NIE (X1234567L) o CIF (A58818501)"
 								required>
 
+							<!-- Este hueco solo cuenta los fallos de FORMA, que es lo unico que sabe
+                                 comprobar un pattern. La letra de control la calcula el servidor,
+                                 y su mensaje cae aqui mismo: marcarCampo() lo escribe encima
+                                 cuando el 400 trae el mapa de errores por campo. -->
 							<div class="invalid-feedback">
-								El documento debe ser un DNI (8 números y una letra) o un NIF
-								de extranjero (X, Y o Z, 7 números y una letra).
-								Ejemplos: 12345678Z o X1234567L
+								El documento debe ser un DNI (8 números y una letra), un NIE
+								(X, Y o Z, 7 números y una letra) o un CIF (letra de empresa,
+								7 números y un dígito o letra de control).
+								Ejemplos: 12345678Z, X1234567L o A58818501
 							</div>
 					 	</div>
 

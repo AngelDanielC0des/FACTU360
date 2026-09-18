@@ -7,7 +7,7 @@
  */
 
 import { CAMPOS_EDITABLES, CAMPOS_OPCIONALES } from "./config.js";
-import { MENSAJE_NIF_BASE } from "./dom.js";
+import { MENSAJES_BASE } from "./dom.js";
 import { filasDesplegadas } from "./estado.js";
 import { fijar } from "./avisos.js";
 import { crearAlerta } from "./notificaciones.js";
@@ -105,7 +105,7 @@ export function cuerpoPeticion(formulario) {
  * @param {HTMLFormElement} formulario el formulario que se intentó guardar
  * @param {number} estado el código HTTP (0 si ni siquiera hubo respuesta)
  */
-export function mostrarErrorGuardado(formulario, estado) {
+export function mostrarErrorGuardado(formulario, estado, errores = {}) {
     // El NIF/CIF tiene un índice UNIQUE en la base de datos: es el único dato que puede chocar
     // con otro cliente, así que el 409 se señala en SU campo. Un aviso general obligaría al
     // usuario a adivinar cuál de los ocho campos es el del problema.
@@ -137,6 +137,20 @@ export function mostrarErrorGuardado(formulario, estado) {
     const alerta = crearAlerta(formulario.querySelector(".alerta-formulario"));
 
     if (estado === 400) {
+        // El servidor dice QUE campo y POR QUE. Es lo que hace falta para un NIF con la letra
+        // de control cambiada: la forma es correcta, asi que el navegador lo deja pasar, y sin
+        // este mapa el usuario solo leeria "revisa los campos marcados" sin ninguno marcado.
+        const marcados = Object.entries(errores);
+
+        for (const [campo, motivo] of marcados) {
+            if (formulario.elements[campo]) marcarCampo(formulario.elements[campo], motivo);
+        }
+
+        if (marcados.length > 0) {
+            formulario.querySelector(".is-invalid")?.focus();
+            return;
+        }
+
         alerta.mostrarError("El servidor ha rechazado los datos. Revisa los campos marcados.");
     } else {
         alerta.mostrarError("No se pudo guardar. Inténtalo de nuevo en unos segundos.");
@@ -147,7 +161,11 @@ export function mostrarErrorGuardado(formulario, estado) {
 export function limpiarErrores(formulario) {
     crearAlerta(formulario.querySelector(".alerta-formulario")).limpiar();
 
-    // Al campo se le devuelve el mensaje que el <template> trae de fábrica (el de "es
-    // obligatorio"), que es el que le toca enseñar si se queda vacío.
-    limpiarCampo(formulario.elements.nifCif, MENSAJE_NIF_BASE);
+    // Todos los que estuvieran marcados y no solo el NIF/CIF: un 400 puede venir señalando
+    // varios campos, y sin esto las marcas del intento anterior se quedarian puestas. A cada
+    // uno se le devuelve el mensaje que el <template> trae de fabrica, que es el que le toca
+    // enseñar si se queda vacio.
+    for (const campo of formulario.querySelectorAll(".is-invalid")) {
+        limpiarCampo(campo, MENSAJES_BASE[campo.name]);
+    }
 }

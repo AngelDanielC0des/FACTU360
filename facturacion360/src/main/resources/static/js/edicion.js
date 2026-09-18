@@ -62,7 +62,7 @@ export async function guardarEdicion(formulario) {
     boton.disabled = true;   // sin esto, dos clics seguidos mandan dos PUT
 
     try {
-        const estado = await enviarJson(`guardar-${idCliente}`, "PUT",
+        const { estado, errores } = await enviarJson(`guardar-${idCliente}`, "PUT",
             `${API_CLIENTE}/${idCliente}`, cuerpoPeticion(formulario));
 
         if (estado === 200) {
@@ -89,7 +89,7 @@ export async function guardarEdicion(formulario) {
             return;
         }
 
-        contarErrorGuardado(idCliente, estado);
+        contarErrorGuardado(idCliente, estado, errores);
     } catch (error) {
         if (esCancelacion(error)) return;
         console.error("No se pudo guardar el cliente:", error);
@@ -117,11 +117,11 @@ export async function guardarEdicion(formulario) {
  * @param {number} idCliente el cliente que se intentaba guardar
  * @param {number} estado el código HTTP (0 si ni siquiera hubo respuesta)
  */
-function contarErrorGuardado(idCliente, estado) {
+function contarErrorGuardado(idCliente, estado, errores) {
     const formulario = formularioVivo(idCliente);
 
     if (formulario) {
-        mostrarErrorGuardado(formulario, estado);
+        mostrarErrorGuardado(formulario, estado, errores);
         return;
     }
 

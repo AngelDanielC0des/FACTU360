@@ -203,7 +203,7 @@ export async function guardarCliente(formulario) {
     const nifCreado = formulario.elements.nifCif.value.trim();
 
     try {
-        const estado = await enviarJson("alta", "POST", API_CLIENTE, cuerpoPeticion(formulario));
+        const { estado, errores } = await enviarJson("alta", "POST", API_CLIENTE, cuerpoPeticion(formulario));
 
         if (estado === 201) {
             cerrarAlta({ devolverElFoco: false });
@@ -211,7 +211,7 @@ export async function guardarCliente(formulario) {
             return;
         }
 
-        contarErrorAlta(estado);
+        contarErrorAlta(estado, errores);
     } catch (error) {
         if (esCancelacion(error)) return;
         console.error("No se pudo crear el cliente:", error);
@@ -234,11 +234,11 @@ export async function guardarCliente(formulario) {
  *
  * @param {number} estado el código HTTP (0 si ni siquiera hubo respuesta)
  */
-function contarErrorAlta(estado) {
+function contarErrorAlta(estado, errores) {
     const formulario = formularioAlta();
 
     if (formulario) {
-        mostrarErrorGuardado(formulario, estado);
+        mostrarErrorGuardado(formulario, estado, errores);
         return;
     }
 

@@ -102,8 +102,14 @@
                         </div>
                         <div class="mb-3">
                             <label for="inputCif" class="form-label">NIF / CIF*</label>
-                            <input type="text" class="form-control" name="cif" id="inputCif" placeholder="Z00000000" required>
-                            <div class="invalid-feedback">Escribe el NIF o el CIF.</div>
+                            <input type="text" class="form-control" name="cif" id="inputCif"
+                                   pattern="[0-9]{8}[A-Za-z]|[XYZxyz][0-9]{7}[A-Za-z]|[ABCDEFGHJNPQRSUVWabcdefghjnpqrsuvw][0-9]{7}[0-9A-Ja-j]"
+                                   title="DNI (12345678Z), NIE (X1234567L) o CIF (A58818501)"
+                                   placeholder="A58818501" required>
+                            <!-- Hasta ahora este campo no tenia ningun patron: aceptaba cualquier cosa. -->
+                            <div class="invalid-feedback">
+                                Escribe un DNI, un NIE o un CIF. Ejemplos: 12345678Z, X1234567L o A58818501
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="inputDireccion" class="form-label">Dirección Fiscal*</label>
