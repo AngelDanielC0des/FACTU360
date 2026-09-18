@@ -54,7 +54,8 @@ public class FacturaServiceImpl implements FacturaService {
 	/** Calcula sin acceder al repositorio ni modificar los datos recibidos. */
 	public CalculoFactura calcularImportes(List<ConceptoRequest> conceptos, String estado) {
 		if (estado == null || !List.of("BORRADOR", "EMITIDA", "ANULADA").contains(estado)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El estado de la factura no es válido");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"El estado debe ser BORRADOR, EMITIDA o ANULADA");
 		}
 		if (conceptos == null) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La lista de conceptos es obligatoria");
@@ -127,7 +128,8 @@ public class FacturaServiceImpl implements FacturaService {
 							calculo.subtotal(), calculo.importeIva(), calculo.total());
 					Factura facturaNueva = facturaRepository.insertar(factura);
 					if (facturaNueva == null) {
-						throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error al insertar la factura");
+						throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+								"No se ha podido guardar la factura. Vuelve a intentarlo en unos segundos");
 					}
 					facturaRepository.insertarConceptos(facturaNueva.idFactura(), calculo.conceptos());
 					return facturaNueva;
@@ -145,7 +147,9 @@ public class FacturaServiceImpl implements FacturaService {
 
 	private void validarPeticion(FacturaRequest facturaRequest) {
 		if (facturaRequest == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La petición es obligatoria");
+			// Solo se llega aqui si el cuerpo viaja vacio; Spring suele cazarlo antes.
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"No se han recibido los datos de la factura");
 		}
 		Set<ConstraintViolation<FacturaRequest>> errores = validador.validate(facturaRequest);
 		if (!errores.isEmpty()) {
@@ -160,7 +164,9 @@ public class FacturaServiceImpl implements FacturaService {
 	@Override
 	public Factura editarBorrador(int idFactura, FacturaRequest facturaRequest) {
 		if (idFactura <= 0) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El identificador de factura no es válido");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"El identificador de factura tiene que ser un número mayor que cero, y se ha "
+							+ "recibido " + idFactura);
 		}
 		validarPeticion(facturaRequest);
 		if (!List.of("BORRADOR", "EMITIDA").contains(facturaRequest.estado())) {
@@ -171,10 +177,13 @@ public class FacturaServiceImpl implements FacturaService {
 		return transaccion.execute(estadoTransaccion -> {
 			Factura anterior = facturaRepository.buscarPorIdParaActualizar(idFactura);
 			if (anterior == null) {
-				throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la factura");
+				throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+						"La factura " + idFactura + " ya no existe");
 			}
 			if (!"BORRADOR".equals(anterior.estado())) {
-				throw new ResponseStatusException(HttpStatus.CONFLICT, "Solo se pueden editar facturas en estado BORRADOR");
+				throw new ResponseStatusException(HttpStatus.CONFLICT,
+						"La factura " + anterior.numeroFactura() + " está " + anterior.estado()
+								+ " y solo se pueden editar las que están en BORRADOR");
 			}
 			int anioNumero = anterior.fechaEmision().getYear();
 			// Los números manuales ajenos al formato mantienen el año de su fecha anterior.
@@ -188,7 +197,12 @@ public class FacturaServiceImpl implements FacturaService {
 					facturaRequest.fechaEmision(), facturaRequest.estado(), facturaRequest.observaciones(),
 					calculo.subtotal(), calculo.importeIva(), calculo.total());
 			if (facturaRepository.actualizarBorrador(modificada) != 1) {
-				throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo actualizar el borrador");
+				// Se lee con FOR UPDATE justo antes, asi que llegar aqui significa que la fila ha
+				// cambiado pese al bloqueo. No se inventa un motivo que no se puede comprobar:
+				// se dice lo unico seguro, que no se ha guardado, y que hay que volver a abrirla.
+				throw new ResponseStatusException(HttpStatus.CONFLICT,
+						"No se han guardado los cambios de la factura " + anterior.numeroFactura()
+								+ ". Vuelve a abrirla para ver como esta ahora");
 			}
 			facturaRepository.eliminarConceptos(idFactura);
 			facturaRepository.insertarConceptos(idFactura, calculo.conceptos());
@@ -215,17 +229,23 @@ public class FacturaServiceImpl implements FacturaService {
 	@Override
 	public DetalleFactura obtenerDetalle(int idFactura) {
 		if (idFactura <= 0) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El identificador de factura no es válido");
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+					"El identificador de factura tiene que ser un número mayor que cero, y se ha "
+							+ "recibido " + idFactura);
 		}
 
 		Factura factura = facturaRepository.buscarPorId(idFactura);
 		if (factura == null) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró la factura");
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+					"La factura " + idFactura + " ya no existe");
 		}
 
 		ClienteFactura cliente = facturaRepository.buscarCliente(factura.idCliente());
 		if (cliente == null) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el cliente de la factura");
+			// Esto no lo puede provocar el usuario: significa que hay una factura apuntando a un
+			// cliente que no esta, o sea un dato incoherente en la base de datos.
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+					"La factura " + factura.numeroFactura() + " apunta a un cliente que ya no existe");
 		}
 
 		List<ConceptoFactura> conceptos = facturaRepository.buscarConceptos(idFactura);
