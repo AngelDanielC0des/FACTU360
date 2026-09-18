@@ -112,6 +112,32 @@ class ManejadorExcepcionesTests {
 	}
 
 	@Test
+	void unaEmpresaSePuedeDarDeAltaComoCliente() throws Exception {
+		Cliente empresa = new Cliente(2, "Ejemplo S.L.", "B12345674", "Calle Mayor 15", "28001",
+				"Madrid", "Madrid", "912345678", "empresa@ejemplo.es", LocalDate.of(2026, 1, 15));
+		when(servicio.crear(any(Cliente.class))).thenReturn(empresa);
+
+		// El fallo que bloqueaba el proyecto: el patron anterior solo admitia DNI de persona
+		// fisica, asi que en una aplicacion de FACTURACION no se podia registrar una empresa.
+		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON)
+				.content(CLIENTE_VALIDO.replace("12345678Z", "B12345674")))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.nifCif").value("B12345674"));
+	}
+
+	@Test
+	void elDocumentoConLaLetraCambiadaDiceCualEraLaBuena() throws Exception {
+		// 12345678A tiene la forma correcta, asi que el navegador lo deja pasar: esto solo lo
+		// puede cazar el servidor, y por eso el motivo tiene que llegar hasta el campo.
+		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON)
+				.content(CLIENTE_VALIDO.replace("12345678Z", "12345678A")))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errores.nifCif").value(Matchers.containsString("Z")));
+
+		org.mockito.Mockito.verify(servicio, org.mockito.Mockito.never()).crear(any(Cliente.class));
+	}
+
+	@Test
 	void losErroresDeValidacionVienenCampoACampo() throws Exception {
 		String sinNombre = CLIENTE_VALIDO.replace("\"nombre\":\"Ana Gil Paz\"", "\"nombre\":\"\"");
 

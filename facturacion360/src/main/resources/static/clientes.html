@@ -88,8 +88,8 @@
                      que mide la columna nombre: pasarse solo sirve para que el servidor
                      conteste 400. Mismo criterio que en el formulario de edición. -->
 			<input type="search" id="buscador-clientes" class="buscador-input"
-				placeholder="Buscar por nombre o CIF..." maxlength="60"
-				aria-label="Buscar cliente por nombre o CIF">
+				placeholder="Buscar por nombre o NIF/CIF..." maxlength="60"
+				aria-label="Buscar cliente por nombre o NIF/CIF">
 		</div>
 
 		<div class="input-group control-filtro">
@@ -180,7 +180,7 @@
                  las pinta el JavaScript, así que marca él mismo la paridad por cliente. -->
 			<table class="table table-hover align-middle tabla-clientes">
 				<caption id="titulo-tabla-clientes" class="visually-hidden">
-					Clientes registrados, con su CIF, email, teléfono y fecha de alta</caption>
+					Clientes registrados, con su NIF/CIF, email, teléfono y fecha de alta</caption>
 				<thead class="table-primary-custom">
 					<tr>
 						<!-- Cabeceras pulsables: es el gesto que todo el mundo prueba
@@ -194,7 +194,7 @@
 									aria-hidden="true"></i>
 							</button>
 						</th>
-						<th scope="col">CIF</th>
+						<th scope="col">NIF/CIF</th>
 						<!-- En móvil se ocultan email y teléfono: seis columnas obligan a
                              desplazar en horizontal, y estos dos datos siguen estando a un clic
                              en el panel de detalle. -->
@@ -456,7 +456,7 @@
 					 		<label for="campo-nifCif-PLANTILLA">
 					 			<i class="fa-solid fa-pencil icono-editable" aria-hidden="true"></i>
 
-					 			<span class="texto-etiqueta">CIF</span>
+					 			<span class="texto-etiqueta">NIF/CIF</span>
 
 					 			<span class="marca-obligatorio" aria-hidden="true">*</span>
 					 		</label>
@@ -469,15 +469,20 @@
 								class="form-control form-control-sm"
 								minlength="9"
 								maxlength="9"
-								pattern="([A-Z][0-9]{8}|[0-9]{8}[A-Z]|[XYZ][0-9]{7}[A-Z])"
+								pattern="[0-9]{8}[A-Za-z]|[XYZxyz][0-9]{7}[A-Za-z]|[ABCDEFGHJNPQRSUVWabcdefghjnpqrsuvw][0-9]{7}[0-9A-Ja-j]"
 								placeholder="12345678Z"
-								title="Introduce un DNI CIF o NIF"
+								title="DNI (12345678Z), NIE (X1234567L) o CIF (A58818501)"
 								required>
 
+							<!-- Este hueco solo cuenta los fallos de FORMA, que es lo unico que sabe
+                                 comprobar un pattern. La letra de control la calcula el servidor,
+                                 y su mensaje cae aqui mismo: marcarCampo() lo escribe encima
+                                 cuando el 400 trae el mapa de errores por campo. -->
 							<div class="invalid-feedback">
-								El documento debe ser un DNI (8 números y una letra) o un NIF
-								de extranjero (X, Y o Z, 7 números y una letra).
-								Ejemplos: 12345678Z o X1234567L
+								El documento debe ser un DNI (8 números y una letra), un NIE
+								(X, Y o Z, 7 números y una letra) o un CIF (letra de empresa,
+								7 números y un dígito o letra de control).
+								Ejemplos: 12345678Z, X1234567L o A58818501
 							</div>
 					 	</div>
 

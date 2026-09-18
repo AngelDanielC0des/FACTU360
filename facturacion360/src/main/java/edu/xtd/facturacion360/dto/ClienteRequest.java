@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import edu.xtd.facturacion360.validacion.NifCif;
+
 /**
  * Datos que puede enviar un cliente HTTP para crear o actualizar un cliente.
  */
@@ -14,11 +16,11 @@ public record ClienteRequest(
         @Size(max = 60, message = "El nombre no puede superar 60 caracteres")
         String nombre,
 
+        // @NifCif y no un @Pattern: la letra de control no se puede calcular con una
+        // expresion regular, y el patron que habia aqui solo admitia DNI de persona fisica,
+        // asi que no se podia dar de alta a ninguna empresa como cliente.
         @NotBlank(message = "El NIF/CIF es obligatorio")
-        @Pattern(
-                regexp = "^[0-9]{8}[A-Z]$",
-                message = "El DNI debe tener 8 números y una letra mayúscula. Ejemplo: 12345678Z"
-        )
+        @NifCif
         String nifCif,
 
         @Size(max = 90, message = "La dirección no puede superar 90 caracteres")

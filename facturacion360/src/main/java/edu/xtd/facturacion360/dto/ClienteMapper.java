@@ -22,7 +22,7 @@ public class ClienteMapper {
 			cliente =  new Cliente(
 					0,
 					clienteRequest.nombre(),
-					clienteRequest.nifCif(),
+					normalizar(clienteRequest.nifCif()),
 					clienteRequest.direccion(),
 					clienteRequest.codigoPostal(),
 					clienteRequest.poblacion(),
@@ -68,4 +68,21 @@ public class ClienteMapper {
 
 		return clienteResponse;
 	}
+
+	/**
+	 * Deja el documento en mayúsculas y sin espacios de los lados.
+	 *
+	 * El validador acepta "12345678z" porque obligar a pulsar mayúsculas para teclear un NIF
+	 * es una molestia sin motivo, pero guardarlo así haría que la ficha lo enseñara en
+	 * minúscula y que dos altas del mismo cliente se vieran distintas. El índice UNIQUE de
+	 * nif_cif no se ve afectado —su collation ya ignora mayúsculas—, o sea que esto es
+	 * cuestión de lo que se ve, no de integridad.
+	 *
+	 * @param documento lo que vino en la petición
+	 * @return el mismo documento listo para guardar, o null si no venía
+	 */
+	private static String normalizar(String documento) {
+		return documento == null ? null : documento.trim().toUpperCase();
+	}
+
 }

@@ -35,7 +35,8 @@ export async function borrarCliente(fila, idCliente) {
 
     let estado;
     try {
-        estado = await enviarJson(`borrar-${idCliente}`, "DELETE", `${API_CLIENTE}/${idCliente}`);
+        // Solo el codigo: un DELETE no tiene campos que puedan venir marcados.
+        estado = (await enviarJson(`borrar-${idCliente}`, "DELETE", `${API_CLIENTE}/${idCliente}`)).estado;
     } catch (error) {
         // La hemos cancelado nosotros (otra confirmación de la misma fila): ya viene otra.
         if (esCancelacion(error)) return;
