@@ -410,6 +410,22 @@ function actualizarContadorObservaciones() {
     contadorObservaciones.textContent = campoObservaciones.value.length + " / " + campoObservaciones.maxLength + " caracteres";
 }
 
+function establecerIvaConcepto(concepto, porcentaje) {
+    const selector = concepto.querySelector('[name="porcentajeIva"]');
+    const anterior = selector.querySelector("[data-historico]");
+    if (anterior) anterior.remove();
+    const valor = porcentaje == null ? "" : String(porcentaje);
+    // Mantiene los porcentajes históricos sin convertirlos a uno de los cuatro tipos nuevos.
+    if (valor != "" && !Array.from(selector.options).some(opcion => opcion.value == valor)) {
+        const opcion = document.createElement("option");
+        opcion.value = valor;
+        opcion.textContent = valor + " % (guardado)";
+        opcion.dataset.historico = "true";
+        selector.appendChild(opcion);
+    }
+    selector.value = valor;
+}
+
 function anadirConcepto(datos = null) {
     const concepto = plantillaConcepto.content.firstElementChild.cloneNode(true);
     const campoTotal = concepto.querySelector('[name="totalConcepto"]');
@@ -419,9 +435,10 @@ function anadirConcepto(datos = null) {
     campoTotal.setAttribute("aria-describedby", ayudaTotal.id);
     concepto.dataset.entradaPrincipal = "precioUnitario";
     if (datos) {
-        for (const campo of ["descripcion", "cantidad", "precioUnitario", "descuento", "porcentajeIva"]) {
+        for (const campo of ["descripcion", "cantidad", "precioUnitario", "descuento"]) {
             concepto.querySelector('[name="' + campo + '"]').value = datos[campo] ?? "";
         }
+        establecerIvaConcepto(concepto, datos.porcentajeIva);
     }
     prepararSugerenciasConcepto(concepto);
 
@@ -548,10 +565,11 @@ function prepararSugerenciasConcepto(concepto) {
         if (!guardandoFactura) {
             descripcion.value = sugerencia.descripcion;
             descripcion.setCustomValidity("");
-            for (const campo of ["precioUnitario", "descuento", "porcentajeIva"]) {
+            for (const campo of ["precioUnitario", "descuento"]) {
                 // Un valor histórico ausente queda pendiente de completar, no se inventa un cero.
                 concepto.querySelector('[name="' + campo + '"]').value = sugerencia[campo] ?? "";
             }
+            establecerIvaConcepto(concepto, sugerencia.porcentajeIva);
             cerrar();
             concepto.dataset.entradaPrincipal = "precioUnitario";
             concepto.querySelector('[name="totalConcepto"]').setCustomValidity("");
