@@ -91,11 +91,19 @@ git clone https://github.com/Valexx55/FACTURACION360.git
 
 ## 2. Crear la base de datos
 
-En el repositorio está el volcado completo, que crea la base de datos `bd_facturacion` con las tablas `clientes`, `conceptos` y `facturas`:
+En el repositorio está el volcado completo, que crea la base de datos `bd_facturacion` con sus cinco tablas: `clientes`, `conceptos`,
+`desglose_impositivo`, `emisor` y `facturas`.
+
+Hay varios volcados numerados y **el bueno es siempre el del número más alto**, que es el que está al día:
 
 ```bash
-mysql -u root -p < facturacion360/src/main/resources/docu/backupFacturacion360v1.sql
+mysql -u root -p --default-character-set=utf8mb4 < facturacion360/src/main/resources/docu/backupFacturacion360v3.sql
 ```
+
+El `--default-character-set=utf8mb4` no sobra: sin él los acentos entran mal y acabas con «Sebastián» guardado
+como «Sebasti├ín» dentro de la base.
+
+Los `v1` y `v2` se conservan para poder volver a un esquema anterior. No son copias de seguridad y no hay que cargarlos.
 
 También puede importarse desde MySQL Workbench con *Server → Data Import*.
 

@@ -35,7 +35,7 @@
 -- ─────────────────────────────────────────────────────────────────────────
 --
 -- Si montas la base de datos desde cero NO necesitas este fichero:
--- backupFacturacion360v2.sql ya trae todo esto incluido.
+-- backupFacturacion360v3.sql ya trae todo esto incluido.
 --
 -- @author AngelDanielC0des
 -- ═══════════════════════════════════════════════════════════════════════════
