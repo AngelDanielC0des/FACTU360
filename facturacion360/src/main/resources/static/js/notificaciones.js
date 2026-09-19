@@ -161,7 +161,7 @@ export function crearAvisos({ franja = null, region = null, duracionMs = DURACIO
  * largo está el scrollIntoView, que acerca sin quitarle el foco a nadie.
  *
  * @param {Element} elemento el <p role="alert"> del formulario
- * @return {{mostrar: Function, limpiar: Function}}
+ * @return {{mostrarError: Function, informar: Function, limpiar: Function}}
  */
 export function crearAlerta(elemento) {
 

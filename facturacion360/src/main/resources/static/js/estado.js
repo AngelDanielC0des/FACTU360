@@ -26,7 +26,8 @@ export const criterios = {
  * del DOM porque la tabla se repinta entera cada vez que se pagina, se busca o se refresca:
  * de aquí se saca qué paneles hay que volver a abrir después.
  *
- *   modo     -> "detalle" (solo lectura) o "edicion" (formulario)
+ *   modo     -> "detalle" (solo lectura), "edicion" (formulario) o "borrado"
+ *               (confirmacion)
  *   borrador -> lo que el usuario tuviera escrito sin guardar cuando se repintó la tabla,
  *               o null. Sin esto, buscar algo con un formulario abierto le borraría lo
  *               tecleado sin avisar.

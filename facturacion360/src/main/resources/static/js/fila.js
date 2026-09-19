@@ -108,7 +108,7 @@ export function formularioVivo(idCliente) {
     return cuerpoTabla.querySelector(`.formulario-edicion[data-cliente-id="${idCliente}"]`);
 }
 
-/** ¿Qué panel tiene abierto esta fila? "detalle", "edicion" o null si está cerrada. */
+/** ¿Qué panel tiene abierto esta fila? "detalle", "edicion", "borrado" o null si cerrada. */
 export function modoDe(fila) {
     return filasDesplegadas.get(Number(fila.dataset.clienteId))?.modo ?? null;
 }

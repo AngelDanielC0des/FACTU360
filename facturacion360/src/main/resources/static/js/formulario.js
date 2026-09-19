@@ -81,11 +81,13 @@ export function hayCambios(formulario) {
 }
 
 /**
- * El cuerpo JSON del PUT, con la forma que espera ClienteRequest. No lleva ni el id (viaja
+ * Los datos que viajan al servidor, con la forma que espera ClienteRequest. No lleva ni el
+ * id (viaja
  * en la URL) ni la fecha de alta (no es editable y el service conserva la que hay en la BD).
  *
- * @param {HTMLFormElement} formulario el formulario de edición
- * @return {string} el JSON listo para el body del fetch
+ * @param {HTMLFormElement} formulario el formulario, de alta o de edición
+ * @return {Object.<string, string|null>} los campos listos para enviar. Quien los convierte
+ *         en JSON es enviarJson, que hace el JSON.stringify: aquí sale un objeto
  */
 export function cuerpoPeticion(formulario) {
     const valores = leerFormulario(formulario);
