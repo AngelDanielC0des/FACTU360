@@ -1,7 +1,6 @@
 package edu.xtd.facturacion360.verifactu.huella;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -160,8 +159,10 @@ class CalculadorHuellaTests {
 		String cadena = CadenaCanonica.alta(NIF, "12345678/G33", EXPEDICION, "F1", CUOTA,
 				TOTAL, null, OffsetDateTime.parse("2024-01-15T19:20:30+00:00"));
 
+		// Basta con mirar el final: si el huso se hubiera abreviado a Z, la cadena no podria
+		// acabar en +00:00. Buscar la Z suelta en toda la cadena tambien pasaria hoy, pero se
+		// romperia el dia que alguien cambiara la constante NIF: la Z es letra valida de DNI.
 		assertTrue(cadena.endsWith("&FechaHoraHusoGenRegistro=2024-01-15T19:20:30+00:00"), cadena);
-		assertFalse(cadena.contains("Z"), "el huso cero no se abrevia a Z: " + cadena);
 	}
 
 	@Test

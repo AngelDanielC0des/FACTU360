@@ -62,7 +62,14 @@ public final class CalculadorHuella {
 	 *       de escribir esta conversión a mano con {@code Integer.toHexString}.</li>
 	 * </ol>
 	 *
-	 * @param cadena la cadena que devuelve {@link CadenaCanonica}
+	 * <p>A diferencia de {@link CadenaCanonica}, aquí el nulo <strong>no se tolera</strong> y
+	 * revienta con {@link NullPointerException}. La asimetría es a propósito: allí un campo
+	 * nulo es un dato legítimo —la especificación manda escribirlo vacío—, y aquí no hay
+	 * ningún caso en el que tenga sentido calcular la huella de nada. Llegar con un nulo es un
+	 * error de programación, y taparlo devolviendo el hash de la cadena vacía produciría una
+	 * huella de aspecto correcto para un registro que no existe.</p>
+	 *
+	 * @param cadena la cadena que devuelve {@link CadenaCanonica}; nunca {@code null}
 	 * @return la huella, 64 caracteres hexadecimales en mayúsculas
 	 */
 	public static String de(String cadena) {
