@@ -11,13 +11,23 @@
  * el botón de dirección y las cabeceras de la tabla se contradigan: los dos leen y
  * escriben aquí, y luego se repinta todo desde este objeto.
  */
-export const criterios = {
+/**
+ * Con que criterios arranca la pantalla.
+ *
+ * Esta aparte y congelado porque hay DOS sitios que necesitan saberlo: el arranque y el
+ * boton de limpiar. Estaba escrito en los dos, asi que cambiar el orden inicial en uno
+ * dejaba al otro llevando a un estado distinto, y el boton pasaba a mentir sobre lo que
+ * hace sin que nada avisara.
+ */
+export const CRITERIOS_INICIALES = Object.freeze({
     busqueda: "",
     provincia: "",
     poblacion: "",
     ordenarPor: "fecha_alta",
     direccion: "desc",
-};
+});
+
+export const criterios = { ...CRITERIOS_INICIALES };
 
 /*
  * Filas con el panel desplegado: id del cliente -> { modo, borrador }.

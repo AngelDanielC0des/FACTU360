@@ -14,8 +14,11 @@ public class ClienteMapper {
 	// ClienteRequest no trae ninguno de los dos (el id viaja en la URL y la fecha es un dato
 	// histórico que no se edita). Quien llame a este método tiene que poner los dos por su
 	// cuenta: en actualizar(), propagar ese 0 lanzaría el UPDATE con "WHERE idcliente = 0" y
-	// copiar ese null borraría la fecha de la respuesta. Las dos cosas están fijadas con sus
-	// pruebas en ClienteServiceImplTest.
+	// copiar ese null borraría la fecha de la respuesta.
+	//
+	// Esto estuvo fijado con pruebas en ClienteServiceImplTest, que se perdió en el merge
+	// f706594 del 14/09 junto con las otras tres clases de prueba de clientes. Hoy no hay
+	// nada que lo sujete: si alguien cambia este método, la única defensa es este aviso.
 	public Cliente toDomain(ClienteRequest clienteRequest) {
 		Cliente cliente = null;
 			

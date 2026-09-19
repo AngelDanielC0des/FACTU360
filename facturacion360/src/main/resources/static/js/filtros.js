@@ -20,7 +20,7 @@ import {
     selectPoblacion,
     selectProvincia,
 } from "./dom.js";
-import { criterios } from "./estado.js";
+import { CRITERIOS_INICIALES, criterios } from "./estado.js";
 import { cargarClientes, cargarPoblaciones } from "./listado.js";
 
 /**
@@ -113,11 +113,10 @@ export function buscar() {
  * defecto. Está aparte del botón porque también se ofrece desde la tabla vacía.
  */
 export async function limpiarCriterios() {
-    criterios.busqueda = "";
-    criterios.provincia = "";
-    criterios.poblacion = "";
-    criterios.ordenarPor = "fecha_alta";
-    criterios.direccion = "desc";
+    // Se copian los iniciales en vez de reescribir los cinco valores: son la definicion
+    // de "recien cargada", y tenerlos aqui otra vez hacia que cambiar el arranque dejara
+    // a este boton llevando a otro sitio, sin que nada avisara.
+    Object.assign(criterios, CRITERIOS_INICIALES);
 
     inputBuscador.value = "";
     selectProvincia.value = "";
