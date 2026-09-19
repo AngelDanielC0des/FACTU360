@@ -76,6 +76,23 @@
 			<artifactId>spring-boot-starter-jdbc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<!--
+			Testcontainers 2.x cambio los identificadores de artefacto: los modulos llevan
+			prefijo. Es testcontainers-mysql, NO mysql, que se quedo en 1.21.4 y no existe
+			en la 2.0.5 que gestiona Spring Boot 4.1.0. Por eso van sin <version>: el
+			spring-boot-dependencies importa el testcontainers-bom.
+		-->
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-mysql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>

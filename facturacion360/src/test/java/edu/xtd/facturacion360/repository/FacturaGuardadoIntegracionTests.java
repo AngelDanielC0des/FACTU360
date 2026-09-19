@@ -24,13 +24,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
 
 import edu.xtd.facturacion360.dto.ConceptoFactura;
 import edu.xtd.facturacion360.dto.ConceptoRequest;
@@ -41,8 +43,22 @@ import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 
 /** Solo para una instancia temporal identificada expresamente; no carga application.properties. */
-@EnabledIfSystemProperty(named = "facturas.mysql.puerto", matches = "[0-9]+")
+@Testcontainers
 class FacturaGuardadoIntegracionTests {
+
+	/**
+	 * La misma version que produccion. Con "mysql:latest" una subida de version de la
+	 * imagen cambiaria el comportamiento de las pruebas sin que nadie tocara el codigo.
+	 *
+	 * SIN diamante: en Testcontainers 2.x MySQLContainer dejo de llevar parametro de tipo.
+	 * Escribir MySQLContainer<> es "type MySQLContainer does not take parameters".
+	 */
+	@Container
+	static final MySQLContainer CONTENEDOR = new MySQLContainer("mysql:8.4")
+			.withDatabaseName("facturas_pruebas")
+			.withUsername("pruebas_facturas")
+			.withPassword("pruebas_facturas");
+
 	static DriverManagerDataSource datos;
 	static JdbcTemplate jdbc;
 	static ValidatorFactory validadores;
@@ -51,24 +67,28 @@ class FacturaGuardadoIntegracionTests {
 
 	@BeforeAll
 	static void prepararBaseAislada() throws Exception {
-		int puerto = Integer.parseInt(System.getProperty("facturas.mysql.puerto"));
-		assertTrue(puerto >= 10000 && puerto <= 65535);
-		String servidor = System.getProperty("facturas.mysql.servidor");
-		String directorio = System.getProperty("facturas.mysql.directorio");
-		String clave = System.getProperty("facturas.mysql.clave");
-		assertNotNull(servidor);
-		assertNotNull(directorio);
-		assertTrue(directorio.startsWith("/tmp/facturas-mysql-"));
-		assertNotNull(clave);
-		datos = new DriverManagerDataSource("jdbc:mysql://127.0.0.1:" + puerto
-				+ "/facturas_pruebas?sslMode=DISABLED&allowPublicKeyRetrieval=true", "pruebas_facturas", clave);
+		datos = new DriverManagerDataSource(CONTENEDOR.getJdbcUrl(),
+				CONTENEDOR.getUsername(), CONTENEDOR.getPassword());
 		jdbc = new JdbcTemplate(datos);
-		// Ninguna escritura antes de comprobar la identidad y ubicación del servidor temporal.
-		assertEquals(servidor, jdbc.queryForObject("SELECT @@server_uuid", String.class));
-		assertEquals(directorio, jdbc.queryForObject("SELECT @@datadir", String.class));
-		assertEquals("facturas_pruebas", jdbc.queryForObject("SELECT DATABASE()", String.class));
-		String esquema = Files.readString(Path.of("src/main/resources/docu/backupFacturacion360v1.sql"));
-		for (String tabla : List.of("clientes", "facturas", "conceptos")) {
+
+		// Ninguna escritura antes de comprobar que se esta hablando con el contenedor y no
+		// con otra cosa. Antes esto se comprobaba con @@server_uuid y @@datadir porque el
+		// servidor lo levantaba una persona y un puerto mal escrito podia apuntar a una base
+		// real. Con el contenedor esa clase de error ya no cabe —la URL la da el propio
+		// contenedor—, pero la comprobacion se mantiene: es barata y es la que convierte un
+		// "apunta a otro sitio" en un fallo de prueba en lugar de en un DELETE.
+		assertEquals(CONTENEDOR.getDatabaseName(),
+				jdbc.queryForObject("SELECT DATABASE()", String.class));
+		// El v3 y no el v1: es el volcado vigente, el del numero mas alto, como dice el
+		// README. El v1 es anterior a la PR #43 y su tabla conceptos no tiene clave_regimen
+		// ni calificacion, que el repositorio si inserta desde entonces; cargarlo da
+		// "Unknown column 'clave_regimen' in 'field list'" en catorce de estas pruebas.
+		// Llevaba roto desde la PR #43 y no se veia porque la clase entera se saltaba.
+		String esquema = Files.readString(Path.of("src/main/resources/docu/backupFacturacion360v3.sql"));
+		// El orden importa: clientes y facturas van primero porque las otras dos las
+		// referencian con clave ajena. desglose_impositivo entro con la PR #43 y faltaba
+		// aqui, asi que el INSERT del desglose moria con "Table ... doesn't exist".
+		for (String tabla : List.of("clientes", "facturas", "conceptos", "desglose_impositivo")) {
 			var definicion = Pattern.compile("CREATE TABLE `" + tabla + "` \\(.*?;", Pattern.DOTALL).matcher(esquema);
 			assertTrue(definicion.find());
 			jdbc.execute(definicion.group().replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS"));
@@ -91,6 +111,8 @@ class FacturaGuardadoIntegracionTests {
 	@BeforeEach
 	void prepararCaso() {
 		// Limpieza exclusiva de las filas sintéticas del servidor comprobado anteriormente.
+		// De hija a madre, o las claves ajenas rechazan el borrado.
+		jdbc.update("DELETE FROM desglose_impositivo");
 		jdbc.update("DELETE FROM conceptos");
 		jdbc.update("DELETE FROM facturas");
 		jdbc.update("DELETE FROM clientes");
@@ -165,8 +187,14 @@ class FacturaGuardadoIntegracionTests {
 		assertEquals(400, assertThrows(ResponseStatusException.class,
 				() -> servicio.editarBorrador(factura.idFactura(), peticion(2027, "BORRADOR", List.of()))).getStatusCode().value());
 		assertEquals(antes, instantanea(factura.idFactura()));
-		assertThrows(DataIntegrityViolationException.class, () -> servicio.editarBorrador(factura.idFactura(),
-				new FacturaRequest(999, LocalDate.of(2026, 1, 1), "BORRADOR", "", List.of())));
+		// ClienteInexistenteException y no DataIntegrityViolationException: desde 08bbfee
+		// el repositorio traduce QUE restriccion ha saltado, para poder dar un mensaje que
+		// diga que hacer. No hereda de la de Spring —extiende RuntimeException— asi que
+		// esperar la generica ya no vale. La traduccion es el contrato de hoy y es el que
+		// se fija aqui.
+		assertThrows(FacturaRepository.ClienteInexistenteException.class,
+				() -> servicio.editarBorrador(factura.idFactura(),
+						new FacturaRequest(999, LocalDate.of(2026, 1, 1), "BORRADOR", "", List.of())));
 		assertEquals(antes, instantanea(factura.idFactura()));
 		assertEquals(404, assertThrows(ResponseStatusException.class,
 				() -> servicio.editarBorrador(999999, peticion(2026, "BORRADOR", List.of()))).getStatusCode().value());
