@@ -115,6 +115,13 @@ export function pintarPaginacion(datos) {
  *        sale vacía por un filtro, la salida tiene que estar donde se ve el problema
  */
 function mostrarMensaje(texto, { conLimpiar = false } = {}) {
+
+    // Vaciar la tabla deja sin destino al foco anotado: si no se descarta aqui, el
+    // siguiente repintado que SI traiga filas se lo llevaria de donde este el cursor
+    // -el buscador, por ejemplo- hasta el boton de un cliente, a media palabra. Pasan
+    // por aqui los dos caminos que vacian la tabla, el de sin resultados y el de error.
+    devolverFoco();
+
     // Este es el OTRO sitio que vacía la tabla, además de pintarFilas, así que lo que hay que
     // rescatar antes de vaciarla hay que rescatarlo también aquí. Cuando se llega desde
     // pintarFilas las dos llamadas se repiten, y no pasa nada porque son idempotentes; cuando

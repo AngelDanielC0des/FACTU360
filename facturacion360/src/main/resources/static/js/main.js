@@ -6,8 +6,8 @@
  * <h2>Mapa de modulos</h2>
  *
  * <pre>
- *   capa 0   config   dom   estado              sin dependencias
- *   capa 1   api   avisos   foco   fila
+ *   capa 0   config   dom   estado                        sin dependencias
+ *   capa 1   api   avisos   foco   fila   notificaciones   problema   validacion
  *   capa 2   formulario
  *   capa 3   dialogo   paneles
  *   capa 4   despliegue
@@ -19,7 +19,15 @@
  * </pre>
  *
  * <p>Un modulo solo importa de las capas de ARRIBA. La regla no es decorativa: es lo que
- * garantiza que no haya ciclos, y hay una comprobacion que lo verifica.</p>
+ * garantiza que no haya ciclos. <strong>Se mantiene a mano</strong>: no hay ninguna
+ * comprobacion automatica que la verifique, asi que quien anada un import es quien tiene
+ * que mirar el mapa.</p>
+ *
+ * <p>Queda una excepcion conocida: <code>avisos</code> importa de <code>notificaciones</code>
+ * y las dos estan en la capa 1. No sube a <code>notificaciones</code> a capa 0 porque tiene
+ * su propia dependencia de <code>config</code>, ni baja <code>avisos</code> a 2 porque eso
+ * arrastraria a los siete modulos que la importan. Se documenta en vez de taparla, que es lo
+ * unico peor que tenerla.</p>
  *
  *
  * @author AngelDanielC0des
@@ -38,12 +46,14 @@ import {
     contenedorTabla,
     cuerpoTabla,
     inputBuscador,
+    MENSAJES_BASE,
     selectOrdenarPor,
     selectPoblacion,
     selectProvincia,
 } from "./dom.js";
 import { criterios } from "./estado.js";
 import { filaViva, modoDe } from "./fila.js";
+import { limpiarCampo } from "./validacion.js";
 import { confirmarDescarte } from "./dialogo.js";
 import { abrirDespliegue, alternarDespliegue, cerrarDespliegue } from "./despliegue.js";
 import { guardarEdicion } from "./edicion.js";
@@ -232,9 +242,13 @@ async function manejarClicPanel(evento, panel) {
 // sentido seguir viéndolo en rojo.
 cuerpoTabla.addEventListener("input", (evento) => {
     if (evento.target.name === "nifCif") {
-        evento.target.classList.remove("is-invalid");
-        evento.target.removeAttribute("aria-invalid");
-        evento.target.removeAttribute("aria-describedby");
+        // limpiarCampo y no quitar la clase a mano: ademas de la marca roja hay que
+        // DEVOLVER EL MENSAJE DE FABRICA. Quitar is-invalid no oculta el hueco mientras
+        // el formulario lleve was-validated -que validar() pone y aqui no se quita nunca-,
+        // asi que el texto del servidor sigue ahi: corriges un NIF repetido y en cuanto lo
+        // tecleado incumple el patron vuelve a salir "ya existe otro cliente con este NIF"
+        // en vez de la explicacion del formato.
+        limpiarCampo(evento.target, MENSAJES_BASE.nifCif);
     }
 });
 

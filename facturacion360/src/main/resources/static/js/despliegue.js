@@ -19,7 +19,6 @@ import {
     pintarCargando,
     pintarContenidoPanel,
     pintarErrorPanel,
-    pintarPanelDetalle,
 } from "./paneles.js";
 
 /**
@@ -136,7 +135,11 @@ function conciliar(fila, contenido, modo, recibido) {
     marcarFila(fila, modo);
 
     if (modo !== "edicion") {
-        pintarPanelDetalle(contenido, recibido);
+        // Se despacha por modo en vez de pintar detalle a secas: "borrado" tambien entra
+        // por aqui -modoDe() lo devuelve, y el boton Reintentar de main.js llama sin la
+        // guarda revalidar:false que si llevan los otros llamantes-, y pintarlo como
+        // detalle convertiria una confirmacion de borrado en una ficha.
+        pintarContenidoPanel(contenido, modo, recibido, null, false);
         anunciar("Los datos de este cliente han cambiado y se han actualizado.");
         return;
     }
