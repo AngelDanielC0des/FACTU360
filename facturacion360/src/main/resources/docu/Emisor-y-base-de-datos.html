@@ -1,0 +1,1233 @@
+<meta charset="utf-8">
+<title>El emisor y la base de datos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+/* ── Tokens ───────────────────────────────────────────────────────────────── */
+:root {
+  --papel:#e9ebee; --hoja:#f7f8f9; --hoja-alta:#fdfdfe;
+  --tinta:#14181d; --tinta-2:#46515c; --tinta-3:#6d7983;
+  --linea:#ced5db; --linea-fuerte:#a9b3bc;
+  --copia:#1a625a; --copia-tinta:#10433d; --copia-suave:#dcebe8;
+  --viva:#9c1f28; --viva-tinta:#7a151d; --viva-suave:#f4dedf;
+  --aviso:#8a6200; --aviso-tinta:#6b4c00; --aviso-suave:#f6e9ca;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --texto:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papel:#101418; --hoja:#171c21; --hoja-alta:#1e242b;
+    --tinta:#dfe4e9; --tinta-2:#9ca8b3; --tinta-3:#7a858f;
+    --linea:#2a323a; --linea-fuerte:#3e4852;
+    --copia:#6ac5b6; --copia-tinta:#a3ded3; --copia-suave:#14302d;
+    --viva:#e98f94; --viva-tinta:#f2b4b7; --viva-suave:#331a1c;
+    --aviso:#d7aa4c; --aviso-tinta:#e8c67f; --aviso-suave:#2d2513;
+  }
+}
+:root[data-theme="dark"] {
+  --papel:#101418; --hoja:#171c21; --hoja-alta:#1e242b;
+  --tinta:#dfe4e9; --tinta-2:#9ca8b3; --tinta-3:#7a858f;
+  --linea:#2a323a; --linea-fuerte:#3e4852;
+  --copia:#6ac5b6; --copia-tinta:#a3ded3; --copia-suave:#14302d;
+  --viva:#e98f94; --viva-tinta:#f2b4b7; --viva-suave:#331a1c;
+  --aviso:#d7aa4c; --aviso-tinta:#e8c67f; --aviso-suave:#2d2513;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body {
+  margin:0; background:var(--papel); color:var(--tinta);
+  font-family:var(--texto); font-size:17px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.envoltorio { max-width:880px; margin:0 auto; padding:0 16px 80px; }
+h1,h2,h3,h4 { font-family:var(--display); line-height:1.18; letter-spacing:-.015em; }
+a { color:var(--copia-tinta); }
+code, .mono { font-family:var(--mono); font-size:.88em; }
+p code, li code, td code, dd code {
+  background:var(--hoja-alta); border:1px solid var(--linea);
+  border-radius:4px; padding:.08em .34em;
+}
+
+/* ── Portada ──────────────────────────────────────────────────────────────── */
+.portada { padding:56px 0 34px; border-bottom:2px solid var(--linea-fuerte); }
+.marca { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:26px; }
+.marca span {
+  font-family:var(--display); font-size:11.5px; font-weight:600;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--tinta-3);
+  border:1px solid var(--linea); border-radius:999px; padding:4px 11px;
+  background:var(--hoja);
+}
+.marca .activo { color:var(--copia-tinta); border-color:var(--copia); background:var(--copia-suave); }
+.portada h1 { font-size:clamp(34px,6vw,50px); margin:0 0 14px; font-weight:700; }
+.subtitulo { font-size:20px; color:var(--tinta-2); margin:0 0 28px; max-width:62ch; }
+
+.ficha { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:1px;
+  background:var(--linea); border:1px solid var(--linea); margin:0 0 26px; }
+.ficha > div { background:var(--hoja); padding:12px 14px; }
+.ficha dt { font-family:var(--display); font-size:10.5px; font-weight:600; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--tinta-3); margin-bottom:3px; }
+.ficha dd { margin:0; font-family:var(--mono); font-size:13.5px; color:var(--tinta); }
+
+.aviso-lectura {
+  background:var(--hoja); border-left:3px solid var(--copia);
+  padding:16px 18px; margin:0; font-size:16px; color:var(--tinta-2);
+}
+.aviso-lectura strong { color:var(--tinta); }
+
+/* ── Índice ───────────────────────────────────────────────────────────────── */
+.cuerpo { padding-top:36px; }
+.indice { background:var(--hoja); border:1px solid var(--linea); padding:20px 24px; margin-bottom:48px; }
+.indice h2 { font-size:12px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--tinta-3); margin:0 0 12px; }
+.indice ol { margin:0; padding-left:20px; columns:2; column-gap:34px; font-size:15.5px; }
+@media (max-width:640px) { .indice ol { columns:1; } }
+.indice li { margin:3px 0; break-inside:avoid; }
+.indice a { text-decoration:none; color:var(--tinta-2); }
+.indice a:hover { color:var(--copia-tinta); text-decoration:underline; }
+.indice a.raiz { font-family:var(--display); font-weight:600; color:var(--tinta); }
+
+/* ── Secciones ────────────────────────────────────────────────────────────── */
+.seccion { margin:0 0 58px; scroll-margin-top:20px; }
+.numero-seccion { font-family:var(--mono); font-size:12px; color:var(--tinta-3);
+  letter-spacing:.1em; display:block; margin-bottom:6px; }
+.seccion > h2 { font-size:29px; margin:0 0 16px; }
+.seccion h3 { font-size:20px; margin:36px 0 10px; }
+.seccion h4 { font-size:16.5px; margin:24px 0 8px; color:var(--tinta-2); }
+.entradilla { font-size:18.5px; color:var(--tinta-2); margin:0 0 22px; max-width:64ch; }
+
+.en-una-frase {
+  font-family:var(--display); font-size:17px; font-weight:500; line-height:1.5;
+  background:var(--hoja-alta); border:1px solid var(--linea); border-left:4px solid var(--tinta-3);
+  padding:14px 18px; margin:0 0 24px;
+}
+.en-una-frase span { display:block; font-size:10.5px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--tinta-3); margin-bottom:5px; }
+
+/* ── Piezas ───────────────────────────────────────────────────────────────── */
+.nota { background:var(--hoja); border:1px solid var(--linea);
+  border-left:3px solid var(--linea-fuerte); padding:14px 17px; margin:22px 0; font-size:16px; }
+.nota .cabecera { font-family:var(--display); font-weight:600; font-size:13px;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--tinta-3);
+  display:block; margin-bottom:6px; }
+.nota.ojo { border-left-color:var(--aviso); background:var(--aviso-suave); }
+.nota.ojo .cabecera { color:var(--aviso-tinta); }
+.nota.bien { border-left-color:var(--copia); background:var(--copia-suave); }
+.nota.bien .cabecera { color:var(--copia-tinta); }
+.nota.mal { border-left-color:var(--viva); background:var(--viva-suave); }
+.nota.mal .cabecera { color:var(--viva-tinta); }
+
+.caja-codigo { background:var(--hoja-alta); border:1px solid var(--linea);
+  margin:20px 0; overflow:hidden; }
+.rotulo-codigo { font-family:var(--display); font-size:10.5px; font-weight:600;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--tinta-3);
+  padding:8px 14px; border-bottom:1px solid var(--linea); background:var(--hoja); }
+.caja-codigo pre { margin:0; padding:15px 16px; overflow-x:auto;
+  font-family:var(--mono); font-size:13px; line-height:1.62; color:var(--tinta); }
+
+.tabla-envoltura { overflow-x:auto; margin:22px 0; }
+table { border-collapse:collapse; width:100%; font-size:15.5px; }
+th, td { border:1px solid var(--linea); padding:9px 12px; text-align:left; vertical-align:top; }
+th { background:var(--hoja); font-family:var(--display); font-size:13px; font-weight:600; }
+tbody tr:nth-child(even) td { background:var(--hoja); }
+
+.marca-bien { color:var(--copia-tinta); font-weight:600; }
+.marca-mal { color:var(--viva-tinta); font-weight:600; }
+
+/* ── El ejemplo trabajado ─────────────────────────────────────────────────── */
+.ejemplo { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:24px 0; }
+@media (max-width:640px) { .ejemplo { grid-template-columns:1fr; } }
+.papelito { border:1px solid var(--linea-fuerte); background:var(--hoja-alta); padding:16px 18px;
+  font-family:var(--mono); font-size:12.5px; line-height:1.7; }
+.papelito .momento { font-family:var(--display); font-size:11px; font-weight:700;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--tinta-3);
+  border-bottom:1px solid var(--linea); padding-bottom:7px; margin-bottom:10px; }
+.papelito.antes .momento { color:var(--copia-tinta); }
+.papelito.despues { border-color:var(--viva); }
+.papelito.despues .momento { color:var(--viva-tinta); }
+.papelito .cambiado { background:var(--viva-suave); color:var(--viva-tinta); font-weight:600;
+  padding:1px 4px; }
+
+/* ── Opciones ─────────────────────────────────────────────────────────────── */
+.opciones { margin:26px 0; display:grid; gap:12px; }
+.opcion { border:1px solid var(--linea); background:var(--hoja); padding:16px 18px; }
+.opcion.si { border-left:4px solid var(--copia); background:var(--copia-suave); }
+.opcion.no { border-left:4px solid var(--viva); }
+.opcion.quiza { border-left:4px solid var(--aviso); }
+.opcion-cab { display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; margin-bottom:8px; }
+.opcion-cod { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--tinta-3); }
+.opcion-cab h4 { margin:0; font-size:17px; color:var(--tinta); }
+.sello { font-family:var(--display); font-size:10px; font-weight:700; letter-spacing:.09em;
+  text-transform:uppercase; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+.sello.recomendada { background:var(--copia); color:var(--hoja-alta); }
+.sello.descartada { background:var(--viva-suave); color:var(--viva-tinta); border:1px solid var(--viva); }
+.sello.aplazada { background:var(--aviso-suave); color:var(--aviso-tinta); border:1px solid var(--aviso); }
+.opcion p { margin:0 0 9px; }
+.opcion p:last-child { margin-bottom:0; }
+.opcion .conlleva { font-size:15px; color:var(--tinta-2); border-top:1px solid var(--linea);
+  padding-top:9px; margin-top:11px; }
+.opcion .conlleva b { font-family:var(--display); font-size:11px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--tinta-3); display:block; margin-bottom:3px; }
+.opcion.si .conlleva { border-top-color:var(--copia); }
+
+/* ── Mapa de escenarios ───────────────────────────────────────────────────── */
+.mapa { border:1px solid var(--linea); background:var(--hoja); padding:20px 22px; margin:24px 0; }
+.capa { border:1px solid var(--linea-fuerte); background:var(--hoja-alta); padding:13px 16px; }
+.capa + .capa { margin-top:-1px; }
+.capa .cod { font-family:var(--mono); font-size:11.5px; font-weight:600; color:var(--tinta-3); }
+.capa .tit { font-family:var(--display); font-weight:600; font-size:16px; }
+.capa .det { font-size:14.5px; color:var(--tinta-2); margin-top:3px; }
+.capa.uno { border-left:4px solid var(--copia); }
+.capa.dos { border-left:4px solid var(--aviso); margin-left:22px; }
+.capa.tres { border-left:4px solid var(--linea-fuerte); margin-left:44px; }
+
+.pasos { counter-reset:paso; list-style:none; padding:0; margin:22px 0; }
+.pasos li { counter-increment:paso; position:relative; padding-left:42px; margin-bottom:16px; }
+.pasos li::before {
+  content:counter(paso); position:absolute; left:0; top:1px;
+  width:26px; height:26px; border-radius:50%; background:var(--copia-suave);
+  color:var(--copia-tinta); font-family:var(--mono); font-size:13px; font-weight:600;
+  display:flex; align-items:center; justify-content:center; border:1px solid var(--copia);
+}
+
+.faq-item { border-bottom:1px solid var(--linea); padding:16px 0; }
+.faq-item:last-child { border-bottom:none; }
+.faq-item h3 { margin:0 0 7px; font-size:17.5px; }
+.faq-item p { margin:0 0 8px; color:var(--tinta-2); }
+.faq-item p:last-child { margin-bottom:0; }
+
+.pie { border-top:2px solid var(--linea-fuerte); margin-top:56px; padding-top:20px;
+  font-size:14.5px; color:var(--tinta-3); }
+
+@media print {
+  body { background:#fff; font-size:11pt; }
+  .indice, .opcion, .capa, .papelito { break-inside:avoid; }
+}
+</style>
+
+<div class="envoltorio">
+
+<header class="portada">
+  <div class="marca">
+    <span class="activo">Diseño de datos</span>
+    <span>FACTURACION360</span>
+    <span>Ángel Daniel C.</span>
+    <span>18 de septiembre de 2026</span>
+  </div>
+  <h1>El emisor y la base&nbsp;de&nbsp;datos</h1>
+  <p class="subtitulo">
+    Qué pasa cuando cambian los datos de la empresa que factura. Todas las opciones que
+    tenemos en cada camino, cuál recomiendo, por qué, y qué nos llevaríamos si eligiéramos
+    otra.
+  </p>
+
+  <dl class="ficha">
+    <div><dt>Opciones valoradas</dt><dd>27</dd></div>
+    <div><dt>Caminos posibles</dt><dd>A · B · C</dd></div>
+    <div><dt>Recomendado ahora</dt><dd>solo el cimiento</dd></div>
+    <div><dt>Momento del volcado</dt><dd>al EMITIR</dd></div>
+    <div><dt>Coste de migrar hoy</dt><dd>cero</dd></div>
+    <div><dt>Prerrequisito de</dt><dd>Verifactu</dd></div>
+  </dl>
+
+  <p class="aviso-lectura">
+    <strong>Cómo leer esto.</strong> Las <strong>secciones 1 y 2</strong> explican el fallo
+    con un ejemplo concreto y por qué ocurre: sin código, se leen en cinco minutos y las
+    entiende cualquiera. De la <strong>3 a la 6</strong> están los tres caminos posibles,
+    <em>cada uno con todas sus opciones</em>, un sello de recomendada o descartada y, en cada
+    una, qué nos llevaríamos si la eligiéramos. La <strong>7 y la 8</strong> son la decisión
+    y el trabajo concreto. Si solo tienes tiempo para una cosa, lee la
+    <strong>sección 2</strong>: ahí está el porqué de todo lo demás.
+  </p>
+</header>
+
+<div class="cuerpo">
+
+<nav class="indice" aria-label="Índice del documento">
+  <h2>Índice</h2>
+  <ol>
+    <li><a class="raiz" href="#problema">El fallo, con un ejemplo</a></li>
+    <li><a class="raiz" href="#porque">Por qué pasa: copiar o consultar</a></li>
+    <li><a class="raiz" href="#mapa">Los tres caminos, y cómo encajan</a></li>
+    <li><a href="#camino-a">Camino A · Un emisor que corrige sus datos</a></li>
+    <li><a href="#camino-b">Camino B · Varias empresas</a></li>
+    <li><a href="#camino-c">Camino C · Verifactu</a></li>
+    <li><a class="raiz" href="#decision">La decisión: hasta dónde llegar ahora</a></li>
+    <li><a class="raiz" href="#que-se-toca">Qué se toca, en concreto</a></li>
+    <li><a href="#cuando">Cuándo se copia: tres opciones</a></li>
+    <li><a href="#migraciones">Cómo aplicamos los cambios de esquema</a></li>
+    <li><a class="raiz" href="#comprobar">Cómo se comprueba</a></li>
+    <li><a href="#riesgos">Riesgos</a></li>
+    <li><a href="#faq">Preguntas frecuentes</a></li>
+  </ol>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="problema">
+  <span class="numero-seccion">01</span>
+  <h2>El fallo, con un ejemplo</h2>
+
+  <p class="en-una-frase">
+    <span>En una frase</span>
+    Cambiar la dirección de la empresa reescribe, hacia atrás y sin avisar, todas las
+    facturas que ya se habían emitido.
+  </p>
+
+  <p>
+    La empresa emite la factura <code>F-2026-0007</code> el 15 de enero. Se imprime, se
+    envía al cliente, se archiva. Todo normal.
+  </p>
+  <p>
+    En junio la empresa se muda. Alguien entra en el perfil, corrige la dirección y guarda.
+    También normal. El problema es lo que pasa si ese mismo día vuelves a abrir la factura
+    de enero:
+  </p>
+
+  <div class="ejemplo">
+    <div class="papelito antes">
+      <div class="momento">Impresa el 15 de enero</div>
+      Talleres Ejemplo S.L.<br>
+      NIF/CIF: B12345674<br>
+      Calle Mayor 15, 28001 Madrid<br>
+      <br>
+      Factura F-2026-0007<br>
+      Fecha: 15/01/2026<br>
+      Total: 1.210,00 €
+    </div>
+    <div class="papelito despues">
+      <div class="momento">La misma, reimpresa en junio</div>
+      Talleres Ejemplo S.L.<br>
+      NIF/CIF: B12345674<br>
+      <span class="cambiado">Avenida Nueva 88, 28030 Madrid</span><br>
+      <br>
+      Factura F-2026-0007<br>
+      Fecha: 15/01/2026<br>
+      Total: 1.210,00 €
+    </div>
+  </div>
+
+  <p>
+    Es la misma factura, con el mismo número y la misma fecha, y dice que en enero la
+    empresa estaba en una calle a la que no se mudó hasta junio. Las dos copias no coinciden
+    y la que tiene el cliente es la buena.
+  </p>
+
+  <div class="nota mal">
+    <span class="cabecera">Por qué ocurre, técnicamente</span>
+    La tabla <code>facturas</code> <strong>no guarda ni un solo dato del emisor</strong>, ni
+    siquiera a cuál pertenece. Cuando el visor va a imprimir, ejecuta
+    <code>fetch("/emisor")</code> y pinta lo que diga la ficha del emisor
+    <em>en ese instante</em>. La factura no recuerda nada: lo pregunta cada vez que la abres.
+  </div>
+
+  <p>
+    No hace falta cambiar de empresa para provocarlo. Basta con corregir una errata en el
+    teléfono. Y no avisa: no hay error ni mensaje, simplemente todas las facturas del pasado
+    empiezan a contar algo distinto de lo que contaban ayer.
+  </p>
+
+  <div class="nota ojo">
+    <span class="cabecera">Y no es solo el emisor</span>
+    Al cliente le pasa exactamente lo mismo. La factura guarda <code>idcliente</code> y al
+    imprimir hace <code>SELECT … FROM clientes WHERE idcliente = ?</code>, así que corregir
+    la dirección de un cliente también reescribe sus facturas antiguas. Es el mismo fallo
+    dos veces.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="porque">
+  <span class="numero-seccion">02</span>
+  <h2>Por qué pasa: copiar o consultar</h2>
+
+  <p class="en-una-frase">
+    <span>En una frase</span>
+    Hay dos formas de guardar un dato relacionado, sirven para cosas distintas, y en la
+    factura estamos usando la equivocada.
+  </p>
+
+  <h3>Las dos formas</h3>
+
+  <p>
+    <strong>Consultar</strong> (una referencia) significa guardar solo un puntero: «este
+    dato vive allí, ve a buscarlo cuando lo necesites». La ventaja es que siempre está al
+    día: si el cliente cambia de teléfono, lo ves al momento en todas partes. Es lo que
+    quieres para <em>llamarle hoy</em>.
+  </p>
+
+  <p>
+    <strong>Copiar</strong> significa guardar el valor dentro del propio registro: «este dato
+    es mío y ya no cambia». La ventaja es que queda congelado. Es lo que quieres para
+    cualquier documento que <em>da fe</em> de algo que pasó: un contrato firmado, un recibo,
+    una factura.
+  </p>
+
+  <p>
+    Ninguna de las dos es mejor. La pregunta correcta no es «¿cuál uso?» sino
+    <strong>«¿este dato describe cómo son las cosas ahora, o cómo eran en un momento
+    concreto?»</strong>. La ficha del cliente describe cómo son las cosas ahora. La factura
+    describe cómo eran el 15 de enero.
+  </p>
+
+  <h3>El proyecto ya lo hace bien… en un sitio de tres</h3>
+
+  <p>
+    Lo llamativo es que no hay que enseñarle nada nuevo al proyecto. Con los conceptos de la
+    factura ya funciona como debe: la tabla <code>conceptos</code> guarda su propia
+    <code>descripcion</code>, su <code>precio_unitario</code> y su
+    <code>porcentaje_iva</code>. Si mañana subes la tarifa, las facturas viejas siguen
+    diciendo lo que cobraste entonces. Nadie discutiría que eso está bien.
+  </p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead>
+        <tr><th style="width:17%">Dato</th><th style="width:38%">Cómo se guarda hoy</th><th>Qué pasa si ese dato cambia</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Conceptos</strong></td>
+          <td><span class="marca-bien">Copia.</span> <code>descripcion</code>,
+              <code>precio_unitario</code>, <code>porcentaje_iva</code>,
+              <code>base_imponible</code>…</td>
+          <td><span class="marca-bien">Nada.</span> La factura conserva lo suyo.</td>
+        </tr>
+        <tr>
+          <td><strong>Cliente</strong></td>
+          <td><span class="marca-mal">Consulta.</span> Solo <code>idcliente</code>; al
+              imprimir, <code>SELECT … FROM clientes</code></td>
+          <td><span class="marca-mal">Se reescribe</span> lo impreso en facturas de hace
+              años.</td>
+        </tr>
+        <tr>
+          <td><strong>Emisor</strong></td>
+          <td><span class="marca-mal">Ni consulta.</span> <code>facturas</code> no tiene
+              <code>idemisor</code>; se pregunta por «el emisor», sin más.</td>
+          <td><span class="marca-mal">Se reescriben todas</span> las facturas emitidas.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota bien">
+    <span class="cabecera">La idea completa, en una línea</span>
+    No hay que inventar un mecanismo: hay que <strong>extender a la cabecera de la factura el
+    patrón que ya se aplica a sus líneas</strong>. Si el precio de un concepto se congela al
+    emitir, la dirección del emisor también debería.
+  </div>
+
+  <h3>Por qué esto importa más que un detalle de diseño</h3>
+  <p>
+    Una factura emitida es un documento fiscal y <strong>tiene que ser inmutable</strong>.
+    No es una opinión de arquitectura: si Hacienda pide las facturas de 2026, tienen que
+    salir tal y como se emitieron. Y con Verifactu el asunto se endurece, porque cada factura
+    lleva una huella calculada sobre sus datos y encadenada con la anterior: si los datos
+    cambian por debajo, la huella deja de cuadrar y la cadena entera queda en evidencia.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="mapa">
+  <span class="numero-seccion">03</span>
+  <h2>Los tres caminos, y cómo encajan</h2>
+
+  <p class="entradilla">
+    «Cambiar el emisor» significa tres cosas distintas. Antes de ver las opciones de cada
+    una conviene entender que <strong>no son alternativas entre sí: están anidadas</strong>.
+  </p>
+
+  <div class="mapa">
+    <div class="capa uno">
+      <div class="cod">CAMINO A</div>
+      <div class="tit">Un emisor que corrige sus datos</div>
+      <div class="det">La misma empresa se muda o cambia de teléfono. Es lo que está roto
+        hoy.</div>
+    </div>
+    <div class="capa dos">
+      <div class="cod">CAMINO B — contiene todo A</div>
+      <div class="tit">Varias empresas en la misma aplicación</div>
+      <div class="det">Añade numeración por empresa, emisor activo y de quién son los
+        clientes.</div>
+    </div>
+    <div class="capa tres">
+      <div class="cod">CAMINO C — necesita todo B</div>
+      <div class="tit">Verifactu</div>
+      <div class="det">Añade el registro encadenado, las series y el envío a la AEAT.</div>
+    </div>
+  </div>
+
+  <p>
+    Que estén anidados cambia la pregunta. No es «¿cuál de los tres elegimos?», porque
+    tarde o temprano llegan los tres. Es <strong>«¿hasta dónde llegamos ahora, sabiendo que
+    lo que hagamos tiene que servir para los de después?»</strong>.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="camino-a">
+  <span class="numero-seccion">04</span>
+  <h2>Camino A · Un emisor que corrige sus datos</h2>
+
+  <p class="entradilla">
+    Es el caso de hoy y el único que está roto ahora mismo. Estas son las cinco opciones
+    reales que tenemos.
+  </p>
+
+  <div class="opciones">
+
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">A1</span>
+        <h4>No hacer nada</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p>
+        Dejarlo como está y asumir que al cambiar los datos del emisor se reescriben las
+        facturas viejas.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Facturas que contradicen a la copia que tiene el cliente, y un incumplimiento
+        directo de la inmutabilidad fiscal. Cuando llegue Verifactu es además imposible: la
+        huella dejaría de cuadrar. Lo descarto no por elegancia, sino porque no es legal.
+      </p>
+    </article>
+
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">A2</span>
+        <h4>Bloquear la edición del emisor</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p>
+        Permitir cambiar los datos del emisor solo mientras no haya ninguna factura emitida.
+        A partir de ahí, campos de solo lectura.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Es tapar el problema con una prohibición que no se sostiene: las empresas se mudan,
+        cambian de teléfono y corrigen erratas, y eso no puede quedar congelado para
+        siempre. Y no arregla nada de lo ya emitido. El dato <em>tiene</em> que poder
+        cambiar; lo que no puede es cambiar hacia atrás.
+      </p>
+    </article>
+
+    <article class="opcion quiza">
+      <div class="opcion-cab">
+        <span class="opcion-cod">A3</span>
+        <h4>Versionar el emisor</h4>
+        <span class="sello aplazada">Correcta, pero cara</span>
+      </div>
+      <p>
+        Una tabla <code>emisor_version</code> con fechas de vigencia. El emisor nunca se
+        actualiza: cada cambio crea una versión nueva, y la factura apunta a la versión que
+        estaba vigente el día que se emitió.
+      </p>
+      <p>
+        Es la solución elegante y la que usan los sistemas grandes. Conserva el histórico
+        completo y permite responder a «¿qué dirección tenía la empresa en marzo?».
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Cada consulta pasa a llevar un filtro por rango de fechas, hay que decidir qué
+        versión ve la pantalla de edición, y habría que versionar <em>también</em> al
+        cliente, con lo que el mismo coste se paga dos veces. Para un proyecto con un emisor
+        y sin necesidad de auditar el histórico del emisor en sí, es mucha maquinaria para
+        una pregunta que nadie ha hecho.
+      </p>
+    </article>
+
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">A4</span>
+        <h4>Guardar el PDF generado</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p>
+        Al emitir, generar el documento y guardarlo tal cual. Lo que se reimprima después es
+        ese fichero, no una regeneración.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Congela la impresión, sí, pero el dato deja de ser consultable: el listado
+        trimestral, las búsquedas y cualquier informe siguen leyendo las tablas vivas y
+        siguen mintiendo. Guardarías el documento correcto encima de una base de datos que
+        no lo es. Como <em>complemento</em> tiene sentido; como solución, no.
+      </p>
+    </article>
+
+    <article class="opcion si">
+      <div class="opcion-cab">
+        <span class="opcion-cod">A5</span>
+        <h4>Copiar los datos en la factura al emitirla</h4>
+        <span class="sello recomendada">Recomendada</span>
+      </div>
+      <p>
+        Añadir a <code>facturas</code> unas columnas con el nombre, el NIF y la dirección del
+        emisor y del cliente, y volcarlas en el momento de emitir.
+      </p>
+      <p><strong>Por qué esta y no otra, en tres razones:</strong></p>
+      <ol>
+        <li><strong>Ya es el patrón del proyecto.</strong> Es exactamente lo que se hace con
+          los conceptos, así que nadie tiene que aprender nada nuevo ni mantener dos formas
+          de pensar.</li>
+        <li><strong>Es lo que Verifactu va a exigir de todos modos.</strong> El
+          <code>registro_facturacion</code> que ya está diseñado lleva
+          <code>nif_emisor</code> copiado. Hacerlo ahora es adelantar trabajo, no
+          repetirlo.</li>
+        <li><strong>Es lo más barato que vamos a poder hacer.</strong> Sin facturas reales,
+          añadir columnas no obliga a migrar nada.</li>
+      </ol>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Unas columnas más en <code>facturas</code>, tocar tres ficheros y ajustar las
+        pruebas que simulan el detalle. No responde a «¿qué dirección tenía la empresa en
+        marzo?» si en marzo no se emitió ninguna factura — y esa pregunta, hoy, no nos la
+        hace nadie.
+      </p>
+    </article>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="camino-b">
+  <span class="numero-seccion">05</span>
+  <h2>Camino B · Varias empresas</h2>
+
+  <p class="entradilla">
+    Otra empresa instala el proyecto, o el mismo estudio factura para dos sociedades. Aquí
+    la decisión grande es <em>dónde se separan</em> los datos de cada una.
+  </p>
+
+  <h3>Las cuatro formas de separar empresas</h3>
+
+  <div class="opciones">
+
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">B1</span>
+        <h4>Una base de datos por empresa</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p>
+        Cada empresa, su propia base. Separación total y ningún riesgo de que una vea los
+        datos de la otra.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Multiplica por cada empresa las copias de seguridad, las migraciones de esquema y el
+        despliegue. Obliga a decidir a qué base conectarse <em>antes</em> de saber quién
+        eres. Y lo importante: <strong>no arregla el camino A</strong> — dentro de su propia
+        base, la empresa que corrige su dirección se sigue reescribiendo el pasado. Paga un
+        precio alto por un problema que no es el nuestro.
+      </p>
+    </article>
+
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">B2</span>
+        <h4>Un esquema por empresa</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p>
+        Mismo servidor de base de datos, un esquema distinto por empresa. Versión más barata
+        de B1.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Ahorra servidores pero no el problema de fondo: cada cambio de esquema hay que
+        aplicarlo N veces y basta con que uno falle para que una empresa se quede en una
+        versión distinta del resto. Y tampoco arregla el camino A.
+      </p>
+    </article>
+
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">B3</span>
+        <h4>Una instancia de la aplicación por empresa</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p>
+        Desplegar el proyecto entero, con su base, una vez por empresa.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Todo lo de B1 más un despliegue por empresa que mantener y actualizar. Tiene sentido
+        cuando cada cliente exige aislamiento contractual; para dos sociedades del mismo
+        estudio es desproporcionado.
+      </p>
+    </article>
+
+    <article class="opcion si">
+      <div class="opcion-cab">
+        <span class="opcion-cod">B4</span>
+        <h4>Una sola base, con <code>idemisor</code> en las tablas</h4>
+        <span class="sello recomendada">Recomendada</span>
+      </div>
+      <p>
+        Todas las empresas conviven en la misma base, y cada fila sabe de quién es. Una copia
+        de seguridad, una migración, un despliegue.
+      </p>
+      <p>
+        <strong>Y es lo que ya está decidido</strong>, aunque no lo pareciera: el documento de
+        Verifactu propone <code>registro_facturacion</code> con <code>idemisor</code> y la
+        cadena de huellas indexada por <code>(idemisor, idregistro)</code>, y
+        <code>serie_facturacion</code> con clave <code>(idemisor, serie, ejercicio)</code>.
+        Eso solo tiene sentido con varios emisores en una misma base.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Que <strong>ninguna consulta puede olvidarse del filtro</strong>: un listado sin
+        <code>WHERE idemisor = ?</code> enseña las facturas de otra empresa. Es el riesgo
+        propio de esta opción y se controla concentrando el filtro en un solo sitio, no
+        repartiéndolo por cada consulta.
+      </p>
+    </article>
+
+  </div>
+
+  <h3>Y dentro de B4, tres decisiones más</h3>
+  <p>
+    Elegir B4 no cierra el camino: abre tres preguntas que hoy no tienen respuesta y que
+    <strong>no conviene contestar en abstracto</strong>. Las dejo planteadas con sus
+    opciones para que, cuando lleguen, no pillen de nuevas.
+  </p>
+
+  <h4>1 · ¿De quién son los clientes?</h4>
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th style="width:24%">Opción</th><th>Qué implica</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Compartidos</strong></td>
+          <td>Una sola cartera de clientes para todas las empresas. Se mantiene el índice
+            único de <code>nif_cif</code> tal cual. Cómodo si las sociedades son del mismo
+            grupo; inaceptable si son clientes distintos que no deben verse entre sí.</td></tr>
+        <tr><td><strong>Por emisor</strong></td>
+          <td>Cada empresa su cartera. El índice pasa a <code>(idemisor, nif_cif)</code>, y
+            un mismo cliente puede existir dos veces con datos distintos, que es justo lo que
+            suele querer cada empresa.</td></tr>
+        <tr><td><strong>Híbrido</strong></td>
+          <td>Cartera común y ficha por emisor. Es lo más flexible y lo más caro; solo
+            merece la pena con muchas empresas.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>Mi apuesta</strong>, cuando llegue: <em>por emisor</em>. Hoy el índice único de
+    <code>nif_cif</code> es global, así que dos empresas <strong>no podrían tener al mismo
+    cliente</strong>, y eso se romperá el primer día.
+  </p>
+
+  <h4>2 · ¿Cómo se elige la empresa con la que estás trabajando?</h4>
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th style="width:24%">Opción</th><th>Qué implica</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Login</strong></td>
+          <td>Cada usuario pertenece a una empresa. Es lo correcto a largo plazo, pero el
+            proyecto <strong>no tiene autenticación</strong>: implica usuarios, sesión y
+            permisos, que es una feature entera.</td></tr>
+        <tr><td><strong>Selector</strong></td>
+          <td>Un desplegable arriba para cambiar de empresa. Barato de hacer, pero sin login
+            cualquiera puede cambiarlo, así que solo vale si todos los que usan la aplicación
+            son de confianza.</td></tr>
+        <tr><td><strong>Subdominio</strong></td>
+          <td>Cada empresa entra por su dirección. Limpio de cara al usuario y no requiere
+            login, a cambio de configuración de servidor.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>Mi apuesta</strong>: empezar por el <em>selector</em> y pasar a <em>login</em>
+    cuando haya usuarios de verdad. Meter autenticación solo para poder distinguir empresas
+    sería empezar la casa por el tejado.
+  </p>
+
+  <h4>3 · ¿Cómo se numeran las facturas?</h4>
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th style="width:24%">Opción</th><th>Qué implica</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Global por año</strong><br><span class="mono">como ahora</span></td>
+          <td>Dos empresas comparten secuencia: la empresa A vería <code>F-2026-0001</code> y
+            luego <code>F-2026-0004</code> porque la B se llevó las del medio. Fiscalmente no
+            vale: la numeración de cada obligado debe ser correlativa.</td></tr>
+        <tr><td><strong>Por emisor y año</strong></td>
+          <td>Cada empresa su propia secuencia. Es lo mínimo correcto.</td></tr>
+        <tr><td><strong>Por emisor, serie y año</strong></td>
+          <td>Lo que propone <code>serie_facturacion</code>. Permite series separadas —
+            rectificativas, tiendas, ejercicios— y es lo que Verifactu da por hecho.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>Mi apuesta</strong>: <em>por emisor, serie y año</em>, porque ya está diseñado y
+    porque la alternativa intermedia habría que volver a tocarla al llegar Verifactu.
+    Afecta a <code>obtenerUltimoNumero</code>, que hoy solo recibe el año.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="camino-c">
+  <span class="numero-seccion">06</span>
+  <h2>Camino C · Verifactu</h2>
+
+  <p class="entradilla">
+    El más lejano, y el que ya está estudiado a fondo en su propio documento. Lo resumo aquí
+    solo por sus opciones, porque condicionan lo que decidamos hoy.
+  </p>
+
+  <div class="opciones">
+
+    <article class="opcion si">
+      <div class="opcion-cab">
+        <span class="opcion-cod">C1</span>
+        <h4>Verifactu: remisión automática</h4>
+        <span class="sello recomendada">Recomendada</span>
+      </div>
+      <p>
+        Cada factura se remite a la AEAT en el momento de emitirse y lleva impresa la leyenda
+        <span class="mono">VERI*FACTU</span> y su QR.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Hay que enviar, reintentar y guardar la respuesta. A cambio <strong>perdona lo más
+        caro</strong>: no hay que firmar cada registro con XAdES ni llevar un registro de
+        eventos del sistema.
+      </p>
+    </article>
+
+    <article class="opcion quiza">
+      <div class="opcion-cab">
+        <span class="opcion-cod">C2</span>
+        <h4>SIF no verificable</h4>
+        <span class="sello aplazada">Solo si no hay más remedio</span>
+      </div>
+      <p>
+        No se remite nada automáticamente; la AEAT puede exigir los registros cuando quiera.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Firmar cada registro con XAdES usando certificado del obligado, llevar un registro de
+        eventos —arranques, paradas, exportaciones, incidencias— y conservarlo todo. Bastante
+        más trabajo que C1 a cambio de no tener que estar conectado.
+      </p>
+    </article>
+
+    <article class="opcion quiza">
+      <div class="opcion-cab">
+        <span class="opcion-cod">C3</span>
+        <h4>Delegar en un SIF externo</h4>
+        <span class="sello aplazada">A valorar</span>
+      </div>
+      <p>
+        Un proveedor certificado se encarga del registro, la huella y el envío; la aplicación
+        solo le pasa los datos de la factura.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Mucho menos trabajo y menos responsabilidad legal, a cambio de coste por factura y de
+        depender de un tercero. Para un proyecto de clase tiene poco sentido; para un
+        producto real es una opción seria que conviene no descartar por orgullo.
+      </p>
+    </article>
+
+  </div>
+
+  <div class="nota">
+    <span class="cabecera">Lo que importa hoy de todo esto</span>
+    Las tres opciones necesitan lo mismo por debajo: saber <strong>a qué emisor pertenece
+    cada factura</strong> y tener sus datos <strong>congelados</strong>. Elijamos la que
+    elijamos más adelante, el trabajo de hoy sirve igual.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="decision">
+  <span class="numero-seccion">07</span>
+  <h2>La decisión: hasta dónde llegar ahora</h2>
+
+  <p class="en-una-frase">
+    <span>La recomendación</span>
+    Hacer ahora el cimiento —lo que A, B y C tienen en común— y nada más: la copia de los
+    datos en la factura y la columna <code>idemisor</code>.
+  </p>
+
+  <p>Y no es una preferencia, la deciden dos hechos:</p>
+
+  <ol class="pasos">
+    <li>
+      <strong>No hay facturas reales, y la aplicación no está publicada.</strong>
+      Añadir columnas hoy no obliga a migrar nada. Es literalmente el momento más barato que
+      va a existir, y cada factura que se cree a partir de ahora sin <code>idemisor</code> es
+      una fila que alguien tendrá que arreglar a mano más adelante. <strong>Esta ventana se
+      cierra el día que se emita la primera factura de verdad.</strong>
+    </li>
+    <li>
+      <strong>Verifactu va a llegar.</strong>
+      Y exige <code>idemisor</code> y el NIF del emisor copiado. Lo que se haga hoy en esa
+      dirección no habrá que deshacerlo: es trabajo adelantado, no trabajo repetido.
+    </li>
+  </ol>
+
+  <h3>Por qué no hacer también el camino B ahora</h3>
+  <p>
+    Porque las tres decisiones de la sección anterior —clientes, emisor activo,
+    numeración— no tienen hoy una respuesta que venga de un caso real, y contestarlas en
+    abstracto es apostar. Si acertamos, habremos hecho trabajo que nadie necesita todavía;
+    si fallamos, habrá que deshacerlo <em>y además</em> migrar los datos que se hayan creado
+    mientras tanto. El cimiento, en cambio, es correcto en los tres caminos.
+  </p>
+
+  <div class="nota bien">
+    <span class="cabecera">Dicho de otra forma</span>
+    Hacemos lo que sabemos que es cierto en cualquier futuro, y dejamos sin decidir lo que
+    depende de un futuro concreto. El cimiento no obliga a ninguna de esas decisiones: solo
+    deja de cerrarles la puerta.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="que-se-toca">
+  <span class="numero-seccion">08</span>
+  <h2>Qué se toca, en concreto</h2>
+
+  <h3>La base de datos</h3>
+
+  <div class="caja-codigo">
+    <div class="rotulo-codigo">columnas nuevas en facturas</div>
+    <pre>idemisor              int           NOT NULL,   -- clave ajena a emisor
+
+emisor_nombre         varchar(60)   NOT NULL,   -- copia congelada al emitir
+emisor_nif            varchar(10)   NOT NULL,
+emisor_direccion      varchar(200)  NOT NULL,
+emisor_telefono       varchar(15)   NULL,
+emisor_email          varchar(50)   NULL,
+
+cliente_nombre        varchar(60)   NOT NULL,   -- el mismo fallo, el mismo arreglo
+cliente_nif           varchar(10)   NOT NULL,
+cliente_direccion     varchar(90)   NOT NULL,
+cliente_codigo_postal varchar(6)    NULL,
+cliente_poblacion     varchar(30)   NOT NULL,
+cliente_provincia     varchar(15)   NOT NULL,
+cliente_telefono      varchar(15)   NULL,
+cliente_email         varchar(30)   NULL,</pre>
+  </div>
+
+  <p>
+    Los tamaños no son inventados: coinciden con los de las tablas de origen
+    (<code>emisor.direccion</code> es <code>varchar(200)</code> y
+    <code>clientes.direccion</code> es <code>varchar(90)</code>). Si no coincidieran, el
+    volcado truncaría en silencio.
+  </p>
+
+  <div class="nota">
+    <span class="cabecera">De dónde sale esta lista, y por qué son catorce y no seis</span>
+    La lista no se decide por lo que parece razonable congelar: se decide mirando
+    <strong>lo que la factura impresa pinta</strong>. Cualquier campo que
+    <code>factura-imprimir.js</code> enseñe y no esté aquí seguirá leyéndose en vivo, y
+    entonces el arreglo deja el mismo fallo que viene a corregir, solo que repartido.
+  </div>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th style="width:34%">Lo que pinta factura-imprimir.js</th>
+        <th style="width:33%">De dónde lo lee hoy</th><th>Columna que lo congela</th></tr></thead>
+      <tbody>
+        <tr><td><code>nombreEmisor</code></td><td><code>GET /emisor</code></td>
+          <td><code>emisor_nombre</code></td></tr>
+        <tr><td><code>cifEmisor</code></td><td><code>GET /emisor</code></td>
+          <td><code>emisor_nif</code></td></tr>
+        <tr><td><code>direccionEmisor</code></td><td><code>GET /emisor</code></td>
+          <td><code>emisor_direccion</code></td></tr>
+        <tr><td><code>contactoEmisor</code><br><span class="mono">telefono · email</span></td>
+          <td><code>GET /emisor</code></td>
+          <td><code>emisor_telefono</code> · <code>emisor_email</code></td></tr>
+        <tr><td><code>nombreCliente</code></td><td>detalle de la factura</td>
+          <td><code>cliente_nombre</code></td></tr>
+        <tr><td><code>nifCliente</code></td><td>detalle de la factura</td>
+          <td><code>cliente_nif</code></td></tr>
+        <tr><td><code>formarDireccion()</code><br>
+          <span class="mono">direccion, CP poblacion (provincia)</span></td>
+          <td>detalle de la factura</td>
+          <td><code>cliente_direccion</code> · <code>cliente_codigo_postal</code> ·
+            <code>cliente_poblacion</code> · <code>cliente_provincia</code></td></tr>
+        <tr><td><code>formarContacto()</code><br><span class="mono">telefono · email</span></td>
+          <td>detalle de la factura</td>
+          <td><code>cliente_telefono</code> · <code>cliente_email</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota">
+    <span class="cabecera">La dirección del cliente es la que más se nota</span>
+    <code>formarDireccion()</code> no imprime un campo: concatena cuatro
+    —<code>direccion</code>, <code>codigoPostal</code>, <code>poblacion</code> y
+    <code>provincia</code>—. Congelando solo el primero, la factura no sale con la
+    dirección vieja: sale con <span class="mono">Calle Mayor 15, undefined undefined
+    (undefined)</span>. Los cuatro van juntos o no va ninguno.
+  </div>
+
+  <p>
+    El cliente entra en el mismo viaje porque tiene <strong>exactamente el mismo
+    problema</strong>, y separarlo en dos ramas significaría tocar las mismas líneas dos
+    veces.
+  </p>
+
+  <div class="nota">
+    <span class="cabecera">La referencia se queda, además de la copia</span>
+    No se sustituye una por otra: conviven. <code>idcliente</code> e <code>idemisor</code>
+    sirven para navegar —«dame todas las facturas de este cliente»— y la copia sirve para
+    imprimir. Son dos preguntas distintas y cada una necesita su dato.
+  </div>
+
+  <h3>El código</h3>
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th style="width:38%">Dónde</th><th>Qué cambia</th></tr></thead>
+      <tbody>
+        <tr><td><code>FacturaServiceImpl</code><br><span class="mono">crear · editarBorrador</span></td>
+          <td>Al emitir, leer el emisor y el cliente y volcar la copia en la factura.</td></tr>
+        <tr><td><code>FacturaRepositoryJdbcImpl</code><br><span class="mono">buscarCliente</span></td>
+          <td>Deja de consultar <code>clientes</code>; lee la copia de la propia factura.</td></tr>
+        <tr><td><code>factura-imprimir.js</code></td>
+          <td>Deja de hacer <code>fetch("/emisor")</code>; usa lo que venga en el detalle.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="cuando">
+  <span class="numero-seccion">09</span>
+  <h2>Cuándo se copia: tres opciones</h2>
+
+  <p class="entradilla">
+    Parece un detalle y no lo es: de esto depende que un borrador se comporte como se
+    espera.
+  </p>
+
+  <div class="opciones">
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">1</span>
+        <h4>Al crear el borrador</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Un borrador guardado hace un mes seguiría enseñando la dirección vieja aunque la
+        empresa ya se haya mudado, y al emitirlo saldría mal. Congela demasiado pronto.
+      </p>
+    </article>
+
+    <article class="opcion si">
+      <div class="opcion-cab">
+        <span class="opcion-cod">2</span>
+        <h4>Al pasar a EMITIDA</h4>
+        <span class="sello recomendada">Recomendada</span>
+      </div>
+      <p>
+        El borrador refleja siempre los datos de ahora; en el instante en que se emite, se
+        congela.
+      </p>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        Encaja con la regla que el proyecto ya tiene —solo se editan facturas en estado
+        <code>BORRADOR</code>— y con el sentido común: lo que se congela es la emisión, no el
+        trabajo en curso.
+      </p>
+    </article>
+
+    <article class="opcion no">
+      <div class="opcion-cab">
+        <span class="opcion-cod">3</span>
+        <h4>En cada guardado</h4>
+        <span class="sello descartada">Descartada</span>
+      </div>
+      <p class="conlleva">
+        <b>Qué conlleva</b>
+        No congela nada: si se puede reescribir al guardar, volvemos al problema del
+        principio con más columnas.
+      </p>
+    </article>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="migraciones">
+  <span class="numero-seccion">10</span>
+  <h2>Cómo aplicamos los cambios de esquema</h2>
+
+  <p class="entradilla">
+    Esta decisión no es del emisor, pero aparece en cuanto tocamos una tabla y cada uno
+    tiene su base local. Conviene tomarla a la vez.
+  </p>
+
+  <div class="nota">
+    <span class="cabecera">Antes de escribir el guion: <code>idemisor</code> la piden dos documentos</span>
+    <code>facturas.idemisor</code> aparece aquí y también en el guion de
+    <code>Verifactu-FACTURACION360.html</code> (bloque 2.2), cada uno con su
+    <code>ALTER TABLE</code>. Como las sentencias DDL de MySQL hacen COMMIT implícito y no
+    hay <code>ADD COLUMN IF NOT EXISTS</code>, el segundo que se ejecute corta con
+    <span class="mono">Duplicate column name 'idemisor'</span> a mitad del guion.
+    <br><br>
+    La columna tiene que tener <strong>un solo dueño</strong>. Lo lógico es que sea este
+    documento, porque es el que la necesita antes, y que el de Verifactu la dé por puesta
+    y la quite de su bloque 2.2.
+  </div>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th style="width:26%">Opción</th><th>Qué implica</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Un volcado nuevo en <code>docu/</code></strong><br>
+            <span class="mono">como ahora</span></td>
+          <td>Se sube un <code>.sql</code> actualizado y cada uno recrea su base. Cero
+            herramientas, pero <strong>se pierden los datos locales</strong> y nadie sabe en
+            qué versión está cada base.</td></tr>
+        <tr><td><strong>Scripts numerados a mano</strong></td>
+          <td>Una carpeta con <code>001-…sql</code>, <code>002-…sql</code>. Conserva los
+            datos y es gratis, pero cada uno tiene que acordarse de cuáles ha aplicado.</td></tr>
+        <tr><td><strong>Flyway o Liquibase</strong></td>
+          <td>La aplicación lleva la cuenta y aplica lo que falte al arrancar. Es lo correcto
+            y son dos líneas en el <code>pom.xml</code>, a cambio de una dependencia y de
+            aprender la herramienta.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    <strong>Mi recomendación:</strong> para <em>esta</em> rama basta con un script numerado
+    a mano, porque son datos de prueba y el cambio es pequeño. Pero es el momento de abrir
+    la conversación sobre Flyway: cuando haya datos que nadie quiera perder, ya será tarde
+    para tenerla con calma.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="comprobar">
+  <span class="numero-seccion">11</span>
+  <h2>Cómo se comprueba</h2>
+
+  <div class="nota bien">
+    <span class="cabecera">La prueba de la mudanza</span>
+    Crear una factura y emitirla. Ir al perfil y <strong>cambiar la dirección del
+    emisor</strong>. Volver a imprimir esa misma factura: tiene que seguir enseñando
+    <strong>la dirección vieja</strong>. Si sale la nueva, no está arreglado. Esta sola
+    prueba resume el documento entero.
+  </div>
+
+  <ol>
+    <li>La prueba de la mudanza, con el emisor.</li>
+    <li>La misma, cambiando la dirección del <strong>cliente</strong>.</li>
+    <li>Un borrador sin emitir <em>sí</em> refleja los datos nuevos al reabrirlo: lo que se
+      congela es la emisión, no la creación.</li>
+    <li>Pruebas de servicio sobre el volcado al emitir, y una de repositorio que confirme que
+      <code>buscarCliente</code> ya no toca la tabla <code>clientes</code>.</li>
+    <li><code>./mvnw -q test</code> y <code>./mvnw -q -DskipTests package</code>.</li>
+  </ol>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="riesgos">
+  <span class="numero-seccion">12</span>
+  <h2>Riesgos</h2>
+
+  <ol>
+    <li>
+      <strong>Las pruebas simuladas dan por hecho el modelo viejo.</strong>
+      <code>simularBorrador</code> en <code>facturas-alta.spec.cjs</code> y los mocks de
+      <code>FacturaControllerTests</code> construyen el detalle a mano: habrá que ajustarlos.
+    </li>
+    <li>
+      <strong>Columnas <code>NOT NULL</code> sobre filas que ya existen.</strong> Aunque sean
+      datos de prueba, cada uno tiene su base local: el script tiene que rellenar las
+      columnas nuevas antes de poner la restricción, o fallará al aplicarse.
+    </li>
+    <li>
+      <strong>La copia y el original pueden divergir sin que nadie lo note.</strong> Es el
+      riesgo propio de esta solución, y es aceptable porque <em>queremos</em> que diverjan.
+      Pero conviene que la pantalla de detalle deje claro que lo que enseña es lo que se
+      emitió, no la ficha actual del cliente.
+    </li>
+  </ol>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="seccion" id="faq">
+  <span class="numero-seccion">13</span>
+  <h2>Preguntas frecuentes</h2>
+
+  <div class="faq">
+    <div class="faq-item">
+      <h3>¿No es duplicar datos? Eso se supone que está mal.</h3>
+      <p>
+        Duplicar está mal cuando las dos copias deben decir siempre lo mismo, porque entonces
+        acaban divergiendo sin que nadie se entere. Aquí es al revés:
+        <strong>queremos</strong> que la copia se quede quieta mientras el original
+        evoluciona.
+      </p>
+      <p>
+        No son dos copias del mismo dato, son <em>dos datos distintos</em>: dónde está la
+        empresa hoy, y dónde estaba cuando emitió aquella factura. Que coincidan al principio
+        no los convierte en el mismo dato.
+      </p>
+    </div>
+    <div class="faq-item">
+      <h3>¿Por qué no guardar solo el <code>idemisor</code> y ya está?</h3>
+      <p>
+        Porque no resuelve nada por sí solo. Con la referencia, la factura de enero sigue
+        apuntando al mismo emisor… y ese emisor ya tiene la dirección nueva. La referencia
+        dice <em>a quién</em>; la copia dice <em>cómo era</em>. Hacen falta las dos.
+      </p>
+    </div>
+    <div class="faq-item">
+      <h3>¿Y si hay que corregir una factura ya emitida?</h3>
+      <p>
+        No se corrige: se anula y se emite una rectificativa, que es como funciona la
+        facturación y está en la lista de tareas del equipo. Que la factura sea inmutable no
+        es una limitación del diseño: es el comportamiento que se espera.
+      </p>
+    </div>
+    <div class="faq-item">
+      <h3>Si al final vamos a hacer el camino B, ¿por qué no hacerlo ya?</h3>
+      <p>
+        Porque B obliga a contestar tres preguntas —clientes, emisor activo, numeración— que
+        hoy no tienen respuesta real. Si acertamos, habremos hecho trabajo que nadie necesita
+        todavía; si fallamos, habrá que deshacerlo <em>y</em> migrar lo creado mientras
+        tanto. El cimiento, en cambio, es correcto en los tres caminos.
+      </p>
+    </div>
+    <div class="faq-item">
+      <h3>¿Esto retrasa Verifactu?</h3>
+      <p>
+        Al contrario. Verifactu necesita <code>idemisor</code> y el NIF del emisor copiado en
+        cada registro. Hacerlo ahora es adelantar parte de ese trabajo justo en el momento en
+        que migrar no cuesta nada.
+      </p>
+    </div>
+    <div class="faq-item">
+      <h3>¿Cuánto trabajo es esto en realidad?</h3>
+      <p>
+        Unas columnas en una tabla, tres ficheros tocados y las pruebas que simulan el
+        detalle. Es de las cosas más baratas de la lista — y solo lo es <em>ahora</em>, que
+        no hay datos que migrar.
+      </p>
+    </div>
+  </div>
+</section>
+
+<p class="pie">
+  FACTURACION360 · Documento de diseño de datos · Complementa
+  <em>Verifactu en FACTURACION360</em>, del que toma el modelo de
+  <code>registro_facturacion</code> y <code>serie_facturacion</code> y las dos modalidades
+  del camino C.
+</p>
+
+</div>
+</div>

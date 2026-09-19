@@ -36,7 +36,7 @@ import {
  * sin querer lo que haya cambiado otro.
  *
  * @param {HTMLTableRowElement} fila la fila del cliente
- * @param {string} modo "detalle" o "edicion"
+ * @param {string} modo "detalle", "edicion" o "borrado"
  * @param {Object} opciones
  * @param {boolean} opciones.animar false al reabrir tras repintar la tabla: el panel ya
  *        estaba desplegado y volver a animarlo se vería como un parpadeo
@@ -117,7 +117,7 @@ export async function abrirDespliegue(fila, modo,
  *
  * @param {HTMLTableRowElement} fila la fila del cliente
  * @param {Element} contenido el hueco del panel
- * @param {string} modo "detalle" o "edicion"
+ * @param {string} modo "detalle", "edicion" o "borrado"
  * @param {Object} recibido el cliente tal y como está ahora en la base de datos
  */
 function conciliar(fila, contenido, modo, recibido) {

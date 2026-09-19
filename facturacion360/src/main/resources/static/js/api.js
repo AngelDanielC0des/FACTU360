@@ -88,10 +88,11 @@ export function esCancelacion(error) {
  * los datos guardados se vuelven a leer al refrescar la tabla; el cuerpo ni se lee.
  *
  * @param {string} canal nombre del flujo de peticiones (una por fila que se guarda)
- * @param {string} metodo el método HTTP ("PUT")
+ * @param {string} metodo el método HTTP: "POST", "PUT" o "DELETE"
  * @param {string} url la URL a la que se manda
  * @param {Object} cuerpo el objeto que viaja como JSON
- * @return {Promise<number>} el código HTTP de la respuesta
+ * @return {Promise<{estado: number, errores: Object}>} el código HTTP y, si el servidor
+ *         los ha contado, el motivo de cada campo que ha fallado
  */
 export async function enviarJson(canal, metodo, url, cuerpo) {
     peticionesEnVuelo[canal]?.abort();

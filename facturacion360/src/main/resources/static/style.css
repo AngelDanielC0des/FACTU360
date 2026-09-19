@@ -618,7 +618,7 @@ footer {
 }
 
 /* Rayado alterno en azul muy suave, pintado por cliente y no por fila del DOM: lo marca
-   clientes.js, de modo que insertar paneles de detalle no descoloca la alternancia. */
+   js/tabla.js, de modo que insertar paneles de detalle no descoloca la alternancia. */
 .tabla-clientes .fila-cliente.fila-par > * {
     background-color: var(--fila-rayada);
 }
@@ -637,7 +637,7 @@ footer {
 }
 
 /* Mientras llega la página siguiente se atenúa lo que hay: sin esto la tabla enseña datos
-   viejos como si fueran los nuevos. El aria-busy lo pone clientes.js, en el contenedor y no
+   viejos como si fueran los nuevos. El aria-busy lo pone js/listado.js, en el contenedor y no
    en el <tbody>: es el contenedor el que ya es una región anunciable (role="region"). */
 .table-responsive[aria-busy="true"] {
     opacity: 0.5;

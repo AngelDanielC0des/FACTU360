@@ -62,7 +62,7 @@ public record CriteriosCliente(
 
 	/**
 	 * Clientes por página si no se pide otra cosa. Es el mismo valor que la constante
-	 * {@code TAMANO_PAGINA} de {@code clientes.js}, que es quien lo manda de verdad desde la
+	 * {@code TAMANO_PAGINA} de {@code js/config.js}, que es quien lo manda de verdad desde la
 	 * pantalla; no hay forma de compartirlo entre Java y el JavaScript, así que está anotado
 	 * en los dos sitios.
 	 */

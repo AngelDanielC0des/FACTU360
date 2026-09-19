@@ -258,10 +258,11 @@ function contarErrorAlta(estado, errores) {
  * Por eso se pide la página 0 —donde estará si el orden es el de siempre— y después se mira si
  * de verdad ha salido. Si no, se dice por qué en vez de dejar al usuario buscándolo.
  *
- * Se busca por el NIF/CIF y no por el id porque enviarJson solo devuelve el código de la
- * respuesta, y ensancharlo para que a veces devuelva también el cuerpo dejaría a la función
- * con dos formas de retorno según un parámetro. El NIF vale igual de bien: es único —por eso
- * el backend contesta 409 cuando se repite— y es un dato que el usuario acaba de escribir.
+ * Se busca por el NIF/CIF y no por el id porque enviarJson no devuelve el cuerpo de la
+ * respuesta —solo el código y los errores por campo—, y ensancharlo para que a veces
+ * devolviera también el cuerpo dejaría a la función con dos formas de retorno según un
+ * parámetro. El NIF vale igual de bien: es único —por eso el backend contesta 409 cuando se
+ * repite— y es un dato que el usuario acaba de escribir.
  *
  * @param {string} nifCreado el NIF/CIF con el que se ha creado el cliente
  */
