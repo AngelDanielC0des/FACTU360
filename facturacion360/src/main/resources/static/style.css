@@ -185,16 +185,6 @@ body {
     font-size: 1.1rem;
 }
 
-.feature-card-coming-soon {
-    background: #f1f5f9;       /* Fondo gris muy claro */
-    border: 3px dashed #cbd5e1; /* Borde punteado visible */
-    border-radius: 12px;       /* Un poco más redondeado para suavizar el aspecto */
-    padding: 4rem 3rem;
-    text-align: center;
-    width: 100%;
-    max-width: 600px;
-}
-
 /* Botones */
 .btn-primary-custom {
     background-color: var(--secondary-color);
@@ -1020,7 +1010,13 @@ footer {
     .barra-filtros .buscador-clientes,
     .buscador-clientes .buscador-input,
     .buscador-clientes .buscador-etiqueta,
-    .table-responsive {
+    /* Con el atributo puesto, que es el unico momento en que la transicion esta activa.
+       .table-responsive[aria-busy="true"] tiene mas especificidad que .table-responsive y
+       las media queries no suman, asi que sin repetir el atributo esta regla no ganaba: el
+       fundido se ejecutaba igual para quien pidio no ver animaciones. */
+    .table-responsive,
+    .table-responsive[aria-busy="true"],
+    .despliegue-contenido.cargando {
         transition: none;
     }
 }
