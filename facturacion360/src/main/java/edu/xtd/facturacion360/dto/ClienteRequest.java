@@ -23,6 +23,13 @@ public record ClienteRequest(
         @NifCif
         String nifCif,
 
+        // Estos tres campos y los dos de arriba son NOT NULL en la base de datos, y el
+        // formulario los marca obligatorios con su asterisco. Sin el @NotBlank, quien no
+        // pase por el formulario -Postman, curl, otra pantalla- los manda vacios, pasan la
+        // validacion y revienta MySQL; y ese fallo acaba respondiendo <<no se puede realizar
+        // la operacion porque hay datos relacionados>>, que dice lo contrario de lo que pasa:
+        // el problema no es que sobren datos relacionados, es que falta uno obligatorio.
+        @NotBlank(message = "La dirección es obligatoria")
         @Size(max = 90, message = "La dirección no puede superar 90 caracteres")
         String direccion,
 
@@ -33,9 +40,11 @@ public record ClienteRequest(
         )
         String codigoPostal,
 
+        @NotBlank(message = "La población es obligatoria")
         @Size(max = 30, message = "La población no puede superar 30 caracteres")
         String poblacion,
 
+        @NotBlank(message = "La provincia es obligatoria")
         @Size(max = 15, message = "La provincia no puede superar 15 caracteres")
         String provincia,
 
