@@ -66,7 +66,6 @@ public record ConceptoRequest(
 				message = "La calificación tiene que ser S1, S2, N1, N2 o de E1 a E6")
 		String calificacion) {
 
-	/** Evita que el lector JSON trunque una cantidad fraccionaria antes de validarla. */
 	/**
 	 * Los dos campos fiscales nunca quedan a nulo, se construya por donde se construya.
 	 *
@@ -94,6 +93,18 @@ public record ConceptoRequest(
 				ClaveDesglose.REGIMEN_GENERAL, ClaveDesglose.SUJETA_NO_EXENTA);
 	}
 
+	/**
+	 * Construye el concepto a partir del JSON que llega por HTTP.
+	 *
+	 * <p>La cantidad entra como {@code BigDecimal} y no como {@code Integer} a propósito:
+	 * así el lector de JSON no trunca una cantidad fraccionaria <em>antes</em> de que la
+	 * validación pueda quejarse. Un {@code 2.5} escrito a mano llegaría como {@code 2} y
+	 * pasaría por bueno; con esto, {@code intValueExact()} lo rechaza.</p>
+	 *
+	 * <p>Los dos campos fiscales se pasan tal cual vengan, incluso a nulo: de ponerles el
+	 * valor por defecto ya se encarga el constructor compacto, y repetirlo aquí dejaría la
+	 * misma regla escrita en dos sitios del mismo fichero.</p>
+	 */
 	@JsonCreator
 	public static ConceptoRequest desdeJson(
 			@JsonProperty("descripcion") String descripcion,
@@ -105,8 +116,6 @@ public record ConceptoRequest(
 			@JsonProperty("calificacion") String calificacion) {
 
 		return new ConceptoRequest(descripcion, cantidad == null ? null : cantidad.intValueExact(),
-				precioUnitario, descuento, porcentajeIva,
-				claveRegimen == null ? ClaveDesglose.REGIMEN_GENERAL : claveRegimen,
-				calificacion == null ? ClaveDesglose.SUJETA_NO_EXENTA : calificacion);
+				precioUnitario, descuento, porcentajeIva, claveRegimen, calificacion);
 	}
 }
