@@ -130,7 +130,14 @@ class FacturaControllerTests {
 		String borrador = PETICION.replace("EMITIDA", "BORRADOR");
 		clienteHttp.perform(put("/factura/0/borrador").contentType(MediaType.APPLICATION_JSON).content(borrador))
 				.andExpect(status().isBadRequest());
-		clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON).content(PETICION))
+		// ANULADA y no EMITIDA: el estado que aqui hace falta es uno que la regla rechace
+		// ANTES de leer la factura, que es lo que este metodo comprueba. EMITIDA lo era
+		// hasta 9c28908 ("permitir emitir al guardar un borrador"), que lo paso a valido;
+		// desde entonces la peticion llega al repositorio y responde 404, no 400. ANULADA
+		// pasa el @Pattern del FacturaRequest y la rechaza FacturaServiceImpl, que es
+		// exactamente el orden que se quiere fijar.
+		String anulada = PETICION.replace("EMITIDA", "ANULADA");
+		clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON).content(anulada))
 				.andExpect(status().isBadRequest());
 		for (String cantidad : java.util.List.of("0", "1.5", "2147483648")) {
 			clienteHttp.perform(put("/factura/7/borrador").contentType(MediaType.APPLICATION_JSON)

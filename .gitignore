@@ -23,3 +23,10 @@ local.properties
 .recommenders
 mislogs/
 logs/
+
+# Los logs de la aplicacion no se versionan. Estuvieron en facturacion360/carpeta1 durante
+# meses porque el nombre no encajaba con ninguna regla de las de arriba, asi que aqui se
+# ignora el fichero por su nombre y no por el de la carpeta que lo contenga.
+f.log
+f.log.*
+carpeta1/

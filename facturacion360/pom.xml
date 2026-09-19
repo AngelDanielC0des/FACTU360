@@ -76,6 +76,23 @@
 			<artifactId>spring-boot-starter-jdbc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<!--
+			Testcontainers 2.x cambio los identificadores de artefacto: los modulos llevan
+			prefijo. Es testcontainers-mysql, NO mysql, que se quedo en 1.21.4 y no existe
+			en la 2.0.5 que gestiona Spring Boot 4.1.0. Por eso van sin <version>: el
+			spring-boot-dependencies importa el testcontainers-bom.
+		-->
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-mysql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -103,6 +120,67 @@
 							<head>Autor:</head>
 						</tag>
 					</tags>
+				</configuration>
+			</plugin>
+
+			<!--
+				Cobertura. SIN umbral que rompa la compilacion, a proposito: un umbral
+				puesto el mismo dia que el plugin, sobre codigo que nunca lo ha tenido,
+				o es tan bajo que no dice nada, o deja el proyecto en rojo por algo que
+				no se acaba de romper. Primero se mide; el umbral se pone cuando haya
+				una cifra real que defender.
+				Informe en target/site/jacoco/index.html
+			-->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.15</version>
+				<executions>
+					<execution>
+						<id>preparar-agente</id>
+						<goals><goal>prepare-agent</goal></goals>
+					</execution>
+					<execution>
+						<id>informe</id>
+						<phase>verify</phase>
+						<goals><goal>report</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!--
+				Analisis estatico. failOnError a false por la misma razon que JaCoCo no
+				lleva umbral: primero se ve que dice sobre el codigo que ya hay.
+			-->
+			<plugin>
+				<groupId>com.github.spotbugs</groupId>
+				<artifactId>spotbugs-maven-plugin</artifactId>
+				<version>4.10.4.1</version>
+				<configuration>
+					<failOnError>false</failOnError>
+					<effort>Max</effort>
+					<threshold>Default</threshold>
+				</configuration>
+			</plugin>
+
+			<!--
+				Formato. ratchetFrom es lo importante: sin el, la primera ejecucion
+				reformatea los 58 ficheros del proyecto y destroza git blame en un commit
+				de infraestructura. Con el, solo mira lo que la rama haya tocado.
+				Y solo tres reglas, ninguna que mueva codigo: quitar imports sin usar,
+				quitar espacios al final y dejar salto de linea final.
+			-->
+			<plugin>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>3.10.2</version>
+				<configuration>
+					<ratchetFrom>origin/master</ratchetFrom>
+					<java>
+						<removeUnusedImports />
+						<trimTrailingWhitespace />
+						<endWithNewline />
+					</java>
 				</configuration>
 			</plugin>
 		</plugins>
