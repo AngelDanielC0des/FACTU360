@@ -255,6 +255,7 @@ public class FacturaRepositoryJdbcImpl implements FacturaRepository {
 		return jdbcTemplate.query(sql, desgloseImpositivoRowMapper, idFactura);
 	}
 
+	@Override
 	public List<ConceptoFactura> buscarConceptos(int idFactura) {
 		String sql = "SELECT idconcepto, descripcion, cantidad, precio_unitario, descuento, "
 				+ "porcentaje_iva, importe_iva, base_imponible, total, clave_regimen, calificacion "
