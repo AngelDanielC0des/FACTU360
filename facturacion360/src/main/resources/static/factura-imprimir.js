@@ -5,6 +5,8 @@ const estadoVisor = document.getElementById("estadoVisor");
 const contenidoFactura = document.getElementById("contenidoFactura");
 const botonImprimir = document.getElementById("botonImprimir");
 const tablaConceptos = document.getElementById("tablaConceptos");
+const tablaDesglose = document.getElementById("tablaDesglose");
+const bloqueDesglose = document.getElementById("bloqueDesglose");
 
 // Los avisos de esta pantalla. Aquí la franja es el propio rótulo de estado del visor: el
 // "Cargando factura..." que ya viene escrito en el HTML es un estado, no un evento, así que
@@ -59,6 +61,7 @@ function mostrarDetalle(detalle) {
     document.getElementById("totalFactura").textContent = formatearImporte(factura.total);
 
     mostrarConceptos(detalle.conceptos);
+    mostrarDesglose(detalle.desglose);
 
     if (factura.observaciones != null && factura.observaciones.trim() != "") {
         document.getElementById("observacionesFactura").textContent = factura.observaciones;
@@ -69,6 +72,38 @@ function mostrarDetalle(detalle) {
     contenidoFactura.classList.remove("d-none");
     document.getElementById("documentoFactura").setAttribute("aria-busy", "false");
     botonImprimir.disabled = false;
+}
+
+/**
+ * Pinta el cuadro del IVA agrupado por tipo.
+ *
+ * El desglose lo calcula el SERVIDOR y aqui solo se pinta. No es pereza: la regla de
+ * redondeo -redondear la cuota de cada linea y luego sumar- es la misma que acabara dentro
+ * de la huella que se comunica a Hacienda, y tenerla escrita en dos idiomas es tenerla
+ * escrita dos veces para que se desalineen.
+ *
+ * Si no hay desglose -una factura sin conceptos- el cuadro no se ensena en vez de salir
+ * vacio: un recuadro con cabeceras y nada debajo parece un fallo de carga.
+ *
+ * @param {Array} desglose una linea por tipo impositivo, o nada
+ */
+function mostrarDesglose(desglose) {
+    tablaDesglose.replaceChildren();
+
+    if (!desglose || desglose.length == 0) {
+        bloqueDesglose.classList.add("d-none");
+        return;
+    }
+
+    for (const linea of desglose) {
+        const fila = document.createElement("tr");
+        agregarCelda(fila, formatearImporte(linea.baseImponible), "text-end");
+        agregarCelda(fila, formatearPorcentaje(linea.tipoImpositivo), "text-end");
+        agregarCelda(fila, formatearImporte(linea.cuotaRepercutida), "text-end");
+        tablaDesglose.appendChild(fila);
+    }
+
+    bloqueDesglose.classList.remove("d-none");
 }
 
 /** Rellena la tabla o muestra una fila informativa si la factura no tiene conceptos. */

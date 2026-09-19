@@ -25,7 +25,9 @@ public class ConceptoFacturaRowMapper implements RowMapper<ConceptoFactura> {
 				resultado.getBigDecimal("porcentaje_iva"),
 				resultado.getBigDecimal("importe_iva"),
 				resultado.getBigDecimal("base_imponible"),
-				resultado.getBigDecimal("total"));
+				resultado.getBigDecimal("total"),
+				resultado.getString("clave_regimen"),
+				resultado.getString("calificacion"));
 
 		return concepto;
 	}

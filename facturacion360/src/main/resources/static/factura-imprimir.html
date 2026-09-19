@@ -91,6 +91,25 @@
                 </div>
             </section>
 
+            <!-- El IVA agrupado por tipo. Una factura con lineas al 21 % y al 10 % tiene que
+                 ensenar cuanta base va a cada tipo y cuanta cuota sale de cada una; el total
+                 de IVA por si solo no deja comprobar nada. Es ademas el Desglose que exige la
+                 AEAT en el registro de Verifactu, asi que lo que se imprime y lo que se
+                 declara salen del mismo sitio. -->
+            <section id="bloqueDesglose" class="desglose-factura d-none" aria-labelledby="tituloDesglose">
+                <h2 id="tituloDesglose" class="h6">Desglose del IVA</h2>
+                <table class="table table-sm tabla-desglose">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="text-end">Base imponible</th>
+                            <th scope="col" class="text-end">Tipo</th>
+                            <th scope="col" class="text-end">Cuota</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaDesglose"></tbody>
+                </table>
+            </section>
+
             <div class="totales-factura ms-auto">
                 <div><span>Subtotal</span><strong id="subtotalFactura"></strong></div>
                 <div><span>IVA</span><strong id="ivaFactura"></strong></div>

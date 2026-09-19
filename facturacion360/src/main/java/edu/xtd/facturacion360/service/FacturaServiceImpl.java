@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import edu.xtd.facturacion360.dto.ClienteFactura;
 import edu.xtd.facturacion360.dto.ConceptoFactura;
 import edu.xtd.facturacion360.dto.ConceptoRequest;
+import edu.xtd.facturacion360.dto.DesgloseImpositivo;
 import edu.xtd.facturacion360.dto.DetalleFactura;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.FacturaRequest;
@@ -90,7 +91,7 @@ public class FacturaServiceImpl implements FacturaService {
 
 			conceptosCalculados.add(new ConceptoFactura(0, concepto.descripcion().trim(), concepto.cantidad(),
 					concepto.precioUnitario(), concepto.descuento(), concepto.porcentajeIva(),
-					importeIva, baseImponible, total));
+					importeIva, baseImponible, total, concepto.claveRegimen(), concepto.calificacion()));
 			subtotal = subtotal.add(baseImponible);
 			ivaFactura = ivaFactura.add(importeIva);
 			totalFactura = totalFactura.add(total);
@@ -132,6 +133,8 @@ public class FacturaServiceImpl implements FacturaService {
 								"No se ha podido guardar la factura. Vuelve a intentarlo en unos segundos");
 					}
 					facturaRepository.insertarConceptos(facturaNueva.idFactura(), calculo.conceptos());
+					facturaRepository.insertarDesglose(facturaNueva.idFactura(),
+							CalculadoraDesglose.calcular(calculo.conceptos()));
 					return facturaNueva;
 				});
 			} catch (NumeroFacturaDuplicadoException error) {
@@ -206,6 +209,12 @@ public class FacturaServiceImpl implements FacturaService {
 			}
 			facturaRepository.eliminarConceptos(idFactura);
 			facturaRepository.insertarConceptos(idFactura, calculo.conceptos());
+
+			// El desglose se rehace entero, no se parchea: es el reflejo de los conceptos que
+			// acaban de sustituirse, y dejar lineas del anterior seria declarar bases que ya no
+			// existen.
+			facturaRepository.eliminarDesglose(idFactura);
+			facturaRepository.insertarDesglose(idFactura, CalculadoraDesglose.calcular(calculo.conceptos()));
 			return facturaRepository.buscarPorId(idFactura);
 		});
 	}
@@ -249,7 +258,17 @@ public class FacturaServiceImpl implements FacturaService {
 		}
 
 		List<ConceptoFactura> conceptos = facturaRepository.buscarConceptos(idFactura);
-		return new DetalleFactura(factura, cliente, conceptos);
+		List<DesgloseImpositivo> desglose = facturaRepository.buscarDesglose(idFactura);
+
+		// Las facturas anteriores a esta migracion no tienen desglose guardado, y devolverlas
+		// sin el dejaria la factura impresa sin su cuadro de IVA. Se calcula al vuelo a partir
+		// de sus conceptos: es la MISMA operacion que se hizo al guardarlas, asi que sale lo
+		// mismo. Las nuevas si lo tienen guardado y ese es el que manda.
+		if (desglose.isEmpty()) {
+			desglose = CalculadoraDesglose.calcular(conceptos);
+		}
+
+		return new DetalleFactura(factura, cliente, conceptos, desglose);
 	}
 
 

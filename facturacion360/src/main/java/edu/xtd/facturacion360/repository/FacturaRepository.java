@@ -5,6 +5,7 @@ import java.util.List;
 
 import edu.xtd.facturacion360.dto.ClienteFactura;
 import edu.xtd.facturacion360.dto.ConceptoFactura;
+import edu.xtd.facturacion360.dto.DesgloseImpositivo;
 import edu.xtd.facturacion360.dto.Factura;
 import edu.xtd.facturacion360.dto.SugerenciaConcepto;
 
@@ -56,6 +57,26 @@ public interface FacturaRepository {
 	public int actualizarBorrador(Factura factura);
 
 	public void eliminarConceptos(int idFactura);
+
+	/**
+	 * Guarda el desglose del IVA tal y como ha quedado al calcularlo.
+	 *
+	 * <p>Se guarda en vez de recalcularse al leer porque el dia que esto se comunique a
+	 * Hacienda, lo declarado no puede cambiar aunque despues alguien corrija una linea.</p>
+	 */
+	public void insertarDesglose(int idFactura, List<DesgloseImpositivo> desglose);
+
+	public void eliminarDesglose(int idFactura);
+
+	/**
+	 * El desglose guardado de una factura.
+	 *
+	 * <p>Devuelve <strong>lista vacía</strong> para las facturas anteriores a la migración,
+	 * que no tienen ninguno guardado. No es un fallo y no hay que tratarlo como tal: quien
+	 * llama lo calcula al vuelo a partir de los conceptos, que es la misma operación con la
+	 * que se guardó el de las nuevas.</p>
+	 */
+	public List<DesgloseImpositivo> buscarDesglose(int idFactura);
 
 	public ClienteFactura buscarCliente(int idCliente);
 
