@@ -4,15 +4,19 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
 /**
- * Comprueba que un documento es un DNI, un NIE o un CIF español, forma y letra de control.
+ * Comprueba que un documento es un DNI, un NIE, un NIF especial o un CIF español:
+ * la forma y la letra de control.
  *
- * <p>Las tres formas y sus tres algoritmos:</p>
+ * <p>Las cuatro formas que admite Hacienda:</p>
  *
  * <ul>
  *   <li><strong>DNI</strong>: ocho dígitos y una letra, que sale del resto de dividir el
  *       número entre 23.</li>
  *   <li><strong>NIE</strong>: X, Y o Z, siete dígitos y una letra. Se sustituye la inicial
  *       por su dígito (X→0, Y→1, Z→2) y se calcula igual que un DNI.</li>
+ *   <li><strong>NIF de K, L o M</strong>: menores de catorce años, españoles residentes
+ *       fuera y extranjeros sin NIE. Llevan inicial como el NIE, pero la letra sale de
+ *       sus siete dígitos, no de sustituir la inicial por un número.</li>
  *   <li><strong>CIF</strong>: letra de organización, siete dígitos y un carácter de control
  *       que, según el tipo de entidad, es un dígito, una letra, o cualquiera de los dos.</li>
  * </ul>
@@ -64,6 +68,16 @@ public class NifCifValidador implements ConstraintValidator<NifCif, String> {
 			// se convierte en ocho dígitos y se calcula como un DNI cualquiera.
 			String comoNumero = "XYZ".indexOf(documento.charAt(0)) + documento.substring(1, 8);
 			return comprobarDniONie(documento, comoNumero, "NIE", contexto);
+		}
+
+		// K, L y M van antes que el CIF a proposito: su forma tambien encaja en el patron de
+		// abajo, y si se comprobaran despues caerian ahi y se rechazarian diciendo que la K no
+		// es una inicial valida de CIF... a alguien que no esta escribiendo ningun CIF.
+		//
+		// La letra sale de los siete digitos, sin tocar la inicial. Esa es la diferencia con el
+		// NIE, donde la inicial SI cuenta como un digito mas.
+		if (documento.matches("[KLM][0-9]{7}[A-Z]")) {
+			return comprobarDniONie(documento, documento.substring(1, 8), "NIF", contexto);
 		}
 
 		if (documento.matches("[A-Z][0-9]{7}[0-9A-J]")) {

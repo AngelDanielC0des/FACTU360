@@ -207,6 +207,29 @@ class ManejadorExcepcionesTests {
 	}
 
 	@Test
+	void losCamposObligatoriosDeLaDireccionSeParanAquiYNoEnMysql() throws Exception {
+
+		String sinDireccion = CLIENTE_VALIDO
+				.replace("\"direccion\":\"Calle Mayor 15\"", "\"direccion\":\"\"")
+				.replace("\"poblacion\":\"Madrid\"", "\"poblacion\":\"\"")
+				.replace("\"provincia\":\"Madrid\"", "\"provincia\":\"\"");
+
+		// Las tres columnas son NOT NULL y el formulario las marca obligatorias, pero el DTO
+		// solo les ponia un @Size. Quien no pasa por el formulario las mandaba vacias, la
+		// validacion las dejaba pasar y el fallo salia de MySQL, que acababa respondiendo
+		// <<hay datos relacionados>>: justo lo contrario de lo que ocurre.
+		clienteHttp.perform(post("/cliente").contentType(MediaType.APPLICATION_JSON)
+				.content(sinDireccion))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errores.direccion").exists())
+				.andExpect(jsonPath("$.errores.poblacion").exists())
+				.andExpect(jsonPath("$.errores.provincia").exists());
+
+		// Lo que de verdad fija esta prueba: que no llega a bajar. Si llegara, el 409 volveria.
+		org.mockito.Mockito.verify(servicio, org.mockito.Mockito.never()).crear(any(Cliente.class));
+	}
+
+	@Test
 	void listarUltimosVuelveAResponder() throws Exception {
 		Cliente ana = new Cliente(1, "Ana Gil Paz", "12345678Z", "Calle Mayor 15", "28001", "Madrid",
 				"Madrid", "612345678", "ana@ejemplo.es", LocalDate.of(2026, 1, 15));
