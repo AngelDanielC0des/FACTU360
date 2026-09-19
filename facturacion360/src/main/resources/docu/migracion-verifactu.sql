@@ -21,6 +21,19 @@
 -- ROLLBACK que las deshaga. La copia es la unica marcha atras que existe.
 -- ─────────────────────────────────────────────────────────────────────────
 --
+-- ─────────────────────────────────────────────────────────────────────────
+-- ESTE FICHERO SE EJECUTA UNA SOLA VEZ.
+--
+-- El CREATE TABLE lleva IF NOT EXISTS y se puede repetir, pero el ALTER no:
+-- MySQL no admite ADD COLUMN IF NOT EXISTS, asi que a la segunda pasada corta
+-- con <Duplicate column name 'clave_regimen'>. El recuento del principio
+-- habra salido bien, asi que el error sale a mitad y parece peor de lo que
+-- es: no se ha estropeado nada, es que las columnas ya estaban.
+--
+-- Para saber si ya la aplicaste, las tres consultas del final: si devuelven
+-- una fila cada una, esta hecha y no hay que ejecutar nada.
+-- ─────────────────────────────────────────────────────────────────────────
+--
 -- Si montas la base de datos desde cero NO necesitas este fichero:
 -- backupFacturacion360v2.sql ya trae todo esto incluido.
 --
