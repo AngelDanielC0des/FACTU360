@@ -1,3 +1,20 @@
+-- ═════════════════════════════════════════════════════════════════════════
+-- backupFacturacion360v3.sql - el esquema completo, al dia.
+--
+-- CARGA ESTE si montas la base desde cero. Es el del numero mas alto, y esa
+-- es la regla: el mayor es el que vale.
+--
+-- Cambios respecto al v2:
+--   conceptos             + clave_regimen, + calificacion  (las dos con DEFAULT)
+--   desglose_impositivo   tabla nueva
+--
+-- Si YA tienes datos sobre el v2 y no quieres perderlos, no cargues esto:
+-- usa docu/migracion-verifactu.sql, que hace el mismo cambio sin borrar nada.
+--
+-- El v1 y el v2 se quedan como estan a proposito, para poder volver a un
+-- esquema anterior. No son copias de seguridad y no hay que cargarlos.
+-- ═════════════════════════════════════════════════════════════════════════
+
 CREATE DATABASE  IF NOT EXISTS `bd_facturacion` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
 USE `bd_facturacion`;
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
@@ -58,6 +75,8 @@ CREATE TABLE `conceptos` (
   `base_imponible` decimal(10,2) DEFAULT NULL,
   `total` decimal(10,2) NOT NULL,
   `idfactura` int NOT NULL,
+  `clave_regimen` varchar(2) NOT NULL DEFAULT '01',
+  `calificacion` varchar(2) NOT NULL DEFAULT 'S1',
   PRIMARY KEY (`idconcepto`),
   KEY `FK_FACTURA_idx` (`idfactura`),
   CONSTRAINT `FK_FACTURA` FOREIGN KEY (`idfactura`) REFERENCES `facturas` (`idfactura`)
@@ -107,6 +126,31 @@ CREATE TABLE `facturas` (
   KEY `FK_CLIENTE_idx` (`idcliente`),
   CONSTRAINT `FK_CLIENTE` FOREIGN KEY (`idcliente`) REFERENCES `clientes` (`idcliente`)
 ) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `desglose_impositivo`
+--
+-- El desglose del IVA agrupado por la terna (regimen, calificacion, tipo), tal
+-- y como se declara. Va despues de `facturas` porque su clave ajena apunta ahi.
+--
+
+DROP TABLE IF EXISTS `desglose_impositivo`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `desglose_impositivo` (
+  `iddesglose` bigint NOT NULL AUTO_INCREMENT,
+  `idfactura` int NOT NULL,
+  `impuesto` varchar(2) NOT NULL DEFAULT '01',
+  `clave_regimen` varchar(2) NOT NULL DEFAULT '01',
+  `calificacion` varchar(2) NOT NULL DEFAULT 'S1',
+  `tipo_impositivo` decimal(5,2) NOT NULL,
+  `base_imponible` decimal(12,2) NOT NULL,
+  `cuota_repercutida` decimal(12,2) NOT NULL,
+  PRIMARY KEY (`iddesglose`),
+  KEY `ix_desglose_factura` (`idfactura`),
+  CONSTRAINT `fk_desglose_factura` FOREIGN KEY (`idfactura`) REFERENCES `facturas` (`idfactura`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
