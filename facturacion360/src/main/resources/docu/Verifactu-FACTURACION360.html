@@ -376,6 +376,16 @@ pre code { background:none; border:0; padding:0; font-size:inherit; white-space:
 .nota.ojo .cabecera { color:var(--aviso-tinta); }
 .nota.verificado { border-left-color:var(--cadena); background:var(--cadena-suave); }
 .nota.verificado .cabecera { color:var(--cadena-tinta); }
+
+/* Sello de estado para las filas de una tabla que ya no reflejan el codigo. */
+.estado {
+  display:inline-block; font-family:var(--display); font-size:.7em; font-weight:700;
+  letter-spacing:.04em; text-transform:uppercase; padding:2px 7px; border-radius:3px;
+  margin-right:7px; white-space:nowrap;
+}
+.estado.hecho      { background:var(--cadena-suave); color:var(--cadena-tinta); border:1px solid var(--cadena); }
+.estado.caducado   { background:var(--aviso-suave);  color:var(--aviso-tinta);  border:1px solid var(--aviso); }
+.estado.incorrecto { background:var(--sello-suave);  color:var(--sello-tinta);  border:1px solid var(--sello); }
 .nota blockquote {
   margin:0 0 10px; padding-left:12px; border-left:2px solid currentColor;
   font-style:italic; opacity:.9;
@@ -2358,8 +2368,10 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
   <div class="nota verificado">
     <span class="cabecera">Cómo usar esta sección</span>
     <p>
-      Son <strong>22 clases nuevas y 13 ficheros a modificar</strong>, repartidos en seis fases de
-      trabajo. No está pensada para leerse de un tirón: es material de consulta. Si vas a empezar
+      Son <strong>22 clases nuevas y 14 ficheros a modificar</strong>, repartidos en seis fases de
+      trabajo. <strong>De las 22, dos ya están hechas</strong> —<code>DesgloseImpositivo</code> y
+      <code>ClaveDesglose</code>, en la PR #43—, así que quedan veinte.
+      No está pensada para leerse de un tirón: es material de consulta. Si vas a empezar
       por algo, empieza por el bloque del núcleo —2.6 y 2.7— porque es lo único que no se puede
       hacer mal sin que se note tarde.
     </p>
@@ -2379,10 +2391,18 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
   <p>
     En base de datos hay cuatro tablas: <code>clientes</code>, <code>conceptos</code>,
     <code>emisor</code> y <code>facturas</code>. Para lo que aquí importa, el resumen es que
-    <strong>no hay nada relacionado con Verifactu</strong>: la factura no sabe de qué emisor es, no
+    <strong>casi nada relacionado con Verifactu</strong>: la factura no sabe de qué emisor es, no
     guarda la hora a la que se expidió y no existe ninguna noción de huella ni de cadena. El
     apartado siguiente lo detalla punto por punto.
   </p>
+
+  <div class="nota verificado">
+    <span class="cabecera">Lo que sí hay, desde la PR #43</span>
+    <code>conceptos</code> tiene ya <code>clave_regimen</code> y <code>calificacion</code>,
+    y existe la tabla <code>desglose_impositivo</code> con el desglose congelado de cada
+    factura. Es la primera pieza de Verifactu que está en el proyecto, y por eso el punto de
+    partida que describe este apartado ya no es exactamente el de hoy.
+  </div>
 
   <div class="nota ojo">
     <span class="cabecera">Lectura honesta del punto de partida</span>
@@ -2399,10 +2419,19 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
 
   <p>
     Este apartado va antes que el resto a propósito, porque son requisitos previos: mientras
-    estas seis cosas sigan como están, no se puede generar un registro válido por mucho código
+    estas cosas sigan como están, no se puede generar un registro válido por mucho código
     de Verifactu que se escriba. Ninguna de ellas es un fallo del trabajo hecho; son decisiones
     que se tomaron sin esta obligación legal encima de la mesa, y que ahora hay que revisar.
   </p>
+
+  <div class="nota verificado">
+    <span class="cabecera">Repasado el 19 de septiembre: de las seis, quedan tres</span>
+    La tabla se escribió el 15 de septiembre y el código se ha movido desde entonces. Las
+    filas llevan ahora su sello: <span class="estado hecho">hecho</span> si ya está
+    resuelto y <span class="estado incorrecto">no era cierto</span> si la fila describía
+    algo que el código no hacía. Se marcan en vez de borrarlas, porque el <em>por qué
+    bloquea</em> sigue explicando el reglamento aunque el problema ya no exista.
+  </div>
 
   <div class="tabla-envoltura">
     <table>
@@ -2412,19 +2441,30 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
       </thead>
       <tbody>
         <tr>
-          <td><code>num_factura</code> llega dentro del <code>FacturaRequest</code>, es decir, desde el navegador</td>
+          <td><span class="estado incorrecto">No era cierto</span>
+            <code>num_factura</code> llega dentro del <code>FacturaRequest</code>, es decir, desde el navegador</td>
           <td>El número forma parte de la huella y de la cadena. Si lo elige el cliente, se pueden crear huecos, repetidos o números fuera de orden, y eso es precisamente lo que el reglamento persigue.</td>
-          <td>Generarlo en el servidor, por serie, dentro de la transacción de emisión. El campo desaparece de la petición.</td>
+          <td><strong>El número nunca ha viajado en la petición.</strong> Lo compone el servidor en <code>FacturaServiceImpl</code> con
+            <code>String.format(Locale.ROOT, "F-%04d-%04d", …)</code>, dentro de la transacción de alta.
+            Lo que sí queda pendiente es lo <em>otro</em> que pide esta fila: que el número se numere <strong>por serie</strong>,
+            que hoy no existe.</td>
         </tr>
         <tr>
-          <td><code>subtotal</code> e <code>importe_iva</code> llegan ya calculados desde el navegador</td>
+          <td><span class="estado hecho">Hecho</span>
+            <code>subtotal</code> e <code>importe_iva</code> llegan ya calculados desde el navegador</td>
           <td>Se comunicaría a Hacienda un importe que la aplicación no ha calculado. Basta con manipular la petición para declarar otra cosa distinta de la que figura en la factura.</td>
-          <td>Calcularlos en el servidor a partir de los conceptos, e ignorar lo que venga en la petición.</td>
+          <td><strong>Resuelto.</strong> Era verdad cuando se escribió esto, pero el mismo día el commit
+            <code>337fb48</code> los sacó del <code>FacturaRequest</code>. Hoy los calcula <code>calcularImportes()</code>
+            en el servidor a partir de los conceptos, y de la petición no se lee ningún importe.</td>
         </tr>
         <tr>
-          <td>El IVA se agrega en un solo <code>importe_iva</code> de cabecera</td>
+          <td><span class="estado hecho">Hecho · PR #43</span>
+            El IVA se agrega en un solo <code>importe_iva</code> de cabecera</td>
           <td>Matiz importante: la tabla <code>conceptos</code> <strong>ya guarda <code>porcentaje_iva</code> por línea</strong>, así que una factura al 21 % y al 10 % sí se puede representar hoy. Lo que falta son los dos campos fiscales que la AEAT exige —clave de régimen y calificación— y un sitio donde <em>congelar</em> el desglose que se declaró.</td>
-          <td>Dos columnas más en <code>conceptos</code> y la tabla <code>desglose_impositivo</code>, que guarda la agrupación tal y como se comunicó.</td>
+          <td><strong>Implementado.</strong> Las dos columnas (<code>clave_regimen</code> y <code>calificacion</code>,
+            las dos con DEFAULT) y la tabla <code>desglose_impositivo</code> están en <code>migracion-verifactu.sql</code>.
+            El cálculo vive en <code>CalculadoraDesglose</code>, que <strong>suma</strong> la cuota ya redondeada de cada línea
+            en vez de recalcular sobre la base agrupada, y el desglose se congela al guardar.</td>
         </tr>
         <tr>
           <td><code>estado = 'ANULADA'</code> como forma de anular</td>
@@ -2434,7 +2474,14 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
         <tr>
           <td><code>facturas</code> no tiene <code>idemisor</code></td>
           <td>El primer campo de la huella es el NIF del emisor, y hoy no hay forma de saber de qué emisor es una factura.</td>
-          <td>Clave ajena a <code>emisor</code>, obligatoria.</td>
+          <td>Clave ajena a <code>emisor</code>, obligatoria.
+            <br><br>
+            <strong>Ojo: esta columna la pide también otro documento.</strong>
+            <code>Emisor-y-base-de-datos.html</code> la necesita antes que Verifactu, para
+            congelar los datos del emisor en la factura. Como el DDL de MySQL hace COMMIT
+            implícito y no hay <code>ADD COLUMN IF NOT EXISTS</code>, el segundo guion que se
+            ejecute corta con <em>Duplicate column name</em>. La columna la crea aquel guion;
+            este la da por puesta.</td>
         </tr>
         <tr>
           <td><code>fecha_emision</code> es de tipo <code>date</code></td>
@@ -2455,6 +2502,25 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
     servicio de Verifactu cuando una factura pasa a emitida. Ningún otro sitio.
   </p>
 
+  <div class="nota correccion">
+    <span class="cabecera">Dónde viven de verdad las clases del desglose</span>
+    Este diagrama coloca <code>DesgloseImpositivo</code> y <code>ClaveDesglose</code> en
+    <code>verifactu/dto/</code>. <strong>No es ahí donde acabaron.</strong> La PR #43 las puso
+    en <code>edu.xtd.facturacion360.dto</code>, y <code>CalculadoraDesglose</code> en
+    <code>…service</code>.
+    <br><br>
+    Fue a propósito: el desglose no lo usa solo Verifactu, lo pinta la factura impresa. Meterlo
+    en un paquete llamado <code>verifactu</code> obligaría a la pantalla de imprimir a importar
+    de un módulo del que no depende.
+    <br><br>
+    <strong>Manda el código, no este diagrama.</strong> Quien monte el módulo de Verifactu que
+    las use donde están; moverlas rompe la factura impresa. Lo mismo con la forma:
+    el <code>record</code> que se propone más abajo anida un <code>ClaveDesglose</code>, y el
+    implementado es <strong>plano</strong> —los seis campos sueltos, uno por columna de la
+    tabla— con una factoría <code>de(clave, base, cuota)</code>. Los accesores se llaman igual,
+    salvo <code>cuota()</code>, que en el código es <code>cuotaRepercutida()</code>.
+  </div>
+
   <span class="rotulo-codigo">Estructura de paquetes · <span class="ruta">src/main/java/edu/xtd/facturacion360/verifactu/</span></span>
 <pre><code>edu.xtd.facturacion360.verifactu
 │
@@ -2462,8 +2528,7 @@ ImporteTotal = 1.500,00 + 260,00 = 1.760,00 EUR</code></pre>
 │   ├── RegistroFacturacion.java      registro de alta o de anulacion
 │   ├── TipoRegistro.java             ALTA | ANULACION
 │   ├── EstadoEnvio.java              PENDIENTE | ACEPTADO | ACEPTADO_CON_ERRORES | RECHAZADO
-│   ├── DesgloseImpositivo.java       una linea por tipo de IVA
-│   ├── ClaveDesglose.java            clave de agrupacion del desglose
+│   │   (DesgloseImpositivo y ClaveDesglose NO estan aqui: ver la nota de abajo)
 │   └── RespuestaAeat.java            lo que devuelve el servicio, ya parseado
 │
 ├── huella
@@ -2994,7 +3059,9 @@ CREATE TABLE `desglose_impositivo` (
   `base_imponible`    decimal(12,2) NOT NULL,
   `cuota_repercutida` decimal(12,2) NOT NULL,
   PRIMARY KEY (`iddesglose`),
-  KEY `fk_desglose_factura` (`idfactura`),
+  -- En el codigo se llama ix_ y no fk_: la constraint ya ocupa ese nombre, y tener
+  -- indice y clave ajena llamados igual es legal pero se lee fatal en los errores.
+  KEY `ix_desglose_factura` (`idfactura`),
   CONSTRAINT `fk_desglose_factura`
     FOREIGN KEY (`idfactura`) REFERENCES `facturas` (`idfactura`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -3299,7 +3366,16 @@ public record Emisor(
     </p>
   </div>
 
-  <h4><code>ConceptoFactura</code> · ya está casi listo</h4>
+  <h4><code>ConceptoFactura</code> · ya está casi listo <span class="estado hecho">hecho</span></h4>
+
+  <div class="nota verificado">
+    <span class="cabecera">Esto ya está implementado</span>
+    El <code>record</code> que se propone aquí abajo es <strong>exactamente</strong> el que hay
+    hoy en el proyecto, campo por campo, desde la PR #43. Lo único que el código añade y esta
+    página no enseña es un constructor compacto que pone los valores por defecto cuando llegan
+    a <code>null</code> —las filas antiguas— y otro de nueve argumentos para no tener que
+    escribir los dos campos fiscales en cada sitio donde ya se construía.
+  </div>
 
   <p>
     Aquí hay una buena noticia que conviene decir con claridad, porque es fácil asumir lo contrario:
@@ -3309,8 +3385,8 @@ public record Emisor(
   </p>
 
   <p>
-    Lo que falta no es el tipo impositivo, sino los dos campos fiscales que la AEAT exige y que
-    aquí no existen: la <strong>clave de régimen</strong> y la <strong>calificación de la
+    Lo que faltaba no era el tipo impositivo, sino los dos campos fiscales que la AEAT exige y que
+    aquí no existían: la <strong>clave de régimen</strong> y la <strong>calificación de la
     operación</strong>. Sin ellos no se puede construir el <code>DetalleDesglose</code> del XML.
   </p>
 
@@ -3507,10 +3583,10 @@ public Factura mapRow(ResultSet resultado, int numeroFila) throws SQLException {
       <tbody>
         <tr><td><code>dto/Emisor.java</code></td><td>+<code>idEmisor</code>, +<code>SistemaInformatico</code> anidado</td></tr>
         <tr><td><code>dto/Factura.java</code></td><td>+<code>idEmisor</code>, +<code>serie</code>, +<code>fechaHoraExpedicion</code>, +<code>tipoFactura</code></td></tr>
-        <tr><td><code>dto/FacturaRequest.java</code></td><td>−<code>numeroFactura</code>, −<code>subtotal</code>, −<code>importeIva</code>, −estado <code>ANULADA</code>; +<code>serie</code>, +<code>tipoFactura</code>, +<code>conceptos</code></td></tr>
-        <tr><td><code>dto/ConceptoFactura.java</code></td><td>+<code>claveRegimen</code>, +<code>calificacion</code></td></tr>
+        <tr><td><code>dto/FacturaRequest.java</code></td><td>−estado <code>ANULADA</code>; +<code>serie</code>, +<code>tipoFactura</code>. <em>Ya no lleva <code>subtotal</code> ni <code>importeIva</code>, y <code>numeroFactura</code> no ha estado nunca; <code>conceptos</code> ya lo trae.</em></td></tr>
+        <tr><td><code>dto/ConceptoFactura.java</code> <span class="estado hecho">hecho</span></td><td>+<code>claveRegimen</code>, +<code>calificacion</code></td></tr>
         <tr><td><code>repository/FacturaRowMapper.java</code></td><td>Leer las cuatro columnas nuevas y reconstruir el huso</td></tr>
-        <tr><td><code>repository/ConceptoFacturaRowMapper.java</code></td><td>Leer las dos columnas nuevas</td></tr>
+        <tr><td><code>repository/ConceptoFacturaRowMapper.java</code> <span class="estado hecho">hecho</span></td><td>Leer las dos columnas nuevas</td></tr>
         <tr><td><code>repository/EmisorRepositoryImpl.java</code></td><td><code>SELECT</code> con las nueve columnas <code>si_*</code>, y construir el record anidado</td></tr>
         <tr><td><code>repository/FacturaRepositoryJdbcImpl.java</code></td><td><code>INSERT</code> y <code>SELECT</code> con las columnas nuevas</td></tr>
       </tbody>
@@ -4021,7 +4097,7 @@ public class GeneradorNumeros {
     desglose y otro para la clave por la que se agrupa.
   </p>
 
-  <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/dto/ClaveDesglose.java</span></span>
+  <span class="rotulo-codigo">Ya existe · <span class="ruta">dto/ClaveDesglose.java</span></span>
 <pre><code>/**
  * Los cuatro datos que definen un grupo del desglose.
  *
@@ -4045,7 +4121,7 @@ public record ClaveDesglose(
     }
 }</code></pre>
 
-  <span class="rotulo-codigo">Nuevo · <span class="ruta">verifactu/dto/DesgloseImpositivo.java</span></span>
+  <span class="rotulo-codigo">Ya existe · <span class="ruta">dto/DesgloseImpositivo.java</span> <em>(plano, no anidado: ver 2.3)</em></span>
 <pre><code>/** Una linea del desglose: la clave que la agrupa, su base y su cuota. */
 public record DesgloseImpositivo(ClaveDesglose clave,
                                  BigDecimal baseImponible,
@@ -5888,8 +5964,8 @@ async function confirmarAnulacion(factura) {
         <tr><td><code>verifactu/dto/RegistroFacturacion.java</code></td><td>El registro, inmutable</td><td>2.5</td></tr>
         <tr><td><code>verifactu/dto/TipoRegistro.java</code></td><td>ALTA · ANULACION</td><td>2.5</td></tr>
         <tr><td><code>verifactu/dto/EstadoEnvio.java</code></td><td>Los cuatro estados fiscales</td><td>2.5</td></tr>
-        <tr><td><code>verifactu/dto/DesgloseImpositivo.java</code></td><td>Línea de IVA</td><td>2.8</td></tr>
-        <tr><td><code>verifactu/dto/ClaveDesglose.java</code></td><td>Clave de agrupación</td><td>2.8</td></tr>
+        <tr><td><code>dto/DesgloseImpositivo.java</code> <span class="estado hecho">hecho</span></td><td>Línea de IVA</td><td>2.8</td></tr>
+        <tr><td><code>dto/ClaveDesglose.java</code> <span class="estado hecho">hecho</span></td><td>Clave de agrupación</td><td>2.8</td></tr>
         <tr><td><code>verifactu/dto/RespuestaAeat.java</code></td><td>Respuesta ya interpretada</td><td>2.12</td></tr>
         <tr><td><code>verifactu/service/GeneradorNumeros.java</code></td><td>Número por serie, en servidor</td><td>2.8</td></tr>
         <tr><td><code>verifactu/service/CalculadoraImportes.java</code></td><td>Desglose y redondeo</td><td>2.8</td></tr>
@@ -5968,8 +6044,12 @@ async function confirmarAnulacion(factura) {
       <span class="etiqueta-caja">Fase 2 · base</span>
       <h4>Modelo de datos</h4>
       <p>
-        Migraciones, tablas nuevas, disparadores, y los arreglos del apartado 2.2: número en
-        servidor, importes en servidor, desglose por tipo.
+        Migraciones, tablas nuevas, disparadores, y los arreglos del apartado 2.2 que sigan
+        pendientes: <code>idemisor</code>, <code>fecha_hora_expedicion</code> y la numeración
+        <strong>por serie</strong>.
+        <br><br>
+        Los importes ya se calculan en el servidor y el desglose por tipo entró con la PR #43,
+        así que de esta fase ya no cuelgan.
       </p>
     </div>
     <div class="ficha-caja">
