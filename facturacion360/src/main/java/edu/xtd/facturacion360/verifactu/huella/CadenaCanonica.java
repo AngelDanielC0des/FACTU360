@@ -73,9 +73,16 @@ public final class CadenaCanonica {
 	 * razón concreta: el formateador de la biblioteca <strong>se come los segundos cuando
 	 * son cero</strong> y produce {@code 19:20+01:00} en lugar de {@code 19:20:00+01:00}.
 	 * Eso pasaría una vez de cada sesenta, con una huella distinta y sin ningún aviso.</p>
+	 *
+	 * <p>Y {@code xxx} en minúscula, que es la misma trampa un paso más allá: la mayúscula
+	 * {@code XXX} colapsa el desplazamiento cero a {@code Z} en vez de escribir
+	 * {@code +00:00}. No es un caso de laboratorio —salta con la máquina virtual en UTC, que
+	 * es lo que trae un contenedor por defecto, y en <strong>Canarias en horario de
+	 * invierno</strong>—, y no lo caza ninguno de los tres vectores oficiales, porque los
+	 * tres son de enero peninsular y van a {@code +01:00}.</p>
 	 */
 	private static final DateTimeFormatter INSTANTE =
-			DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssXXX");
+			DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx");
 
 	/** Los importes viajan siempre con dos decimales. El porqué está en {@link #importe}. */
 	private static final int DECIMALES = 2;

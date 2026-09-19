@@ -1,6 +1,7 @@
 package edu.xtd.facturacion360.verifactu.huella;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -146,6 +147,21 @@ class CalculadorHuellaTests {
 				TOTAL, null, OffsetDateTime.parse("2024-01-01T19:20:00+01:00"));
 
 		assertTrue(cadena.endsWith("&FechaHoraHusoGenRegistro=2024-01-01T19:20:00+01:00"), cadena);
+	}
+
+	@Test
+	@DisplayName("el huso cero se escribe +00:00 y no Z")
+	void elHusoCeroNoSeAbrevia() {
+
+		// La mayuscula XXX de DateTimeFormatter colapsa el desplazamiento cero a "Z". Salta
+		// con la maquina virtual en UTC -lo normal en un contenedor- y en Canarias en horario
+		// de invierno, que es +00:00. Y no lo caza ninguno de los tres vectores oficiales,
+		// porque los tres son de enero peninsular y van a +01:00.
+		String cadena = CadenaCanonica.alta(NIF, "12345678/G33", EXPEDICION, "F1", CUOTA,
+				TOTAL, null, OffsetDateTime.parse("2024-01-15T19:20:30+00:00"));
+
+		assertTrue(cadena.endsWith("&FechaHoraHusoGenRegistro=2024-01-15T19:20:30+00:00"), cadena);
+		assertFalse(cadena.contains("Z"), "el huso cero no se abrevia a Z: " + cadena);
 	}
 
 	@Test
