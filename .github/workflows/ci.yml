@@ -1,0 +1,44 @@
+# La puerta automatica antes de integrar. Existe por un motivo concreto: los dos endpoints
+# que documenta docu/fallos_master.txt desaparecieron en sendos merges resueltos tomando un
+# lado entero, y nadie se entero porque el proyecto seguia compilando. Git no avisa de eso;
+# una suite ejecutada en cada push, si.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          # Cachea ~/.m2 a partir de los pom.xml. Sin esto cada ejecucion vuelve a
+          # descargarse Spring Boot entero.
+          cache: maven
+
+      # El pom.xml NO esta en la raiz del repositorio: cuelga de facturacion360/.
+      # -B quita las barras de progreso, que en un registro de CI son ruido ilegible.
+      #
+      # Las pruebas de integracion levantan un MySQL con Testcontainers y por tanto
+      # necesitan Docker. Los ejecutores ubuntu-latest lo traen ya arrancado, asi que
+      # no hay que instalar nada; si algun dia se cambia de ejecutor, esto es lo
+      # primero que hay que comprobar.
+      - name: Pruebas
+        working-directory: facturacion360
+        run: ./mvnw -B verify
+
+      # Se suben siempre, tambien cuando las pruebas fallan: es justo cuando hacen falta.
+      - name: Informes de Surefire
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: facturacion360/target/surefire-reports/
